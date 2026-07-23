@@ -17,9 +17,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    async function load() {
+      const { data } = await supabase.auth.getUser();
       if (data.user) setUser({ email: data.user.email || "" });
-    });
+    }
+    void load();
   }, [supabase]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

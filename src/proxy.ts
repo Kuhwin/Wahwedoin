@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,7 +29,6 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/settings");
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
 
-  // Only check auth for protected routes and auth redirects
   if (isProtectedRoute || isAuthRoute) {
     const {
       data: { user },

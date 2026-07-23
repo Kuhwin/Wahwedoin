@@ -34,7 +34,7 @@ export default function NotificationsBell() {
         .limit(20);
 
       if (data) {
-        setNotifications(data.map((a) => ({
+        setNotifications(data.map((a: { id: string; action: string; detail: string | null; created_at: string }) => ({
           id: a.id,
           message: `${a.action}${a.detail ? `: ${a.detail}` : ""}`,
           read: false,

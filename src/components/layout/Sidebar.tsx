@@ -46,7 +46,7 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
 
         if (error || !memberships) return;
 
-        const teamList = memberships.map((m) => m.teams).filter(Boolean) as unknown as Team[];
+        const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
         setTeams(teamList);
         if (teamList.length > 0 && !activeTeam) {
           setActiveTeam(teamList[0]);

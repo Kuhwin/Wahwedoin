@@ -34,7 +34,7 @@ export default function CalendarPage() {
         .eq("user_id", user.id);
 
       if (memberships) {
-        const teamList = memberships.map((m) => m.teams).filter(Boolean) as unknown as Team[];
+        const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
         setTeams(teamList);
         if (teamList.length > 0) setNewTeamId(teamList[0].id);
       }

@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Project management for the Possibilities Agency",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -34,10 +34,10 @@ export default function TeamsPage() {
         .eq("user_id", user.id);
 
       if (memberships) {
-        const teamList = memberships.map((m) => ({
+        const teamList = (memberships as { teams: Team; role: string }[]).map((m) => ({
           ...m.teams,
           role: m.role,
-        })).filter(Boolean) as unknown as (Team & { role: string })[];
+        })).filter(Boolean) as (Team & { role: string })[];
         setTeams(teamList);
       }
       setLoading(false);
