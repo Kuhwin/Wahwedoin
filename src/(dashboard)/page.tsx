@@ -23,22 +23,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: projectsData } = await supabase
-        .from("projects")
-        .select("*")
-        .order("created_at", { ascending: false });
+        const { data: projectsData } = await supabase
+          .from("projects")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (projectsData) setProjects(projectsData);
+        if (projectsData) setProjects(projectsData);
 
-      const { data: tasksData } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false });
+        const { data: tasksData } = await supabase
+          .from("tasks")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (tasksData) setTasks(tasksData);
+        if (tasksData) setTasks(tasksData);
+      } catch {
+        // Tables might not exist yet
+      }
       setLoading(false);
     }
     void load();

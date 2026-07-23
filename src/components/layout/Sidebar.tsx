@@ -38,17 +38,21 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
 
   useEffect(() => {
     async function loadTeams() {
-      const { data: memberships } = await supabase
-        .from("team_members")
-        .select("team_id, teams(*)")
-        .eq("user_id", user.id);
+      try {
+        const { data: memberships, error } = await supabase
+          .from("team_members")
+          .select("team_id, teams(*)")
+          .eq("user_id", user.id);
 
-      if (memberships) {
+        if (error || !memberships) return;
+
         const teamList = memberships.map((m) => m.teams).filter(Boolean) as unknown as Team[];
         setTeams(teamList);
         if (teamList.length > 0 && !activeTeam) {
           setActiveTeam(teamList[0]);
         }
+      } catch {
+        // Table might not exist yet
       }
     }
     void loadTeams();
