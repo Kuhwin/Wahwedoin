@@ -1,7 +1,7 @@
--- Fix project RLS: allow any team member to manage their projects
--- and allow personal projects (team_id IS NULL) too
+-- Fix project RLS for personal projects (team_id IS NULL)
+-- DELETE stays restricted to owners/admins per business rules
 
--- SELECT
+-- SELECT: allow viewing personal projects too
 DROP POLICY IF EXISTS "Users can view their team projects" ON projects;
 CREATE POLICY "Users can view their team projects"
   ON projects FOR SELECT
@@ -15,7 +15,7 @@ CREATE POLICY "Users can view their team projects"
     )
   );
 
--- INSERT
+-- INSERT: allow creating personal projects too
 DROP POLICY IF EXISTS "Team members can create projects" ON projects;
 CREATE POLICY "Team members can create projects"
   ON projects FOR INSERT
@@ -29,7 +29,7 @@ CREATE POLICY "Team members can create projects"
     )
   );
 
--- UPDATE
+-- UPDATE: allow updating personal projects too
 DROP POLICY IF EXISTS "Team members can update projects" ON projects;
 CREATE POLICY "Team members can update projects"
   ON projects FOR UPDATE
@@ -43,9 +43,10 @@ CREATE POLICY "Team members can update projects"
     )
   );
 
--- DELETE
+-- DELETE: owners and admins only (kept as-is from original)
 DROP POLICY IF EXISTS "Team admins can delete projects" ON projects;
-CREATE POLICY "Team members can delete projects"
+DROP POLICY IF EXISTS "Team members can delete projects" ON projects;
+CREATE POLICY "Team admins can delete projects"
   ON projects FOR DELETE
   TO authenticated
   USING (
@@ -53,6 +54,6 @@ CREATE POLICY "Team members can delete projects"
     OR
     team_id IN (
       SELECT team_id FROM team_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'member')
+      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
     )
   );
