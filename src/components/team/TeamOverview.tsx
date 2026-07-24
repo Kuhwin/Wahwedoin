@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { FolderKanban, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FolderKanban, Clock, AlertCircle, CheckCircle2, Plus } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import { type Project, type Task, type TeamMember, type Activity } from "@/lib/types";
@@ -108,11 +108,27 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Projects */}
         <div className="lg:col-span-2">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Projects</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-slate-700">Projects</h3>
+            <Link
+              href={`/projects?team=${teamId}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              <Plus size={12} />
+              Add Project
+            </Link>
+          </div>
           {projects.length === 0 ? (
-            <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-xl p-6 text-center">
-              No projects yet. Create one from the sidebar or projects page.
-            </p>
+            <div className="text-sm text-slate-500 bg-white border border-slate-200 rounded-xl p-6 text-center">
+              <p className="mb-3">No projects yet</p>
+              <Link
+                href={`/projects?team=${teamId}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+              >
+                <Plus size={12} />
+                Create Project
+              </Link>
+            </div>
           ) : (
             <div className="space-y-2">
               {projects.map((project) => {
