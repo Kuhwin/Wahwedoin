@@ -14,6 +14,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import type { Project, Task } from "@/lib/types";
+import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -40,6 +41,9 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false });
 
         if (tasksData) setTasks(tasksData);
+
+        // Check for due date notifications
+        void checkDueDateNotifications();
       } catch {
         // Tables might not exist yet
       }

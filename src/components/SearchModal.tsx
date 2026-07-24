@@ -157,7 +157,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   {teams.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => navigate("/teams")}
+                      onClick={() => navigate(`/teams/${t.id}`)}
                       className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
                     >
                       <Users size={16} className="text-violet-500 shrink-0" />

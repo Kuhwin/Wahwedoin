@@ -134,6 +134,53 @@ export interface CalendarLink {
   created_at: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  type: string;
+  read: boolean;
+  link: string | null;
+  created_at: string;
+}
+
+export interface TeamDoc {
+  id: string;
+  team_id: string;
+  title: string;
+  content: string;
+  category: "meeting_notes" | "sop" | "project_brief" | "general";
+  pinned: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  author_name?: string;
+}
+
+export interface TeamMeeting {
+  id: string;
+  team_id: string;
+  name: string;
+  day_of_week: number | null;
+  time: string | null;
+  duration_minutes: number;
+  meet_url: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface TeamLink {
+  id: string;
+  team_id: string;
+  name: string;
+  url: string;
+  category: "drive" | "repo" | "design" | "reference" | "tool" | "other";
+  added_by: string | null;
+  created_at: string;
+  added_by_name?: string;
+}
+
 export const PRIORITY_CONFIG = {
   low: { label: "Low", color: "bg-slate-100 text-slate-600" },
   medium: { label: "Medium", color: "bg-blue-100 text-blue-600" },

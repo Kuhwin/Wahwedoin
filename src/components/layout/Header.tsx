@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const [user, setUser] = useState<{ email: string; displayName?: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; displayName?: string; avatarUrl?: string } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const supabase = createClient();
 
@@ -22,13 +22,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
       if (data.user) {
         const { data: profile } = await supabase
           .from("user_profiles")
-          .select("display_name")
+          .select("display_name, avatar_url")
           .eq("user_id", data.user.id)
           .single();
 
         setUser({
           email: data.user.email || "",
           displayName: profile?.display_name || undefined,
+          avatarUrl: profile?.avatar_url || undefined,
         });
       }
     }
@@ -78,6 +79,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <Avatar
                 name={user.displayName}
                 email={user.email}
+                avatarUrl={user.avatarUrl}
                 size="sm"
               />
             )}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Users, Settings, Mail, Trash2, UserPlus, Copy, Check } from "lucide-react";
+import { Plus, Users, Settings, Mail, Trash2, UserPlus, Copy, Check, ArrowRight } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -273,28 +274,32 @@ export default function TeamsPage() {
       ) : (
         <div className="space-y-3">
           {teams.map((team) => (
-            <div
+            <Link
               key={team.id}
-              className="bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 transition-all"
+              href={`/teams/${team.id}`}
+              className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
                     <Users size={20} className="text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900">{team.name}</h3>
+                    <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{team.name}</h3>
                     {team.description && (
                       <p className="text-sm text-slate-500">{team.description}</p>
                     )}
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => loadMembers(team)}>
-                  <Settings size={14} />
-                  Manage
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); void loadMembers(team); }}>
+                    <Settings size={14} />
+                    Manage
+                  </Button>
+                  <ArrowRight size={16} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
@@ -334,7 +339,7 @@ export default function TeamsPage() {
       <Modal
         open={!!selectedTeam}
         onClose={() => setSelectedTeam(null)}
-        title={selectedTeam ? `${selectedTeam.name} - Members` : ""}
+        title={selectedTeam ? `${selectedTeam.name} - Manage` : ""}
       >
         <div className="space-y-5">
           {/* Current Members */}

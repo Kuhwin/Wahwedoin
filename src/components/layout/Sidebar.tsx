@@ -380,46 +380,56 @@ export default function Sidebar({
           <div className="space-y-0.5">
             {teams.map((team) => {
               const isTeamExpanded = expandedTeams.has(team.id);
+              const teamActive = pathname.startsWith(`/teams/${team.id}`);
               return (
                 <div key={team.id}>
-                  <button
-                    onClick={() => toggleTeam(team.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                      "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                    )}
-                  >
-                    {expanded ? (
-                      <>
+                  {expanded ? (
+                    <div className="flex items-center gap-0">
+                      <button
+                        onClick={() => toggleTeam(team.id)}
+                        className="p-1 rounded text-slate-400 hover:text-slate-600 shrink-0"
+                      >
                         {isTeamExpanded ? (
-                          <ChevronDown
-                            size={14}
-                            className="text-slate-400 shrink-0"
-                          />
+                          <ChevronDown size={14} />
                         ) : (
-                          <ChevronRightIcon
-                            size={14}
-                            className="text-slate-400 shrink-0"
-                          />
+                          <ChevronRightIcon size={14} />
                         )}
-                        <span className="flex-1 text-left truncate">
-                          {team.name}
-                        </span>
-                        <span className="text-[11px] text-slate-400">
+                      </button>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        onClick={onMobileClose}
+                        className={cn(
+                          "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors truncate",
+                          teamActive
+                            ? "bg-indigo-50 text-indigo-700"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                      >
+                        <span className="truncate">{team.name}</span>
+                        <span className="text-[11px] text-slate-400 shrink-0">
                           {team.projects.length}
                         </span>
-                      </>
-                    ) : (
+                      </Link>
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/teams/${team.id}`}
+                      onClick={onMobileClose}
+                      className="flex items-center justify-center py-1"
+                      title={team.name}
+                    >
                       <div
-                        className="h-6 w-6 rounded-md bg-slate-200 flex items-center justify-center mx-auto"
-                        title={team.name}
+                        className={cn(
+                          "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
+                          teamActive ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"
+                        )}
                       >
-                        <span className="text-[10px] font-semibold text-slate-600">
+                        <span className="text-[10px] font-semibold">
                           {team.name.slice(0, 2).toUpperCase()}
                         </span>
                       </div>
-                    )}
-                  </button>
+                    </Link>
+                  )}
 
                   {/* Projects under team */}
                   {expanded && isTeamExpanded && (

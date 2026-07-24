@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, FolderKanban } from "lucide-react";
+import { Plus, FolderKanban, Archive, Trash2, MoreVertical } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -20,6 +20,10 @@ export default function ProjectsPage() {
   const [newColor, setNewColor] = useState<string>(PROJECT_COLORS[0]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
+  const [filter, setFilter] = useState<"active" | "archived">("active");
+  const menuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -41,14 +45,14 @@ export default function ProjectsPage() {
       const { data: projectsData } = await supabase
         .from("projects")
         .select("*")
-        .eq("status", "active")
+        .eq("status", filter)
         .order("created_at", { ascending: false });
 
       if (projectsData) setProjects(projectsData);
       setLoading(false);
     }
     void load();
-  }, [supabase]);
+  }, [supabase, filter]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +90,27 @@ export default function ProjectsPage() {
     setCreating(false);
   }
 
+  async function handleArchive(projectId: string) {
+    await supabase.from("projects").update({ status: "archived" }).eq("id", projectId);
+    setProjects(projects.filter((p) => p.id !== projectId));
+    setMenuOpen(null);
+  }
+
+  async function handleDelete(project: Project) {
+    const { error } = await supabase.from("projects").delete().eq("id", project.id);
+    if (!error) {
+      setProjects(projects.filter((p) => p.id !== project.id));
+      setConfirmDelete(null);
+    }
+    setMenuOpen(null);
+  }
+
+  async function handleRestore(projectId: string) {
+    await supabase.from("projects").update({ status: "active" }).eq("id", projectId);
+    setProjects(projects.filter((p) => p.id !== projectId));
+    setMenuOpen(null);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -107,6 +132,26 @@ export default function ProjectsPage() {
         </Button>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-6 w-fit">
+        <button
+          onClick={() => setFilter("active")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            filter === "active" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setFilter("archived")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            filter === "archived" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Archived
+        </button>
+      </div>
+
       {projects.length === 0 ? (
         <div className="text-center py-16">
           <FolderKanban size={48} className="text-slate-300 mx-auto mb-4" />
@@ -120,30 +165,68 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
-            <Link
+            <div
               key={project.id}
-              href={`/projects/${project.id}`}
-              className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group"
+              className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group relative"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: project.color + "20" }}
-                >
-                  <FolderKanban size={20} style={{ color: project.color }} />
+              <Link href={`/projects/${project.id}`} className="block">
+                <div className="flex items-start justify-between mb-3">
+                  <div
+                    className="h-10 w-10 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: project.color + "20" }}
+                  >
+                    <FolderKanban size={20} style={{ color: project.color }} />
+                  </div>
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
                 </div>
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                  {project.name}
+                </h3>
+                {project.description && (
+                  <p className="text-sm text-slate-500 line-clamp-2 mb-3">{project.description}</p>
+                )}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span className="capitalize">{project.status}</span>
+                </div>
+              </Link>
+              {/* Dropdown */}
+              <div className="absolute top-3 right-3" ref={(el) => { if (menuOpen === project.id && menuRef.current) menuRef.current = el; }}>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(menuOpen === project.id ? null : project.id); }}
+                  className="p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {menuOpen === project.id && (
+                  <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 min-w-[160px]">
+                    {filter === "active" ? (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleArchive(project.id); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <Archive size={14} />
+                        Archive
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleRestore(project.id); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <Archive size={14} />
+                        Restore
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(project); setMenuOpen(null); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
-                {project.name}
-              </h3>
-              {project.description && (
-                <p className="text-sm text-slate-500 line-clamp-2 mb-3">{project.description}</p>
-              )}
-              <div className="flex items-center gap-2 text-xs text-slate-400">
-                <span className="capitalize">{project.status}</span>
-              </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
@@ -208,6 +291,23 @@ export default function ProjectsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Project">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Are you sure you want to delete <strong>{confirmDelete?.name}</strong>? This will permanently remove the project and all its tasks.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmDelete(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => confirmDelete && void handleDelete(confirmDelete)}>
+              Delete Project
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

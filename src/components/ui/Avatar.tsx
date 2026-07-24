@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 interface AvatarProps {
   name?: string | null;
   email: string;
+  avatarUrl?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -40,17 +41,34 @@ function getInitials(name: string | null | undefined, email: string) {
   return namePart.slice(0, 2).toUpperCase();
 }
 
-export default function Avatar({ name, email, size = "md", className }: AvatarProps) {
+export default function Avatar({ name, email, avatarUrl, size = "md", className }: AvatarProps) {
+  const sizeClasses = {
+    sm: "h-6 w-6 text-[10px]",
+    md: "h-8 w-8 text-xs",
+    lg: "h-10 w-10 text-sm",
+  };
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name || email}
+        className={cn(
+          "inline-flex items-center justify-center rounded-full shrink-0 object-cover",
+          sizeClasses[size],
+          className
+        )}
+        title={name || email}
+      />
+    );
+  }
+
   return (
     <div
       className={cn(
         "inline-flex items-center justify-center rounded-full text-white font-medium shrink-0",
         getColor(email),
-        {
-          "h-6 w-6 text-[10px]": size === "sm",
-          "h-8 w-8 text-xs": size === "md",
-          "h-10 w-10 text-sm": size === "lg",
-        },
+        sizeClasses[size],
         className
       )}
       title={name || email}

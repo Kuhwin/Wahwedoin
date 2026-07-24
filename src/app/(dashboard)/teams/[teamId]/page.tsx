@@ -1,0 +1,192 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { ArrowLeft, Users, FileText, Calendar, Link2, LayoutGrid, UserPlus } from "lucide-react";
+import Avatar from "@/components/ui/Avatar";
+import Button from "@/components/ui/Button";
+import TeamOverview from "@/components/team/TeamOverview";
+import TeamDocs from "@/components/team/TeamDocs";
+import TeamMeetings from "@/components/team/TeamMeetings";
+import TeamLinks from "@/components/team/TeamLinks";
+import TeamBoard from "@/components/team/TeamBoard";
+import { type Team, type TeamMember } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type Tab = "overview" | "docs" | "meetings" | "links" | "board";
+
+const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
+  { id: "overview", label: "Overview", icon: Users },
+  { id: "docs", label: "Docs", icon: FileText },
+  { id: "meetings", label: "Meetings", icon: Calendar },
+  { id: "links", label: "Links", icon: Link2 },
+  { id: "board", label: "Board", icon: LayoutGrid },
+];
+
+export default function TeamWorkspacePage() {
+  const params = useParams();
+  const router = useRouter();
+  const teamId = params.teamId as string;
+  const [team, setTeam] = useState<Team | null>(null);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
+  const [memberAvatarUrls, setMemberAvatarUrls] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const supabase = createClient();
+
+  const loadData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUser(user.id);
+
+    const { data: teamData } = await supabase
+      .from("teams")
+      .select("*")
+      .eq("id", teamId)
+      .single();
+
+    if (!teamData) {
+      router.push("/teams");
+      return;
+    }
+    setTeam(teamData);
+
+    const { data: membersData } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("team_id", teamId);
+
+    if (membersData) {
+      setMembers(membersData);
+      const myMembership = membersData.find((m: TeamMember) => m.user_id === user?.id);
+      setUserRole(myMembership?.role || null);
+
+      const userIds = membersData.map((m: TeamMember) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("user_id, display_name, avatar_url")
+        .in("user_id", userIds);
+      if (profiles) {
+        const nameMap: Record<string, string> = {};
+        const avatarMap: Record<string, string> = {};
+        profiles.forEach((p: { user_id: string; display_name: string; avatar_url: string }) => {
+          if (p.display_name) nameMap[p.user_id] = p.display_name;
+          if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
+        });
+        setMemberProfiles(nameMap);
+        setMemberAvatarUrls(avatarMap);
+      }
+    }
+
+    setLoading(false);
+  }, [teamId, supabase, router]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  if (loading || !team) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/teams"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">{team.name}</h1>
+            {team.description && (
+              <p className="text-sm text-slate-500">{team.description}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center -space-x-2">
+            {members.slice(0, 5).map((member) => (
+              <Avatar
+                key={member.id}
+                name={memberProfiles[member.user_id]}
+                email={member.user_email || member.user_id}
+                avatarUrl={memberAvatarUrls[member.user_id]}
+                size="sm"
+                className="ring-2 ring-white"
+              />
+            ))}
+            {members.length > 5 && (
+              <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600 ring-2 ring-white">
+                +{members.length - 5}
+              </div>
+            )}
+          </div>
+          {(userRole === "owner" || userRole === "admin") && (
+            <Link href="/teams">
+              <Button variant="ghost" size="sm">
+                <UserPlus size={14} />
+                Manage
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-6 overflow-x-auto">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
+                activeTab === tab.id
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              <Icon size={14} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <TeamOverview
+          teamId={teamId}
+          members={members}
+          memberProfiles={memberProfiles}
+          memberAvatarUrls={memberAvatarUrls}
+        />
+      )}
+      {activeTab === "docs" && (
+        <TeamDocs teamId={teamId} currentUser={currentUser} userRole={userRole} />
+      )}
+      {activeTab === "meetings" && (
+        <TeamMeetings teamId={teamId} currentUser={currentUser} userRole={userRole} />
+      )}
+      {activeTab === "links" && (
+        <TeamLinks teamId={teamId} currentUser={currentUser} userRole={userRole} />
+      )}
+      {activeTab === "board" && (
+        <TeamBoard teamId={teamId} members={members} memberProfiles={memberProfiles} />
+      )}
+    </div>
+  );
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, LayoutGrid, List } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
@@ -41,6 +41,8 @@ export default function ProjectPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const supabase = createClient();
   const projectId = params.projectId as string;
 
@@ -254,6 +256,21 @@ export default function ProjectPage() {
     }
   }
 
+  async function handleArchiveProject() {
+    if (!project) return;
+    await supabase.from("projects").update({ status: project.status === "archived" ? "active" : "archived" }).eq("id", projectId);
+    setProject({ ...project, status: project.status === "archived" ? "active" : "archived" });
+    setProjectMenuOpen(false);
+  }
+
+  async function handleDeleteProject() {
+    if (!project) return;
+    const { error } = await supabase.from("projects").delete().eq("id", projectId);
+    if (!error) {
+      router.push("/projects");
+    }
+  }
+
   if (loading || !project) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -318,6 +335,33 @@ export default function ProjectPage() {
             <Plus size={14} />
             Add Task
           </Button>
+          {/* Project Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setProjectMenuOpen(!projectMenuOpen)}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            >
+              <MoreVertical size={16} />
+            </button>
+            {projectMenuOpen && (
+              <div className="absolute right-0 top-10 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 min-w-[180px]">
+                <button
+                  onClick={() => void handleArchiveProject()}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <Archive size={14} />
+                  {project.status === "archived" ? "Restore Project" : "Archive Project"}
+                </button>
+                <button
+                  onClick={() => { setConfirmDelete(true); setProjectMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 size={14} />
+                  Delete Project
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -425,6 +469,23 @@ export default function ProjectPage() {
         teamMembers={members}
         sections={sections}
       />
+
+      {/* Delete Project Confirmation */}
+      <Modal open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete Project">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Are you sure you want to delete <strong>{project.name}</strong>? This will permanently remove the project and all its tasks.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void handleDeleteProject()}>
+              Delete Project
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

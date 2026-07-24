@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CheckSquare, Calendar, Flag } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import { PRIORITY_CONFIG, type Task } from "@/lib/types";
+import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -26,6 +27,8 @@ export default function MyTasksPage() {
 
       if (data) setTasks(data);
       setLoading(false);
+
+      void checkDueDateNotifications();
     }
     void load();
   }, [supabase]);
