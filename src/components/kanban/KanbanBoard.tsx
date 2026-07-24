@@ -11,13 +11,11 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
-  GripVertical,
   Pencil,
   FolderOpen,
   Check,
   X,
   MoveRight,
-  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRIORITY_CONFIG, type Task, type Section } from "@/lib/types";
@@ -431,9 +429,10 @@ export default function KanbanBoard({
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
+                              {...provided.dragHandleProps}
                               onClick={() => onTaskClick?.(task)}
                               className={cn(
-                                "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-pointer",
+                                "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-grab active:cursor-grabbing",
                                 PRIORITY_BORDER[task.priority],
                                 isSelected && "ring-2 ring-indigo-300 bg-indigo-50/50",
                                 snapshot.isDragging &&
@@ -442,12 +441,6 @@ export default function KanbanBoard({
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex items-start gap-2 flex-1 min-w-0">
-                                  <div
-                                    {...provided.dragHandleProps}
-                                    className="mt-0.5 text-slate-300 hover:text-slate-500 cursor-grab"
-                                  >
-                                    <GripVertical size={14} />
-                                  </div>
                                   <button
                                     onClick={(e) => toggleSelect(task.id, e)}
                                     className={cn(

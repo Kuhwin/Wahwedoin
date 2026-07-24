@@ -6,7 +6,7 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { GripVertical, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { PRIORITY_CONFIG, type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,6 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
       <table className="w-full">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50">
-            <th className="w-8"></th>
             <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
               Task
             </th>
@@ -74,24 +73,19 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                 tasks.map((task, index) => (
                   <Draggable key={task.id} draggableId={task.id} index={index}>
                     {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      className={cn(
+                        "flex items-center border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-grab active:cursor-grabbing",
+                        snapshot.isDragging && "bg-indigo-50 shadow-lg ring-1 ring-indigo-200"
+                      )}
+                    >
                       <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className={cn(
-                          "flex items-center border-b border-slate-100 hover:bg-slate-50 transition-colors",
-                          snapshot.isDragging && "bg-indigo-50 shadow-lg ring-1 ring-indigo-200"
-                        )}
+                        className="flex-1 flex items-center gap-3 px-4 py-3 cursor-pointer min-w-0"
+                        onClick={() => onTaskClick?.(task)}
                       >
-                        <div
-                          {...provided.dragHandleProps}
-                          className="w-8 flex items-center justify-center text-slate-300 hover:text-slate-500 cursor-grab shrink-0"
-                        >
-                          <GripVertical size={14} />
-                        </div>
-                        <div
-                          className="flex-1 flex items-center gap-3 px-4 py-3 cursor-pointer min-w-0"
-                          onClick={() => onTaskClick?.(task)}
-                        >
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
