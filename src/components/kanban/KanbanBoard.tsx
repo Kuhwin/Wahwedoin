@@ -16,9 +16,12 @@ import {
   FolderOpen,
   Check,
   X,
+  MoveRight,
+  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PRIORITY_CONFIG, type Task, type Section } from "@/lib/types";
+import Button from "@/components/ui/Button";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -29,6 +32,8 @@ interface KanbanBoardProps {
   onUpdateSection: (sectionId: string, updates: Partial<Section>) => Promise<void>;
   onDeleteSection: (sectionId: string) => Promise<void>;
   onTaskClick?: (task: Task) => void;
+  onBulkDelete?: (taskIds: string[]) => Promise<void>;
+  onBulkMove?: (taskIds: string[], sectionId: string) => Promise<void>;
 }
 
 const PRIORITY_BORDER: Record<Task["priority"], string> = {
@@ -63,6 +68,8 @@ export default function KanbanBoard({
   onUpdateSection,
   onDeleteSection,
   onTaskClick,
+  onBulkDelete,
+  onBulkMove,
 }: KanbanBoardProps) {
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
   const [menuSectionId, setMenuSectionId] = useState<string | null>(null);
@@ -72,11 +79,15 @@ export default function KanbanBoard({
   const [isAddingSection, setIsAddingSection] = useState(false);
   const [quickAddSectionId, setQuickAddSectionId] = useState<string | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [bulkMoveSectionId, setBulkMoveSectionId] = useState<string>("");
+  const [showBulkMove, setShowBulkMove] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const addSectionInputRef = useRef<HTMLInputElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
 
   const sortedSections = [...sections].sort((a, b) => a.position - b.position);
+  const hasSelection = selectedTaskIds.size > 0;
 
   useEffect(() => {
     if (editingSectionId && editInputRef.current) {
@@ -96,6 +107,46 @@ export default function KanbanBoard({
       quickAddInputRef.current.focus();
     }
   }, [quickAddSectionId]);
+
+  function toggleSelect(taskId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(sectionId: string) {
+    const sectionTaskIds = tasks
+      .filter((t) => t.section_id === sectionId)
+      .map((t) => t.id);
+    const allSelected = sectionTaskIds.every((id) => selectedTaskIds.has(id));
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        sectionTaskIds.forEach((id) => next.delete(id));
+      } else {
+        sectionTaskIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (!onBulkDelete || selectedTaskIds.size === 0) return;
+    await onBulkDelete(Array.from(selectedTaskIds));
+    setSelectedTaskIds(new Set());
+  }
+
+  async function handleBulkMove() {
+    if (!onBulkMove || !bulkMoveSectionId || selectedTaskIds.size === 0) return;
+    await onBulkMove(Array.from(selectedTaskIds), bulkMoveSectionId);
+    setSelectedTaskIds(new Set());
+    setShowBulkMove(false);
+    setBulkMoveSectionId("");
+  }
 
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
@@ -126,7 +177,6 @@ export default function KanbanBoard({
     const title = quickAddTitle.trim();
     if (!title) return;
     const status = getStatusForSection(sectionId, sections);
-    const sectionIndex = sortedSections.findIndex((s) => s.id === sectionId);
     const tasksInSection = tasks.filter((t) => t.section_id === sectionId);
     await onUpdateTask(
       crypto.randomUUID(),
@@ -167,10 +217,77 @@ export default function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
+      {/* Bulk Action Bar */}
+      {hasSelection && (
+        <div className="mb-4 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
+          <span className="text-sm font-medium text-indigo-700">
+            {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {showBulkMove ? (
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkMoveSectionId}
+                  onChange={(e) => setBulkMoveSectionId(e.target.value)}
+                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">Select section...</option>
+                  {sortedSections.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <Button
+                  variant="primary"
+                  onClick={() => void handleBulkMove()}
+                  disabled={!bulkMoveSectionId}
+                  className="!py-1 !px-2 !text-xs"
+                >
+                  Move
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => { setShowBulkMove(false); setBulkMoveSectionId(""); }}
+                  className="!py-1 !px-2 !text-xs"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setShowBulkMove(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                >
+                  <MoveRight size={12} />
+                  Move to...
+                </button>
+                {onBulkDelete && (
+                  <button
+                    onClick={() => void handleBulkDelete()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
+            <button
+              onClick={() => setSelectedTaskIds(new Set())}
+              className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+              title="Clear selection"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-4 overflow-x-auto pb-4">
         {sortedSections.map((section) => {
           const columnTasks = tasks.filter((t) => t.section_id === section.id);
           const isEditing = editingSectionId === section.id;
+          const allInSectionSelected = columnTasks.length > 0 && columnTasks.every((t) => selectedTaskIds.has(t.id));
 
           return (
             <div
@@ -180,6 +297,18 @@ export default function KanbanBoard({
               {/* Column Header */}
               <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    onClick={() => toggleSelectAll(section.id)}
+                    className={cn(
+                      "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
+                      allInSectionSelected
+                        ? "bg-indigo-600 border-indigo-600 text-white"
+                        : "border-slate-300 hover:border-indigo-400"
+                    )}
+                    title={allInSectionSelected ? "Deselect all in section" : "Select all in section"}
+                  >
+                    {allInSectionSelected && <Check size={10} />}
+                  </button>
                   <div
                     className="h-2.5 w-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: section.color }}
@@ -276,97 +405,113 @@ export default function KanbanBoard({
                       snapshot.isDraggingOver ? "bg-indigo-50" : "bg-slate-50"
                     )}
                   >
-                    {columnTasks.map((task, index) => (
-                      <Draggable
-                        key={task.id}
-                        draggableId={task.id}
-                        index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            onClick={() => onTaskClick?.(task)}
-                            className={cn(
-                              "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-pointer",
-                              PRIORITY_BORDER[task.priority],
-                              snapshot.isDragging &&
-                                "shadow-lg ring-2 ring-indigo-200"
-                            )}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <div
-                                  {...provided.dragHandleProps}
-                                  className="mt-0.5 text-slate-300 hover:text-slate-500 cursor-grab"
-                                >
-                                  <GripVertical size={14} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">
-                                    {task.title}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <span
-                                      className={cn(
-                                        "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                                        PRIORITY_CONFIG[task.priority].color
-                                      )}
-                                    >
-                                      {PRIORITY_CONFIG[task.priority].label}
-                                    </span>
-                                    {task.due_date && (
-                                      <span className="text-[10px] text-slate-400">
-                                        {new Date(
-                                          task.due_date
-                                        ).toLocaleDateString("en-US", {
-                                          month: "short",
-                                          day: "numeric",
-                                        })}
-                                      </span>
+                    {columnTasks.map((task, index) => {
+                      const isSelected = selectedTaskIds.has(task.id);
+                      return (
+                        <Draggable
+                          key={task.id}
+                          draggableId={task.id}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              onClick={() => onTaskClick?.(task)}
+                              className={cn(
+                                "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-pointer",
+                                PRIORITY_BORDER[task.priority],
+                                isSelected && "ring-2 ring-indigo-300 bg-indigo-50/50",
+                                snapshot.isDragging &&
+                                  "shadow-lg ring-2 ring-indigo-200"
+                              )}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-2 flex-1 min-w-0">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mt-0.5 text-slate-300 hover:text-slate-500 cursor-grab"
+                                  >
+                                    <GripVertical size={14} />
+                                  </div>
+                                  <button
+                                    onClick={(e) => toggleSelect(task.id, e)}
+                                    className={cn(
+                                      "mt-0.5 w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
+                                      isSelected
+                                        ? "bg-indigo-600 border-indigo-600 text-white"
+                                        : "border-slate-300 hover:border-indigo-400"
                                     )}
+                                  >
+                                    {isSelected && <Check size={10} />}
+                                  </button>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 truncate">
+                                      {task.title}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                      <span
+                                        className={cn(
+                                          "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                                          PRIORITY_CONFIG[task.priority].color
+                                        )}
+                                      >
+                                        {PRIORITY_CONFIG[task.priority].label}
+                                      </span>
+                                      {task.due_date && (
+                                        <span className="text-[10px] text-slate-400">
+                                          {new Date(
+                                            task.due_date
+                                          ).toLocaleDateString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                          })}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
 
-                              {/* Task Menu */}
-                              <div className="relative">
-                                <button
-                                  onClick={() =>
-                                    setMenuTaskId(
-                                      menuTaskId === task.id ? null : task.id
-                                    )
-                                  }
-                                  className="p-1 rounded text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <MoreHorizontal size={14} />
-                                </button>
-                                {menuTaskId === task.id && (
-                                  <>
-                                    <div
-                                      className="fixed inset-0 z-10"
-                                      onClick={() => setMenuTaskId(null)}
-                                    />
-                                    <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[120px]">
-                                      <button
-                                        onClick={() => {
-                                          onDeleteTask(task.id);
-                                          setMenuTaskId(null);
-                                        }}
-                                        className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                                      >
-                                        <Trash2 size={12} />
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </>
-                                )}
+                                {/* Task Menu */}
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuTaskId(
+                                        menuTaskId === task.id ? null : task.id
+                                      );
+                                    }}
+                                    className="p-1 rounded text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreHorizontal size={14} />
+                                  </button>
+                                  {menuTaskId === task.id && (
+                                    <>
+                                      <div
+                                        className="fixed inset-0 z-10"
+                                        onClick={() => setMenuTaskId(null)}
+                                      />
+                                      <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+                                        <button
+                                          onClick={() => {
+                                            onDeleteTask(task.id);
+                                            setMenuTaskId(null);
+                                          }}
+                                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                                        >
+                                          <Trash2 size={12} />
+                                          Delete
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
+                          )}
+                        </Draggable>
+                      );
+                    })}
                     {provided.placeholder}
 
                     {/* Quick Add */}

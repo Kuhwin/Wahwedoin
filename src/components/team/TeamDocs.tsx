@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { FileText, Plus, Pin, PinOff, Trash2, Clock } from "lucide-react";
+import Markdown from "react-markdown";
+import { FileText, Plus, Pin, PinOff, Trash2, Clock, Eye, Edit3 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -40,6 +41,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   const [docCategory, setDocCategory] = useState<TeamDoc["category"]>("general");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const [docTab, setDocTab] = useState<"edit" | "preview">("edit");
   const supabase = createClient();
 
   const loadDocs = useCallback(async () => {
@@ -110,6 +112,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setDocTitle(doc.title);
     setDocContent(doc.content);
     setDocCategory(doc.category);
+    setDocTab("edit");
     setShowCreate(true);
   }
 
@@ -118,6 +121,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setDocTitle("");
     setDocContent("");
     setDocCategory("general");
+    setDocTab("edit");
     setShowCreate(true);
   }
 
@@ -202,14 +206,34 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Content</label>
-            <textarea
-              placeholder="Write your document content here..."
-              value={docContent}
-              onChange={(e) => setDocContent(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none font-mono"
-              rows={12}
-            />
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">Content</label>
+              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                <button onClick={() => setDocTab("edit")} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${docTab === "edit" ? "bg-white shadow-sm text-slate-900" : "text-slate-500"}`}>
+                  <Edit3 size={10} /> Edit
+                </button>
+                <button onClick={() => setDocTab("preview")} className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${docTab === "preview" ? "bg-white shadow-sm text-slate-900" : "text-slate-500"}`}>
+                  <Eye size={10} /> Preview
+                </button>
+              </div>
+            </div>
+            {docTab === "edit" ? (
+              <textarea
+                placeholder="Write your document content here... (Markdown supported: **bold**, *italic*, # headings, - lists, `code`)"
+                value={docContent}
+                onChange={(e) => setDocContent(e.target.value)}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none font-mono"
+                rows={14}
+              />
+            ) : (
+              <div className="min-h-[200px] max-h-[352px] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4 prose prose-sm prose-slate max-w-none">
+                {docContent ? (
+                  <Markdown>{docContent}</Markdown>
+                ) : (
+                  <p className="text-slate-400 italic">Nothing to preview</p>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => { setShowCreate(false); setEditingDoc(null); }}>Cancel</Button>
@@ -236,7 +260,9 @@ function DocCard({ doc, onEdit, onPin, onDelete, canManage }: { doc: TeamDoc; on
             </Badge>
           </div>
           {doc.content && (
-            <p className="text-sm text-slate-500 line-clamp-2">{doc.content}</p>
+            <div className="text-sm text-slate-500 line-clamp-2 prose prose-sm prose-slate max-w-none">
+              <Markdown>{doc.content.length > 200 ? doc.content.slice(0, 200) + "..." : doc.content}</Markdown>
+            </div>
           )}
           <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
             <Clock size={10} />

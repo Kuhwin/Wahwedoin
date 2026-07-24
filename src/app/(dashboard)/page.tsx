@@ -7,18 +7,22 @@ import {
   FolderKanban,
   CheckSquare,
   Calendar,
-  Users,
   ArrowRight,
   Clock,
   AlertCircle,
   CheckCircle2,
+  Activity,
+  Flag,
+  TrendingUp,
 } from "lucide-react";
-import type { Project, Task } from "@/lib/types";
+import type { Project, Task, Activity as ActivityType } from "@/lib/types";
+import { PRIORITY_CONFIG, type ViewMode } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activities, setActivities] = useState<ActivityType[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -42,7 +46,14 @@ export default function DashboardPage() {
 
         if (tasksData) setTasks(tasksData);
 
-        // Check for due date notifications
+        const { data: actData } = await supabase
+          .from("activities")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(15);
+
+        if (actData) setActivities(actData);
+
         void checkDueDateNotifications();
       } catch {
         // Tables might not exist yet
@@ -55,8 +66,15 @@ export default function DashboardPage() {
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === "done").length;
   const activeTasks = tasks.filter((t) => t.status === "in_progress").length;
+  const todoTasks = tasks.filter((t) => t.status === "todo").length;
   const today = new Date().toISOString().split("T")[0];
-  const overdueTasks = tasks.filter((t) => t.due_date && t.due_date < today && t.status !== "done").length;
+  const overdueTasks = tasks.filter((t) => t.due_date && t.due_date < today && t.status !== "done");
+  const dueToday = tasks.filter((t) => t.due_date === today && t.status !== "done");
+  const dueSoon = tasks.filter((t) => {
+    if (!t.due_date || t.status === "done") return false;
+    const diff = new Date(t.due_date).getTime() - new Date(today).getTime();
+    return diff > 0 && diff <= 3 * 86400000;
+  });
 
   if (loading) {
     return (
@@ -67,14 +85,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
         <p className="text-sm text-slate-500 mt-1">Overview of all your projects and tasks</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <FolderKanban size={16} className="text-indigo-600" />
@@ -94,16 +112,174 @@ export default function DashboardPage() {
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Clock size={16} className="text-blue-600" />
-            <span className="text-xs font-medium text-slate-500">Active</span>
+            <span className="text-xs font-medium text-slate-500">In Progress</span>
           </div>
           <p className="text-2xl font-bold text-slate-900">{activeTasks}</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
+            <Flag size={16} className="text-slate-500" />
+            <span className="text-xs font-medium text-slate-500">To Do</span>
+          </div>
+          <p className="text-2xl font-bold text-slate-900">{todoTasks}</p>
+        </div>
+        <div className={`bg-white border rounded-xl p-4 ${overdueTasks.length > 0 ? "border-red-200 bg-red-50" : "border-slate-200"}`}>
+          <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={16} className="text-red-600" />
             <span className="text-xs font-medium text-slate-500">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{overdueTasks}</p>
+          <p className="text-2xl font-bold text-slate-900">{overdueTasks.length}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Overdue / Due Soon Alerts */}
+        <div className="lg:col-span-2 space-y-4">
+          {overdueTasks.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <AlertCircle size={14} />
+                Overdue Tasks ({overdueTasks.length})
+              </h3>
+              <div className="space-y-1.5">
+                {overdueTasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                        {task.priority}
+                      </span>
+                      <span className="text-sm text-slate-700 truncate">{task.title}</span>
+                    </div>
+                    <span className="text-xs text-red-500 shrink-0 ml-2">{task.due_date}</span>
+                  </div>
+                ))}
+                {overdueTasks.length > 5 && (
+                  <Link href="/my-tasks" className="block text-center text-xs text-red-600 hover:text-red-700 pt-1">
+                    +{overdueTasks.length - 5} more
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          {dueToday.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-amber-700 mb-3 flex items-center gap-2">
+                <Clock size={14} />
+                Due Today ({dueToday.length})
+              </h3>
+              <div className="space-y-1.5">
+                {dueToday.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                        {task.priority}
+                      </span>
+                      <span className="text-sm text-slate-700 truncate">{task.title}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {dueSoon.length > 0 && overdueTasks.length === 0 && dueToday.length === 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+              <h3 className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                <Clock size={14} />
+                Due Soon ({dueSoon.length})
+              </h3>
+              <div className="space-y-1.5">
+                {dueSoon.slice(0, 5).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                        {task.priority}
+                      </span>
+                      <span className="text-sm text-slate-700 truncate">{task.title}</span>
+                    </div>
+                    <span className="text-xs text-blue-500 shrink-0 ml-2">{task.due_date}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Project Progress */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <TrendingUp size={14} />
+                Project Progress
+              </h2>
+              <Link href="/projects" className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+                View all
+              </Link>
+            </div>
+            {projects.length === 0 ? (
+              <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-xl p-6 text-center">
+                No projects yet
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {projects.slice(0, 6).map((project) => {
+                  const projectTasks = tasks.filter((t) => t.project_id === project.id);
+                  const completed = projectTasks.filter((t) => t.status === "done").length;
+                  const total = projectTasks.length;
+                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="flex items-center gap-4 p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all"
+                    >
+                      <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-slate-900 truncate">{project.name}</p>
+                          <span className="text-xs text-slate-400 shrink-0 ml-2">{completed}/{total}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: project.color }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-400 w-8 text-right shrink-0">{pct}%</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Feed */}
+        <div>
+          <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <Activity size={14} />
+            Recent Activity
+          </h2>
+          <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
+            {activities.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-8">No activity yet</p>
+            ) : (
+              activities.map((act) => (
+                <div key={act.id} className="p-3">
+                  <p className="text-sm text-slate-700">
+                    <span className="font-medium">{act.user_email?.split("@")[0] || "Someone"}</span>
+                    {" "}{act.action}
+                    {act.detail && <span className="font-medium"> {act.detail}</span>}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {formatRelativeTime(act.created_at)}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -151,39 +327,21 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-500">View all events</p>
         </Link>
       </div>
-
-      {/* Recent Projects */}
-      {projects.length > 0 && (
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">Recent Projects</h2>
-            <Link href="/projects" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-              View all
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {projects.slice(0, 5).map((project) => (
-              <Link
-                key={project.id}
-                href={`/projects/${project.id}`}
-                className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  <div>
-                    <p className="font-medium text-slate-900">{project.name}</p>
-                    <p className="text-xs text-slate-500">{project.status}</p>
-                  </div>
-                </div>
-                <ArrowRight size={14} className="text-slate-300" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function formatRelativeTime(dateStr: string) {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

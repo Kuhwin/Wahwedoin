@@ -271,6 +271,45 @@ export default function ProjectPage() {
     }
   }
 
+  async function handleBulkDelete(taskIds: string[]) {
+    const { error } = await supabase.from("tasks").delete().in("id", taskIds);
+    if (!error) {
+      setTasks((prev) => prev.filter((t) => !taskIds.includes(t.id)));
+      setSelectedTask(null);
+      if (currentUser) {
+        logActivity({ project_id: projectId, user_id: currentUser, action: `deleted ${taskIds.length} tasks`, detail: "" });
+      }
+    }
+  }
+
+  async function handleBulkMove(taskIds: string[], sectionId: string) {
+    const status = getStatusForSection(sectionId);
+    const { error } = await supabase
+      .from("tasks")
+      .update({ section_id: sectionId, status, updated_at: new Date().toISOString() })
+      .in("id", taskIds);
+    if (!error) {
+      setTasks((prev) =>
+        prev.map((t) =>
+          taskIds.includes(t.id) ? { ...t, section_id: sectionId, status } : t
+        )
+      );
+      if (currentUser) {
+        const sectionName = sections.find((s) => s.id === sectionId)?.name || "section";
+        logActivity({ project_id: projectId, user_id: currentUser, action: `moved ${taskIds.length} tasks to`, detail: sectionName });
+      }
+    }
+  }
+
+  function getStatusForSection(sectionId: string): Task["status"] {
+    const sorted = [...sections].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex((s) => s.id === sectionId);
+    if (sorted.length <= 1) return "todo";
+    if (idx === 0) return "todo";
+    if (idx >= sorted.length - 1) return "done";
+    return "in_progress";
+  }
+
   if (loading || !project) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -376,6 +415,8 @@ export default function ProjectPage() {
           onUpdateSection={handleUpdateSection}
           onDeleteSection={handleDeleteSection}
           onTaskClick={setSelectedTask}
+          onBulkDelete={handleBulkDelete}
+          onBulkMove={handleBulkMove}
         />
       ) : (
         <ListView
