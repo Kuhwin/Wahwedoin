@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Search, Menu } from "lucide-react";
+import { Search, Menu, Sun, Moon } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationsBell from "@/components/NotificationsBell";
 import SearchModal from "@/components/SearchModal";
+import { useTheme } from "@/components/ui/ThemeProvider";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -14,6 +15,7 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const [user, setUser] = useState<{ email: string; displayName?: string; avatarUrl?: string } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const supabase = createClient();
 
   useEffect(() => {
@@ -50,12 +52,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-sm border-b border-slate-200">
+      <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between h-14 px-4 md:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={onMenuClick}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 md:hidden"
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-800 md:hidden"
             >
               <Menu size={20} />
             </button>
@@ -64,13 +66,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Search size={14} />
               <span className="hidden sm:inline">Search...</span>
-              <kbd className="hidden sm:inline text-[10px] font-mono bg-slate-200 px-1.5 py-0.5 rounded">
+              <kbd className="hidden sm:inline text-[10px] font-mono bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded">
                 Ctrl+K
               </kbd>
+            </button>
+
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             <NotificationsBell />

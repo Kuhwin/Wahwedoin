@@ -3,18 +3,18 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
+import CustomFieldsPanel from "@/components/CustomFieldsPanel";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/Toast";
 import { type Project, type Task, type Section, type TeamMember, type Tag } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 
 const DEFAULT_SECTIONS = [
@@ -52,6 +52,8 @@ export default function ProjectPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("position");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const supabase = createClient();
   const projectId = params.projectId as string;
 
@@ -412,7 +414,7 @@ export default function ProjectPage() {
     setTasks((prev) =>
       prev.map((t) =>
         taskIds.includes(t.id)
-          ? { ...t, assignee_ids: [...new Set([...((t as any).assignee_ids || []), userId])] }
+          ? { ...t, assignee_ids: [...new Set([...(t.assignee_ids || []), userId])] }
           : t
       )
     );
@@ -450,6 +452,26 @@ export default function ProjectPage() {
     if (filterPriority !== "all" && t.priority !== filterPriority) return false;
     if (filterAssignee !== "all" && t.assignee_id !== filterAssignee) return false;
     return true;
+  }).sort((a, b) => {
+    let cmp = 0;
+    if (sortBy === "title") cmp = a.title.localeCompare(b.title);
+    else if (sortBy === "priority") {
+      const order = { urgent: 0, high: 1, medium: 2, low: 3 };
+      cmp = order[a.priority] - order[b.priority];
+    }
+    else if (sortBy === "due_date") {
+      if (!a.due_date && !b.due_date) cmp = 0;
+      else if (!a.due_date) cmp = 1;
+      else if (!b.due_date) cmp = -1;
+      else cmp = a.due_date.localeCompare(b.due_date);
+    }
+    else if (sortBy === "status") {
+      const order = { todo: 0, in_progress: 1, done: 2 };
+      cmp = order[a.status] - order[b.status];
+    }
+    else if (sortBy === "created_at") cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    else cmp = a.position - b.position;
+    return sortDir === "asc" ? cmp : -cmp;
   });
 
   const hasActiveFilters = filterSearch || filterStatus !== "all" || filterPriority !== "all" || filterAssignee !== "all";
@@ -457,7 +479,7 @@ export default function ProjectPage() {
   if (loading || !project) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -469,7 +491,7 @@ export default function ProjectPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/projects"
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ArrowLeft size={18} />
           </Link>
@@ -478,7 +500,7 @@ export default function ProjectPage() {
               className="h-4 w-4 rounded-full"
               style={{ backgroundColor: project.color }}
             />
-            <h1 className="text-xl font-bold text-slate-900">{project.name}</h1>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{project.name}</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -490,26 +512,26 @@ export default function ProjectPage() {
                 name={memberProfiles[member.user_id]}
                 email={member.user_email || member.user_id}
                 size="sm"
-                className="ring-2 ring-white"
+                className="ring-2 ring-white dark:ring-slate-900"
               />
             ))}
             {members.length > 5 && (
-              <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600 ring-2 ring-white">
+              <div className="h-6 w-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-medium text-slate-600 dark:text-slate-300 ring-2 ring-white dark:ring-slate-900">
                 +{members.length - 5}
               </div>
             )}
           </div>
           {/* View Toggle */}
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
             <button
               onClick={() => setView("board")}
-              className={`p-1.5 rounded-md transition-colors ${view === "board" ? "bg-white shadow-sm text-indigo-600" : "text-slate-400"}`}
+              className={`p-1.5 rounded-md transition-colors ${view === "board" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}`}
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setView("list")}
-              className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white shadow-sm text-indigo-600" : "text-slate-400"}`}
+              className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}`}
             >
               <List size={16} />
             </button>
@@ -522,22 +544,22 @@ export default function ProjectPage() {
           <div className="relative">
             <button
               onClick={() => setProjectMenuOpen(!projectMenuOpen)}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <MoreVertical size={16} />
             </button>
             {projectMenuOpen && (
-              <div className="absolute right-0 top-10 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 min-w-[180px]">
+              <div className="absolute right-0 top-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-10 min-w-[180px]">
                 <button
                   onClick={() => void handleArchiveProject()}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   <Archive size={14} />
                   {project.status === "archived" ? "Restore Project" : "Archive Project"}
                 </button>
                 <button
                   onClick={() => { setConfirmDelete(true); setProjectMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
                   <Trash2 size={14} />
                   Delete Project
@@ -549,21 +571,21 @@ export default function ProjectPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white border border-slate-200 rounded-xl">
+      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
           <input
             type="text"
             placeholder="Search tasks..."
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-slate-100"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="all">All Status</option>
           <option value="todo">To Do</option>
@@ -573,7 +595,7 @@ export default function ProjectPage() {
         <select
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
-          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="all">All Priority</option>
           <option value="low">Low</option>
@@ -584,7 +606,7 @@ export default function ProjectPage() {
         <select
           value={filterAssignee}
           onChange={(e) => setFilterAssignee(e.target.value)}
-          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="all">All Assignees</option>
           {members.map((m) => (
@@ -593,20 +615,46 @@ export default function ProjectPage() {
             </option>
           ))}
         </select>
+        <div className="flex items-center gap-1">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="position">Default order</option>
+            <option value="title">Title</option>
+            <option value="priority">Priority</option>
+            <option value="due_date">Due date</option>
+            <option value="status">Status</option>
+            <option value="created_at">Created</option>
+          </select>
+          <button
+            onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")}
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            title={sortDir === "asc" ? "Ascending" : "Descending"}
+          >
+            <ArrowUpDown size={14} className={sortDir === "desc" ? "rotate-180" : ""} />
+          </button>
+        </div>
         {hasActiveFilters && (
           <button
             onClick={() => { setFilterSearch(""); setFilterStatus("all"); setFilterPriority("all"); setFilterAssignee("all"); }}
-            className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
           >
             <X size={12} />
             Clear
           </button>
         )}
         {hasActiveFilters && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-400 dark:text-slate-500">
             {filteredTasks.length} of {parentTasks.length} tasks
           </span>
         )}
+      </div>
+
+      {/* Custom Fields Manager */}
+      <div className="mb-4">
+        <CustomFieldsPanel projectId={projectId} />
       </div>
 
       {/* Board / List */}
@@ -648,11 +696,11 @@ export default function ProjectPage() {
             required
           />
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Priority</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Priority</label>
             <select
               value={newTaskPriority}
               onChange={(e) => setNewTaskPriority(e.target.value as Task["priority"])}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -661,11 +709,11 @@ export default function ProjectPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Assignee</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assignee</label>
             <select
               value={newTaskAssignee}
               onChange={(e) => setNewTaskAssignee(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">Unassigned</option>
               {members.map((member) => (
@@ -677,11 +725,11 @@ export default function ProjectPage() {
           </div>
           {sections.length > 0 && (
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">Section</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Section</label>
               <select
                 value={newTaskSection}
                 onChange={(e) => setNewTaskSection(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">No section</option>
                 {[...sections]
@@ -724,7 +772,7 @@ export default function ProjectPage() {
       {/* Delete Project Confirmation */}
       <Modal open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete Project">
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Are you sure you want to delete <strong>{project.name}</strong>? This will permanently remove the project and all its tasks.
           </p>
           <div className="flex justify-end gap-2">

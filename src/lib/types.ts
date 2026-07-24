@@ -226,3 +226,21 @@ export const PROJECT_COLORS = [
   "#f97316", "#eab308", "#22c55e", "#14b8a6",
   "#06b6d4", "#3b82f6", "#64748b", "#78716c",
 ] as const;
+
+export interface CustomField {
+  id: string;
+  project_id: string;
+  name: string;
+  field_type: "text" | "number" | "dropdown" | "date";
+  options: string[];
+  position: number;
+  created_at: string;
+}
+
+export interface TaskFieldValue {
+  id: string;
+  task_id: string;
+  field_id: string;
+  value: string | null;
+  created_at: string;
+}

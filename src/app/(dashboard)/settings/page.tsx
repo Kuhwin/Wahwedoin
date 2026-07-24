@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Check } from "lucide-react";
+import { User, Shield, Camera, Check, Users, ArrowRight } from "lucide-react";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [orgMembers, setOrgMembers] = useState<{ user_id: string; display_name: string; user_email: string }[]>([]);
+  const [switching, setSwitching] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -42,6 +44,21 @@ export default function SettingsPage() {
         setDisplayName(profile.display_name || "");
         setAvatarUrl(profile.avatar_url || null);
       }
+
+      const { data: teamData } = await supabase
+        .from("team_members")
+        .select("user_id");
+      if (teamData) {
+        const uniqueIds = [...new Set(teamData.map((m: { user_id: string }) => m.user_id))];
+        if (uniqueIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("user_profiles")
+            .select("user_id, display_name, user_email")
+            .in("user_id", uniqueIds);
+          if (profiles) setOrgMembers(profiles);
+        }
+      }
+
       setLoading(false);
     }
     void load();
@@ -51,7 +68,6 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Validate file
     if (file.size > 2 * 1024 * 1024) {
       setMessage("Image must be under 2MB.");
       return;
@@ -154,10 +170,16 @@ export default function SettingsPage() {
     router.push("/auth/login");
   }
 
+  async function handleSwitchUser(targetEmail: string) {
+    setSwitching(true);
+    await supabase.auth.signOut();
+    router.push(`/auth/login?email=${encodeURIComponent(targetEmail)}`);
+  }
+
   if (loading || !user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -165,16 +187,16 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your account settings</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your account settings</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
         <button
           onClick={() => setTab("profile")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === "profile" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+            tab === "profile" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           <User size={14} className="inline mr-2" />
@@ -183,7 +205,7 @@ export default function SettingsPage() {
         <button
           onClick={() => setTab("account")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            tab === "account" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+            tab === "account" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           <Shield size={14} className="inline mr-2" />
@@ -194,15 +216,15 @@ export default function SettingsPage() {
       {message && (
         <div className={`p-3 rounded-lg text-sm mb-4 ${
           message.includes("Failed") || message.includes("error")
-            ? "bg-red-50 border border-red-200 text-red-700"
-            : "bg-indigo-50 border border-indigo-200 text-indigo-700"
+            ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+            : "bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400"
         }`}>
           {message}
         </div>
       )}
 
       {tab === "profile" && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-6">
           {/* Avatar */}
           <div className="flex items-center gap-4">
             <div className="relative group">
@@ -227,14 +249,14 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <p className="font-medium text-slate-900">{user.email}</p>
-              <p className="text-sm text-slate-500">Click avatar to upload a photo</p>
+              <p className="font-medium text-slate-900 dark:text-slate-100">{user.email}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Click avatar to upload a photo</p>
             </div>
           </div>
 
           {/* Display Name */}
-          <div className="border-t border-slate-200 pt-6">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Display Name</h3>
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Display Name</h3>
             <form onSubmit={(e) => void handleSaveProfile(e)} className="flex gap-2">
               <Input
                 placeholder="Your name"
@@ -249,8 +271,8 @@ export default function SettingsPage() {
           </div>
 
           {/* Update Email */}
-          <div className="border-t border-slate-200 pt-6">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Update Email</h3>
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Update Email</h3>
             <form onSubmit={(e) => void handleUpdateEmail(e)} className="flex gap-2">
               <Input
                 type="email"
@@ -269,8 +291,8 @@ export default function SettingsPage() {
 
       {tab === "account" && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Change Password</h3>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Change Password</h3>
             <form onSubmit={(e) => void handleUpdatePassword(e)} className="space-y-3">
               <Input
                 label="New Password"
@@ -285,9 +307,36 @@ export default function SettingsPage() {
             </form>
           </div>
 
-          <div className="bg-white border border-red-200 rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-red-700 mb-2">Danger Zone</h3>
-            <p className="text-sm text-slate-500 mb-4">Sign out of your account on this device.</p>
+          {orgMembers.length > 1 && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Users size={16} className="text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Switch User</h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Sign in as another team member. You&apos;ll be logged out and a magic link will be sent to their email.</p>
+              <div className="space-y-2">
+                {orgMembers.filter((m) => m.user_id !== user.id).map((member) => (
+                  <button
+                    key={member.user_id}
+                    onClick={() => void handleSwitchUser(member.user_email)}
+                    disabled={switching}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
+                  >
+                    <Avatar name={member.display_name} email={member.user_email} size="sm" />
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{member.display_name || "Unknown"}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{member.user_email}</p>
+                    </div>
+                    <ArrowRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 rounded-2xl p-6">
+            <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Sign out of your account on this device.</p>
             <Button variant="danger" size="sm" onClick={() => void handleSignOut()}>
               Sign Out
             </Button>

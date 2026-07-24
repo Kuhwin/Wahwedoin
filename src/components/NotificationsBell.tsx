@@ -22,7 +22,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   member: <Users size={14} className="text-green-500" />,
   project: <FolderKanban size={14} className="text-indigo-500" />,
   event: <Calendar size={14} className="text-orange-500" />,
-  default: <Bell size={14} className="text-slate-400" />,
+  default: <Bell size={14} className="text-slate-400 dark:text-slate-500" />,
 };
 
 function getIcon(type: string) {
@@ -79,7 +79,7 @@ export default function NotificationsBell() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 relative transition-colors"
+        className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 relative transition-colors"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -90,9 +90,9 @@ export default function NotificationsBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
             <Link
               href="/inbox"
               onClick={() => setOpen(false)}
@@ -103,7 +103,7 @@ export default function NotificationsBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-400">
+              <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">
                 No notifications yet
               </div>
             ) : (
@@ -113,18 +113,18 @@ export default function NotificationsBell() {
                   onClick={() => {
                     if (!n.read) handleMarkAsRead(n.id);
                   }}
-                  className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
-                    !n.read ? "bg-indigo-50/50" : ""
+                  className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
+                    !n.read ? "bg-indigo-50/50 dark:bg-indigo-900/20" : ""
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     <div className="mt-0.5 flex-shrink-0">{getIcon(n.type)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!n.read ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                      <p className={`text-sm ${!n.read ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
                         {n.title}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">{n.body}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{n.body}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
                         {formatRelativeTime(n.created_at)}
                       </p>
                     </div>

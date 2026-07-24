@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
@@ -14,7 +13,6 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
   async function handleSignup(e: React.FormEvent) {
@@ -62,14 +60,14 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-lg">WD</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Create account</h1>
-          <p className="text-sm text-slate-500 mt-1">Join Wah We Doin</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Create account</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Join Wah We Doin</p>
         </div>
 
         {success ? (
@@ -79,8 +77,8 @@ export default function SignupPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">Check your email</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Check your email</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               We sent a confirmation link to <strong>{email}</strong>
             </p>
             <Link href="/auth/login" className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-700 font-medium">
@@ -92,7 +90,7 @@ export default function SignupPage() {
             {/* Google Sign Up */}
             <button
               onClick={handleGoogleSignup}
-              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors mb-4"
+              className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors mb-4"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
@@ -105,10 +103,10 @@ export default function SignupPage() {
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
+                <div className="w-full border-t border-slate-200 dark:border-slate-700" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-slate-50 text-slate-400">or sign up with email</span>
+                <span className="px-3 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500">or sign up with email</span>
               </div>
             </div>
 
@@ -151,7 +149,7 @@ export default function SignupPage() {
           </>
         )}
 
-        <p className="text-center text-sm text-slate-500 mt-6">
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Already have an account?{" "}
           <Link href="/auth/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
             Sign in

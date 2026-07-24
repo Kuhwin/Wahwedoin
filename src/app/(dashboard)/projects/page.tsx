@@ -114,7 +114,7 @@ export default function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -123,8 +123,8 @@ export default function ProjectsPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage all your team projects</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Projects</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage all your team projects</p>
         </div>
         <Button onClick={() => { setError(null); setShowCreate(true); }}>
           <Plus size={16} />
@@ -133,11 +133,11 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
         <button
           onClick={() => setFilter("active")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            filter === "active" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+            filter === "active" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           Active
@@ -145,7 +145,7 @@ export default function ProjectsPage() {
         <button
           onClick={() => setFilter("archived")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            filter === "archived" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+            filter === "archived" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           Archived
@@ -154,9 +154,9 @@ export default function ProjectsPage() {
 
       {projects.length === 0 ? (
         <div className="text-center py-16">
-          <FolderKanban size={48} className="text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
-          <p className="text-sm text-slate-500 mb-4">Create your first project to get started</p>
+          <FolderKanban size={48} className="text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">No projects yet</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Create your first project to get started</p>
           <Button onClick={() => { setError(null); setShowCreate(true); }}>
             <Plus size={16} />
             Create Project
@@ -167,7 +167,7 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group relative"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
             >
               <Link href={`/projects/${project.id}`} className="block">
                 <div className="flex items-start justify-between mb-3">
@@ -179,13 +179,13 @@ export default function ProjectsPage() {
                   </div>
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
                 </div>
-                <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-indigo-600 transition-colors">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   {project.name}
                 </h3>
                 {project.description && (
-                  <p className="text-sm text-slate-500 line-clamp-2 mb-3">{project.description}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">{project.description}</p>
                 )}
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
                   <span className="capitalize">{project.status}</span>
                 </div>
               </Link>
@@ -193,16 +193,16 @@ export default function ProjectsPage() {
               <div className="absolute top-3 right-3" ref={(el) => { if (menuOpen === project.id && menuRef.current) menuRef.current = el; }}>
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(menuOpen === project.id ? null : project.id); }}
-                  className="p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all"
+                  className="p-1 rounded-md text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <MoreVertical size={16} />
                 </button>
                 {menuOpen === project.id && (
-                  <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10 min-w-[160px]">
+                  <div className="absolute right-0 top-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 z-10 min-w-[160px]">
                     {filter === "active" ? (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleArchive(project.id); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                       >
                         <Archive size={14} />
                         Archive
@@ -210,7 +210,7 @@ export default function ProjectsPage() {
                     ) : (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleRestore(project.id); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                       >
                         <Archive size={14} />
                         Restore
@@ -218,7 +218,7 @@ export default function ProjectsPage() {
                     )}
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(project); setMenuOpen(null); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       <Trash2 size={14} />
                       Delete
@@ -235,7 +235,7 @@ export default function ProjectsPage() {
       <Modal open={showCreate} onClose={() => { setShowCreate(false); setError(null); }} title="Create Project">
         <form onSubmit={handleCreate} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg px-4 py-3">
               {error}
             </div>
           )}
@@ -247,21 +247,21 @@ export default function ProjectsPage() {
             required
           />
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
             <textarea
               placeholder="What is this project about?"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
               rows={3}
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Team</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Team</label>
             <select
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>
@@ -269,7 +269,7 @@ export default function ProjectsPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Color</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
             <div className="flex gap-2">
               {PROJECT_COLORS.map((color) => (
                 <button
@@ -296,7 +296,7 @@ export default function ProjectsPage() {
       {/* Delete Confirmation Modal */}
       <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Project">
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Are you sure you want to delete <strong>{confirmDelete?.name}</strong>? This will permanently remove the project and all its tasks.
           </p>
           <div className="flex justify-end gap-2">

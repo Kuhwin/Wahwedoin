@@ -225,13 +225,13 @@ export default function KanbanBoard({
   if (sections.length === 0 && !isAddingSection) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4">
           <FolderOpen className="text-indigo-400" size={28} />
         </div>
         <h3 className="text-lg font-semibold text-slate-800 mb-1">
           Create your first section
         </h3>
-        <p className="text-sm text-slate-500 mb-6 max-w-sm">
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-sm">
           Sections help you organize tasks into columns on the board.
         </p>
         <button
@@ -249,8 +249,8 @@ export default function KanbanBoard({
     <DragDropContext onDragEnd={handleDragEnd}>
       {/* Bulk Action Bar */}
       {hasSelection && (
-        <div className="mb-4 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
-          <span className="text-sm font-medium text-indigo-700">
+        <div className="mb-4 flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
+          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
             {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} selected
           </span>
           <div className="flex items-center gap-2 ml-auto">
@@ -259,7 +259,7 @@ export default function KanbanBoard({
                 <select
                   value={bulkMoveSectionId}
                   onChange={(e) => setBulkMoveSectionId(e.target.value)}
-                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">Select section...</option>
                   {sortedSections.map((s) => (
@@ -278,7 +278,7 @@ export default function KanbanBoard({
                 <select
                   value={bulkAssignUserId}
                   onChange={(e) => setBulkAssignUserId(e.target.value)}
-                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">Select person...</option>
                   {teamMembers.map((m) => (
@@ -298,7 +298,7 @@ export default function KanbanBoard({
               <>
                 <button
                   onClick={() => setShowBulkMove(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   <MoveRight size={12} />
                   Move to...
@@ -306,7 +306,7 @@ export default function KanbanBoard({
                 {onBulkAssign && teamMembers.length > 0 && (
                   <button
                     onClick={() => setShowBulkAssign(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
                   >
                     <User size={12} />
                     Assign...
@@ -315,7 +315,7 @@ export default function KanbanBoard({
                 {onBulkDelete && (
                   <button
                     onClick={() => void handleBulkDelete()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white dark:bg-slate-900 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                   >
                     <Trash2 size={12} />
                     Delete
@@ -325,7 +325,7 @@ export default function KanbanBoard({
             )}
             <button
               onClick={() => setSelectedTaskIds(new Set())}
-              className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+              className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
               title="Clear selection"
             >
               <X size={14} />
@@ -354,7 +354,7 @@ export default function KanbanBoard({
                       "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
                       allInSectionSelected
                         ? "bg-indigo-600 border-indigo-600 text-white"
-                        : "border-slate-300 hover:border-indigo-400"
+                        : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
                     )}
                     title={allInSectionSelected ? "Deselect all in section" : "Select all in section"}
                   >
@@ -374,7 +374,7 @@ export default function KanbanBoard({
                           if (e.key === "Enter") handleRenameSection();
                           if (e.key === "Escape") setEditingSectionId(null);
                         }}
-                        className="text-sm font-semibold text-slate-700 border border-slate-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-32"
+                        className="text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-32"
                       />
                       <button
                         onClick={handleRenameSection}
@@ -384,17 +384,17 @@ export default function KanbanBoard({
                       </button>
                       <button
                         onClick={() => setEditingSectionId(null)}
-                        className="p-0.5 text-slate-400 hover:bg-slate-100 rounded"
+                        className="p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
                       >
                         <X size={14} />
                       </button>
                     </div>
                   ) : (
-                    <h3 className="text-sm font-semibold text-slate-700 truncate">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">
                       {section.name}
                     </h3>
                   )}
-                  <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0">
+                  <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full shrink-0">
                     {columnTasks.length}
                   </span>
                 </div>
@@ -407,7 +407,7 @@ export default function KanbanBoard({
                         menuSectionId === section.id ? null : section.id
                       )
                     }
-                    className="p-1 rounded text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                    className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                   >
                     <MoreHorizontal size={14} />
                   </button>
@@ -417,14 +417,14 @@ export default function KanbanBoard({
                         className="fixed inset-0 z-10"
                         onClick={() => setMenuSectionId(null)}
                       />
-                      <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                      <div className="absolute right-0 top-8 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[140px]">
                         <button
                           onClick={() => {
                             setEditingSectionId(section.id);
                             setEditSectionName(section.name);
                             setMenuSectionId(null);
                           }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                         >
                           <Pencil size={12} />
                           Rename
@@ -453,7 +453,7 @@ export default function KanbanBoard({
                     {...provided.droppableProps}
                     className={cn(
                       "flex-1 min-h-[200px] rounded-xl p-2 space-y-2 transition-colors",
-                      snapshot.isDraggingOver ? "bg-indigo-50" : "bg-slate-50"
+                      snapshot.isDraggingOver ? "bg-indigo-50 dark:bg-indigo-900/20" : "bg-slate-50 dark:bg-slate-800"
                     )}
                   >
                     {columnTasks.map((task, index) => {
@@ -471,7 +471,7 @@ export default function KanbanBoard({
                               {...provided.dragHandleProps}
                               onClick={() => onTaskClick?.(task)}
                               className={cn(
-                                "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-grab active:cursor-grabbing",
+                                "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-grab active:cursor-grabbing",
                                 PRIORITY_BORDER[task.priority],
                                 isSelected && "ring-2 ring-indigo-300 bg-indigo-50/50",
                                 snapshot.isDragging &&
@@ -486,13 +486,13 @@ export default function KanbanBoard({
                                       "mt-0.5 w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
                                       isSelected
                                         ? "bg-indigo-600 border-indigo-600 text-white"
-                                        : "border-slate-300 hover:border-indigo-400"
+                                        : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
                                     )}
                                   >
                                     {isSelected && <Check size={10} />}
                                   </button>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-slate-900 truncate">
+                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                                       {task.title}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2">
@@ -505,7 +505,7 @@ export default function KanbanBoard({
                                         {PRIORITY_CONFIG[task.priority].label}
                                       </span>
                                       {task.due_date && (
-                                        <span className="text-[10px] text-slate-400">
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
                                           {new Date(
                                             task.due_date
                                           ).toLocaleDateString("en-US", {
@@ -515,24 +515,24 @@ export default function KanbanBoard({
                                         </span>
                                       )}
                                       {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
-                                        <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5">
                                           <Check size={8} />
                                           {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
                                         </span>
                                       )}
-                                      {(task as any).assignee_ids && (task as any).assignee_ids.length > 0 && (
+                                       {task.assignee_ids && task.assignee_ids.length > 0 && (
                                         <div className="flex items-center -space-x-1 mt-1">
-                                          {(task as any).assignee_ids.slice(0, 3).map((uid: string) => (
+                                          {task.assignee_ids.slice(0, 3).map((uid: string) => (
                                             <Avatar
                                               key={uid}
                                               name={memberProfiles[uid] || uid}
                                               email={uid}
                                               size="sm"
-                                              className="ring-2 ring-white"
+                                              className="ring-2 ring-white dark:ring-slate-900"
                                             />
                                           ))}
-                                          {(task as any).assignee_ids.length > 3 && (
-                                            <span className="text-[10px] text-slate-400 ml-1.5">+{(task as any).assignee_ids.length - 3}</span>
+                                          {task.assignee_ids.length > 3 && (
+                                            <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5">+{task.assignee_ids.length - 3}</span>
                                           )}
                                         </div>
                                       )}
@@ -549,7 +549,7 @@ export default function KanbanBoard({
                                         menuTaskId === task.id ? null : task.id
                                       );
                                     }}
-                                    className="p-1 rounded text-slate-300 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                   >
                                     <MoreHorizontal size={14} />
                                   </button>
@@ -559,7 +559,7 @@ export default function KanbanBoard({
                                         className="fixed inset-0 z-10"
                                         onClick={() => setMenuTaskId(null)}
                                       />
-                                      <div className="absolute right-0 top-8 z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[120px]">
+                                      <div className="absolute right-0 top-8 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[120px]">
                                         <button
                                           onClick={() => {
                                             onDeleteTask(task.id);
@@ -584,7 +584,7 @@ export default function KanbanBoard({
 
                     {/* Quick Add */}
                     {quickAddSectionId === section.id ? (
-                      <div className="bg-white border border-indigo-200 rounded-xl p-2 shadow-sm">
+                      <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-2 shadow-sm">
                         <input
                           ref={quickAddInputRef}
                           value={quickAddTitle}
@@ -597,7 +597,7 @@ export default function KanbanBoard({
                             }
                           }}
                           placeholder="Task title..."
-                          className="w-full text-sm px-2 py-1.5 border-0 focus:outline-none focus:ring-0 placeholder:text-slate-400"
+                          className="w-full text-sm px-2 py-1.5 border-0 focus:outline-none focus:ring-0 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
                         <div className="flex items-center gap-1 mt-1">
                           <button
@@ -612,7 +612,7 @@ export default function KanbanBoard({
                               setQuickAddSectionId(null);
                               setQuickAddTitle("");
                             }}
-                            className="px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded transition-colors"
+                            className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
                           >
                             Cancel
                           </button>
@@ -621,7 +621,7 @@ export default function KanbanBoard({
                     ) : (
                       <button
                         onClick={() => setQuickAddSectionId(section.id)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-slate-600 hover:bg-white rounded-xl transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors"
                       >
                         <Plus size={14} />
                         Add task
@@ -637,7 +637,7 @@ export default function KanbanBoard({
         {/* Add Section Column */}
         <div className="min-w-[260px]">
           {isAddingSection ? (
-            <div className="bg-slate-50 rounded-xl p-3">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
               <input
                 ref={addSectionInputRef}
                 value={newSectionName}
@@ -650,7 +650,7 @@ export default function KanbanBoard({
                   }
                 }}
                 placeholder="Section name..."
-                className="w-full text-sm font-medium px-2 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+                className="w-full text-sm font-medium px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
               <div className="flex items-center gap-2 mt-2">
                 <button
@@ -665,7 +665,7 @@ export default function KanbanBoard({
                     setIsAddingSection(false);
                     setNewSectionName("");
                   }}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -674,7 +674,7 @@ export default function KanbanBoard({
           ) : (
             <button
               onClick={() => setIsAddingSection(true)}
-              className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors"
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-400 dark:text-slate-500 hover:text-slate-600 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               <Plus size={16} />
               Add Section

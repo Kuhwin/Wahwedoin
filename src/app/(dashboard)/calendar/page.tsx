@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import Avatar from "@/components/ui/Avatar";
 import { type Event, type Team, type CalendarLink } from "@/lib/types";
 
 interface ExternalEvent {

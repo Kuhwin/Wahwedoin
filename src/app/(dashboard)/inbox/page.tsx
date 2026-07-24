@@ -31,7 +31,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   member: <Users size={16} className="text-green-500" />,
   project: <FolderKanban size={16} className="text-indigo-500" />,
   event: <Calendar size={16} className="text-orange-500" />,
-  default: <Bell size={16} className="text-slate-400" />,
+  default: <Bell size={16} className="text-slate-400 dark:text-slate-500" />,
 };
 
 function getIcon(type: string) {
@@ -97,7 +97,7 @@ export default function InboxPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -107,20 +107,20 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             Inbox
             {unreadCount > 0 && (
-              <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
                 {unreadCount} unread
               </span>
             )}
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Stay up to date with your notifications</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Stay up to date with your notifications</p>
         </div>
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            className="flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
           >
             <CheckCheck size={16} />
             Mark all as read
@@ -129,13 +129,13 @@ export default function InboxPage() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-1 mb-4 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
         <button
           onClick={() => setFilter("all")}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
             filter === "all"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           All
@@ -144,8 +144,8 @@ export default function InboxPage() {
           onClick={() => setFilter("unread")}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
             filter === "unread"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
           Unread
@@ -160,18 +160,18 @@ export default function InboxPage() {
       {/* Notification List */}
       {filtered.length === 0 ? (
         <div className="text-center py-20">
-          <InboxIcon size={48} className="text-slate-200 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-1">
+          <InboxIcon size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-1">
             {filter === "unread" ? "No unread notifications" : "You're all caught up!"}
           </h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {filter === "unread"
               ? "All notifications have been read."
               : "Check back later for new updates."}
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
           {filtered.map((n) => (
             <div
               key={n.id}
@@ -179,7 +179,7 @@ export default function InboxPage() {
                 if (!n.read) handleMarkAsRead(n.id);
               }}
               className={`flex items-start gap-3 px-5 py-4 transition-colors cursor-pointer ${
-                !n.read ? "bg-indigo-50/40 hover:bg-indigo-50" : "hover:bg-slate-50"
+                !n.read ? "bg-indigo-50/40 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
               }`}
             >
               <div className="mt-0.5 flex-shrink-0">
@@ -187,23 +187,23 @@ export default function InboxPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className={`text-sm ${!n.read ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                  <p className={`text-sm ${!n.read ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
                     {n.title}
                   </p>
                   {!n.read && (
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0" />
+                    <span className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
                     {formatRelativeTime(n.created_at)}
                   </span>
                   {n.link && (
                     <Link
                       href={n.link}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                     >
                       View
                     </Link>

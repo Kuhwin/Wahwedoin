@@ -16,7 +16,6 @@ import {
   ChevronRight as ChevronRightIcon,
   Plus,
   X,
-  Send,
   FolderKanban,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
@@ -234,7 +233,7 @@ export default function Sidebar({
             <div className="h-7 w-7 rounded-md bg-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-xs">WD</span>
             </div>
-            <span className="font-bold text-slate-900 text-sm tracking-tight">
+            <span className="font-bold text-slate-900 text-sm tracking-tight dark:text-slate-100">
               Wah We Doin
             </span>
           </Link>
@@ -251,7 +250,7 @@ export default function Sidebar({
       {expanded && (
         <div className="px-3 pb-2">
           {showQuickAdd ? (
-            <div className="space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+            <div className="space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 dark:bg-slate-800 dark:border-slate-700">
               <input
                 autoFocus
                 type="text"
@@ -259,12 +258,12 @@ export default function Sidebar({
                 value={quickAddTitle}
                 onChange={(e) => setQuickAddTitle(e.target.value)}
                 onKeyDown={handleQuickAddKeyDown}
-                className="w-full bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none"
+                className="w-full bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none dark:text-slate-100"
               />
               <select
                 value={quickAddProjectId}
                 onChange={(e) => setQuickAddProjectId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
               >
                 <option value="">Select project...</option>
                 {teams.flatMap((team) =>
@@ -281,7 +280,7 @@ export default function Sidebar({
                     "px-2 py-1 text-xs font-medium rounded-md transition-colors",
                     quickAddTitle.trim() && quickAddProjectId
                       ? "text-white bg-indigo-600 hover:bg-indigo-700"
-                      : "text-slate-300 bg-slate-100 cursor-not-allowed"
+                      : "text-slate-300 bg-slate-100 cursor-not-allowed dark:bg-slate-800"
                   )}
                 >
                   {quickAddLoading ? "Adding..." : "Add"}
@@ -292,7 +291,7 @@ export default function Sidebar({
                     setQuickAddTitle("");
                     setQuickAddProjectId("");
                   }}
-                  className="px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+                  className="px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-md transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
                 >
                   Cancel
                 </button>
@@ -301,7 +300,7 @@ export default function Sidebar({
           ) : (
             <button
               onClick={() => setShowQuickAdd(true)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
             >
               <Plus size={16} />
               <span>Quick Add</span>
@@ -314,7 +313,7 @@ export default function Sidebar({
         <div className="px-2 pb-2 flex justify-center">
           <button
             onClick={() => setShowQuickAdd(true)}
-            className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors"
+            className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
             title="Quick Add"
           >
             <Plus size={18} />
@@ -337,13 +336,13 @@ export default function Sidebar({
                 "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
                   ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
               )}
             >
               <item.icon
                 size={18}
                 className={cn(
-                  isActive ? "text-indigo-600" : "text-slate-400"
+                  isActive ? "text-indigo-600" : "text-slate-400 dark:text-slate-500"
                 )}
               />
               {expanded && <span className="flex-1">{item.label}</span>}
@@ -356,12 +355,12 @@ export default function Sidebar({
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {expanded && (
           <div className="px-3 py-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500">
               Teams
             </span>
             <button
               onClick={() => setShowCreateTeam(true)}
-              className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+              className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
               title="New Team"
             >
               <Plus size={14} />
@@ -372,8 +371,8 @@ export default function Sidebar({
         {teams.length === 0 ? (
           expanded ? (
             <div className="px-3 py-4">
-              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center">
-                <p className="text-xs text-slate-500 mb-3">No teams yet</p>
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center dark:bg-slate-800">
+                <p className="text-xs text-slate-500 mb-3 dark:text-slate-400">No teams yet</p>
                 <button
                   onClick={() => setShowCreateTeam(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
@@ -387,7 +386,7 @@ export default function Sidebar({
             <div className="px-2 pb-2 flex justify-center">
               <button
                 onClick={() => setShowCreateTeam(true)}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Team"
               >
                 <Plus size={18} />
@@ -405,7 +404,7 @@ export default function Sidebar({
                     <div className="flex items-center gap-0">
                       <button
                         onClick={() => toggleTeam(team.id)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-600 shrink-0"
+                        className="p-1 rounded text-slate-400 hover:text-slate-600 shrink-0 dark:text-slate-500"
                       >
                         {isTeamExpanded ? (
                           <ChevronDown size={14} />
@@ -420,11 +419,11 @@ export default function Sidebar({
                           "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors truncate",
                           teamActive
                             ? "bg-indigo-50 text-indigo-700"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
                         )}
                       >
                         <span className="truncate">{team.name}</span>
-                        <span className="text-[11px] text-slate-400 shrink-0">
+                        <span className="text-[11px] text-slate-400 shrink-0 dark:text-slate-500">
                           {team.projects.length}
                         </span>
                       </Link>
@@ -463,7 +462,7 @@ export default function Sidebar({
                               "flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
                               projectActive
                                 ? "bg-indigo-50 text-indigo-700 font-medium"
-                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
                             )}
                           >
                             <FolderKanban
@@ -478,7 +477,7 @@ export default function Sidebar({
                       <Link
                         href={`/projects?team=${team.id}`}
                         onClick={onMobileClose}
-                        className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
                       >
                         <Plus size={12} className="shrink-0" />
                         <span className="text-xs">Add Project</span>
@@ -493,25 +492,25 @@ export default function Sidebar({
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-slate-200 space-y-0.5">
+      <div className="px-3 py-3 border-t border-slate-200 space-y-0.5 dark:border-slate-700">
         <Link
           href="/settings"
           onClick={onMobileClose}
           className={cn(
             "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
             pathname === "/settings"
-              ? "bg-indigo-50 text-indigo-700"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            ? "bg-indigo-50 text-indigo-700"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
           )}
         >
-          <Settings size={18} className="text-slate-400" />
+          <Settings size={18} className="text-slate-400 dark:text-slate-500" />
           {expanded && <span>Settings</span>}
         </Link>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors w-full"
+          className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors w-full dark:hover:bg-slate-800"
         >
-          <LogOut size={18} className="text-slate-400" />
+          <LogOut size={18} className="text-slate-400 dark:text-slate-500" />
           {expanded && <span>Sign Out</span>}
         </button>
       </div>
@@ -519,7 +518,7 @@ export default function Sidebar({
       {/* Collapse Toggle (desktop only) */}
       <button
         onClick={onToggle}
-        className="hidden md:flex items-center justify-center py-2 border-t border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+        className="hidden md:flex items-center justify-center py-2 border-t border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors dark:border-slate-700 dark:text-slate-500 dark:hover:bg-slate-800"
       >
         {expanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
       </button>
@@ -531,7 +530,7 @@ export default function Sidebar({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-white border-r border-slate-200 transition-all duration-200",
+          "hidden md:flex fixed inset-y-0 left-0 z-40 flex-col bg-white border-r border-slate-200 transition-all duration-200 dark:bg-slate-900 dark:border-slate-700",
           expanded ? "w-64" : "w-16"
         )}
       >
@@ -545,7 +544,7 @@ export default function Sidebar({
             className="fixed inset-0 z-50 bg-black/50 md:hidden"
             onClick={onMobileClose}
           />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 md:hidden">
+          <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 md:hidden dark:bg-slate-900 dark:border-slate-700">
             {sidebarContent}
           </aside>
         </>

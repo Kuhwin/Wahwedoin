@@ -17,12 +17,10 @@ import {
   Paperclip,
   Upload,
   File,
-  Download,
   ChevronRight,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import {
   type Task,
@@ -36,6 +34,7 @@ import {
 import { formatRelativeTime, cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import ReactMarkdown from "react-markdown";
+import CustomFieldsPanel from "@/components/CustomFieldsPanel";
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -507,33 +506,33 @@ export default function TaskDetailModal({
             <input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full text-lg font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-lg font-semibold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setDescPreview(false)}
-                  className={cn("text-xs font-medium px-2 py-0.5 rounded", !descPreview ? "bg-indigo-100 text-indigo-700" : "text-slate-500 hover:text-slate-700")}
+                  className={cn("text-xs font-medium px-2 py-0.5 rounded", !descPreview ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300")}
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => setDescPreview(true)}
-                  className={cn("text-xs font-medium px-2 py-0.5 rounded", descPreview ? "bg-indigo-100 text-indigo-700" : "text-slate-500 hover:text-slate-700")}
+                  className={cn("text-xs font-medium px-2 py-0.5 rounded", descPreview ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300")}
                 >
                   Preview
                 </button>
               </div>
               {descPreview ? (
-                <div className="text-sm text-slate-600 border border-slate-300 rounded-lg px-3 py-2 min-h-[68px] prose prose-sm max-w-none">
-                  {editDesc ? <ReactMarkdown>{editDesc}</ReactMarkdown> : <span className="text-slate-400 italic">Nothing to preview</span>}
+                <div className="text-sm text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 min-h-[68px] prose prose-sm max-w-none">
+                  {editDesc ? <ReactMarkdown>{editDesc}</ReactMarkdown> : <span className="text-slate-400 dark:text-slate-500 italic">Nothing to preview</span>}
                 </div>
               ) : (
                 <textarea
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="Add a description... (Markdown supported)"
-                  className="w-full text-sm text-slate-600 border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full text-sm text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   rows={3}
                 />
               )}
@@ -550,21 +549,21 @@ export default function TaskDetailModal({
         ) : (
           <div>
             <h2
-              className="text-lg font-semibold text-slate-900 cursor-pointer hover:text-indigo-600 transition-colors"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-indigo-600 transition-colors"
               onClick={() => setEditing(true)}
             >
               {task.title}
             </h2>
             {task.description ? (
               <div
-                className="text-sm text-slate-600 mt-2 cursor-pointer hover:text-slate-800 transition-colors prose prose-sm max-w-none"
+                className="text-sm text-slate-600 dark:text-slate-400 mt-2 cursor-pointer hover:text-slate-800 transition-colors prose prose-sm max-w-none"
                 onClick={() => setEditing(true)}
               >
                 <ReactMarkdown>{task.description}</ReactMarkdown>
               </div>
             ) : (
               <p
-                className="text-sm text-slate-400 italic mt-2 cursor-pointer hover:text-slate-600 transition-colors"
+                className="text-sm text-slate-400 dark:text-slate-500 italic mt-2 cursor-pointer hover:text-slate-600 transition-colors"
                 onClick={() => setEditing(true)}
               >
                 Click to add a description...
@@ -577,7 +576,7 @@ export default function TaskDetailModal({
         <div className="grid grid-cols-2 gap-3">
           {/* Status */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Check size={12} /> Status
             </label>
             <select
@@ -585,7 +584,7 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { status: e.target.value as Task["status"] })
               }
-              className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
@@ -595,13 +594,13 @@ export default function TaskDetailModal({
 
           {/* Priority */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500">Priority</label>
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Priority</label>
             <select
               value={task.priority}
               onChange={(e) =>
                 onUpdate(task.id, { priority: e.target.value as Task["priority"] })
               }
-              className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -612,7 +611,7 @@ export default function TaskDetailModal({
 
           {/* Due Date */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <Calendar size={12} /> Due Date
             </label>
             <input
@@ -621,14 +620,14 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { due_date: e.target.value || null })
               }
-              className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           {/* Section */}
           {sections.length > 0 && (
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
                 <Columns3 size={12} /> Section
               </label>
               <select
@@ -636,7 +635,7 @@ export default function TaskDetailModal({
                 onChange={(e) =>
                   handleSectionChange(e.target.value || null)
                 }
-                className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">No section</option>
                 {[...sections]
@@ -652,39 +651,39 @@ export default function TaskDetailModal({
 
           {/* Assignees */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
               <User size={12} /> Assignees
             </label>
             <div className="relative" ref={assigneeDropdownRef}>
               <button
                 onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
-                className="w-full flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {taskAssignees.length > 0 ? (
                   <div className="flex items-center -space-x-1.5">
                     {taskAssignees.slice(0, 3).map((uid) => (
-                      <Avatar key={uid} name={getMemberName(uid)} email={uid} size="sm" className="ring-2 ring-slate-50" />
+                      <Avatar key={uid} name={getMemberName(uid)} email={uid} size="sm" className="ring-2 ring-slate-50 dark:ring-slate-900" />
                     ))}
                     {taskAssignees.length > 3 && (
-                      <span className="text-[10px] text-slate-500 ml-2">+{taskAssignees.length - 3}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-2">+{taskAssignees.length - 3}</span>
                     )}
                   </div>
                 ) : (
-                  <span className="text-slate-400 italic">Unassigned</span>
+                  <span className="text-slate-400 dark:text-slate-500 italic">Unassigned</span>
                 )}
               </button>
 
               {showAssigneeDropdown && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto">
+                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto">
                   {currentUserId && (
                     <button
                       onClick={() => void handleAssignMyself()}
                       disabled={taskAssignees.includes(currentUserId)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-left border-b border-slate-100 transition-colors",
-                        taskAssignees.includes(currentUserId)
-                          ? "text-slate-400 cursor-not-allowed"
-                          : "text-indigo-600 hover:bg-indigo-50 font-medium"
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left border-b border-slate-100 dark:border-slate-700/50 transition-colors",
+                          taskAssignees.includes(currentUserId)
+                            ? "text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                            : "text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-medium"
                       )}
                     >
                       <User size={14} />
@@ -698,8 +697,8 @@ export default function TaskDetailModal({
                         key={member.user_id}
                         onClick={() => void handleAssigneeToggle(member.user_id)}
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
-                          isAssigned && "bg-indigo-50"
+                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+                          isAssigned && "bg-indigo-50 dark:bg-indigo-900/20"
                         )}
                       >
                         <Avatar
@@ -708,7 +707,7 @@ export default function TaskDetailModal({
                           size="sm"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-700 truncate">
+                          <p className="font-medium text-slate-700 dark:text-slate-300 truncate">
                             {member.display_name || member.user_email || "Unknown"}
                           </p>
                         </div>
@@ -728,10 +727,10 @@ export default function TaskDetailModal({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ListTodo size={16} className="text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-700">Subtasks</h3>
+              <ListTodo size={16} className="text-slate-400 dark:text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Subtasks</h3>
               {totalSubtasks > 0 && (
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
                   {completedSubtasks}/{totalSubtasks}
                 </span>
               )}
@@ -739,7 +738,7 @@ export default function TaskDetailModal({
           </div>
 
           {totalSubtasks > 0 && (
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-indigo-500 rounded-full transition-all duration-300"
                 style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}
@@ -751,7 +750,7 @@ export default function TaskDetailModal({
             {subtasks.map((subtask) => (
               <div
                 key={subtask.id}
-                className="flex items-center gap-2 group px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-2 group px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 <button
                   onClick={() => handleToggleSubtask(subtask)}
@@ -759,7 +758,7 @@ export default function TaskDetailModal({
                     "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
                     subtask.status === "done"
                       ? "bg-indigo-500 border-indigo-500"
-                      : "border-slate-300 hover:border-indigo-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
                   )}
                 >
                   {subtask.status === "done" && <Check size={10} className="text-white" />}
@@ -768,8 +767,8 @@ export default function TaskDetailModal({
                   className={cn(
                     "text-sm flex-1",
                     subtask.status === "done"
-                      ? "line-through text-slate-400"
-                      : "text-slate-700"
+                      ? "line-through text-slate-400 dark:text-slate-500"
+                      : "text-slate-700 dark:text-slate-300"
                   )}
                 >
                   {subtask.title}
@@ -797,7 +796,7 @@ export default function TaskDetailModal({
               placeholder="Add subtask..."
               value={newSubtask}
               onChange={(e) => setNewSubtask(e.target.value)}
-              className="flex-1 text-sm bg-transparent border border-dashed border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-400 placeholder:text-slate-400"
+              className="flex-1 text-sm bg-transparent border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-400 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
             <Button
               type="submit"
@@ -814,10 +813,10 @@ export default function TaskDetailModal({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Paperclip size={16} className="text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-700">Attachments</h3>
+              <Paperclip size={16} className="text-slate-400 dark:text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Attachments</h3>
               {attachments.length > 0 && (
-                <span className="text-xs text-slate-400">{attachments.length}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">{attachments.length}</span>
               )}
             </div>
             <input
@@ -829,7 +828,7 @@ export default function TaskDetailModal({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+               className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50"
             >
               <Upload size={12} />
               {uploading ? "Uploading..." : "Upload"}
@@ -841,21 +840,21 @@ export default function TaskDetailModal({
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
                 >
-                  <File size={14} className="text-slate-400 shrink-0" />
+                  <File size={14} className="text-slate-400 dark:text-slate-500 shrink-0" />
                   <button
                     onClick={() => void handleDownloadAttachment(att)}
-                    className="flex-1 text-sm text-slate-700 hover:text-indigo-600 truncate text-left transition-colors"
+                    className="flex-1 text-sm text-slate-700 dark:text-slate-300 hover:text-indigo-600 truncate text-left transition-colors"
                   >
                     {att.file_name}
                   </button>
-                  <span className="text-[10px] text-slate-400 shrink-0">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">
                     {formatFileSize(att.file_size)}
                   </span>
                   <button
                     onClick={() => void handleDeleteAttachment(att)}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 transition-opacity shrink-0"
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity shrink-0"
                   >
                     <Trash2 size={10} />
                   </button>
@@ -892,14 +891,14 @@ export default function TaskDetailModal({
             <div className="relative" ref={tagDropdownRef}>
               <button
                 onClick={() => setShowTagDropdown(!showTagDropdown)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
               >
                 <Plus size={12} />
                 Add tag
               </button>
 
               {showTagDropdown && (
-                <div className="absolute z-50 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-2 space-y-1">
+                <div className="absolute z-50 mt-1 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-2 space-y-1">
                   {creatingTag ? (
                     <div className="space-y-2 p-1">
                       <input
@@ -908,7 +907,7 @@ export default function TaskDetailModal({
                         placeholder="Tag name"
                         value={newTagName}
                         onChange={(e) => setNewTagName(e.target.value)}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") void handleCreateTag();
                           if (e.key === "Escape") setCreatingTag(false);
@@ -949,7 +948,7 @@ export default function TaskDetailModal({
                           <button
                             key={tag.id}
                             onClick={() => void handleAddTag(tag.id)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
                           >
                             <span
                               className="w-3 h-3 rounded-full shrink-0"
@@ -960,13 +959,13 @@ export default function TaskDetailModal({
                         ))}
                       {availableTags.filter((t) => !taskTags.some((tt) => tt.id === t.id))
                         .length === 0 && (
-                        <p className="text-xs text-slate-400 px-2 py-1.5">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 px-2 py-1.5">
                           No more available tags
                         </p>
                       )}
                       <button
                         onClick={() => setCreatingTag(true)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-indigo-600 hover:bg-indigo-50 transition-colors text-left font-medium"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left font-medium"
                       >
                         <Plus size={12} />
                         Create new tag
@@ -979,30 +978,33 @@ export default function TaskDetailModal({
           </div>
         </div>
 
+        {/* Custom Fields */}
+        {task && <CustomFieldsPanel projectId={task.project_id} taskId={task.id} />}
+
         {/* Activity Log */}
         {activities.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <History size={16} className="text-slate-400" />
-              <h3 className="text-sm font-semibold text-slate-700">Activity</h3>
+              <History size={16} className="text-slate-400 dark:text-slate-500" />
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Activity</h3>
             </div>
             <div className="space-y-0 relative">
-              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200 dark:bg-slate-700" />
               {(showAllActivities ? allActivities : activities).map((activity) => {
                 const isOwn = activity.user_id === currentUserId;
                 const userName = isOwn ? "You" : (activityUserNames[activity.user_id] || "Someone");
                 return (
                   <div key={activity.id} className="flex items-start gap-2.5 py-2 relative">
-                    <div className="w-[15px] h-[15px] rounded-full bg-slate-200 border-2 border-white shrink-0 mt-0.5 z-10" />
+                    <div className="w-[15px] h-[15px] rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-900 shrink-0 mt-0.5 z-10" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        <span className="font-medium text-slate-800">{userName}</span>{" "}
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{userName}</span>{" "}
                         {activity.action}
                         {activity.detail && (
-                          <span className="text-slate-500"> {activity.detail}</span>
+                          <span className="text-slate-500 dark:text-slate-400"> {activity.detail}</span>
                         )}
                       </p>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {formatRelativeTime(activity.created_at)}
                       </span>
                     </div>
@@ -1014,7 +1016,7 @@ export default function TaskDetailModal({
               <button
                 onClick={() => void loadAllActivities()}
                 disabled={allActivitiesLoading}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
               >
                 {allActivitiesLoading ? "Loading..." : "Show all activity"}
                 <ChevronRight size={12} />
@@ -1023,7 +1025,7 @@ export default function TaskDetailModal({
             {showAllActivities && allActivities.length > 5 && (
               <button
                 onClick={() => setShowAllActivities(false)}
-                className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+                className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
               >
                 Show less
               </button>
@@ -1032,10 +1034,10 @@ export default function TaskDetailModal({
         )}
 
         {/* Comments */}
-        <div className="border-t border-slate-200 pt-4">
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
           <div className="flex items-center gap-2 mb-3">
-            <MessageSquare size={16} className="text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-700">
+            <MessageSquare size={16} className="text-slate-400 dark:text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
               Comments ({comments.length})
             </h3>
           </div>
@@ -1045,24 +1047,24 @@ export default function TaskDetailModal({
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-3 group">
                   <Avatar name={comment.user_name} email={comment.user_email || comment.user_id} size="sm" />
-                  <div className="flex-1 bg-slate-50 rounded-lg p-3">
+                  <div className="flex-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-700">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                         {comment.user_name || comment.user_email || "Unknown"}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
                           {formatRelativeTime(comment.created_at)}
                         </span>
                         <button
                           onClick={() => void handleDeleteComment(comment.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity"
                         >
                           <Trash2 size={10} />
                         </button>
                       </div>
                     </div>
-                    <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 whitespace-pre-wrap">
                       {comment.body}
                     </p>
                   </div>
@@ -1077,7 +1079,7 @@ export default function TaskDetailModal({
               placeholder="Write a comment..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="flex-1 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <Button type="submit" size="sm" disabled={!newComment.trim()}>
               <Plus size={14} />
@@ -1086,7 +1088,7 @@ export default function TaskDetailModal({
         </div>
 
         {/* Delete */}
-        <div className="pt-2 border-t border-slate-200">
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
           <Button
             variant="danger"
             size="sm"

@@ -73,19 +73,19 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden">
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200">
-          <Search size={18} className="text-slate-400 shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <Search size={18} className="text-slate-400 dark:text-slate-500 shrink-0" />
           <input
             autoFocus
             type="text"
             placeholder="Search projects, tasks, events, teams..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
+            className="flex-1 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none"
           />
-          <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400">
             <X size={16} />
           </button>
         </div>
@@ -93,75 +93,75 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
         {/* Results */}
         <div className="max-h-[50vh] overflow-y-auto">
           {!query.trim() ? (
-            <div className="p-6 text-center text-sm text-slate-400">
+            <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">
               Type to search across your workspace
             </div>
           ) : loading ? (
             <div className="p-6 text-center">
-              <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
+              <div className="w-5 h-5 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin mx-auto" />
             </div>
           ) : !hasResults ? (
-            <div className="p-6 text-center text-sm text-slate-400">
+            <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">
               No results for &ldquo;{query}&rdquo;
             </div>
           ) : (
             <div className="py-2">
               {projects.length > 0 && (
                 <div>
-                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 uppercase">Projects</div>
+                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase">Projects</div>
                   {projects.map((p) => (
                     <button
                       key={p.id}
                       onClick={() => navigate(`/projects/${p.id}`)}
-                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
+                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
                     >
                       <FolderKanban size={16} className="text-indigo-500 shrink-0" />
-                      <span className="text-sm text-slate-700 truncate">{p.name}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{p.name}</span>
                     </button>
                   ))}
                 </div>
               )}
               {tasks.length > 0 && (
                 <div>
-                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 uppercase">Tasks</div>
+                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase">Tasks</div>
                   {tasks.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => navigate(`/projects/${t.project_id}`)}
-                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
+                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
                     >
                       <CheckSquare size={16} className="text-green-500 shrink-0" />
-                      <span className="text-sm text-slate-700 truncate">{t.title}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{t.title}</span>
                     </button>
                   ))}
                 </div>
               )}
               {events.length > 0 && (
                 <div>
-                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 uppercase">Events</div>
+                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase">Events</div>
                   {events.map((e) => (
                     <button
                       key={e.id}
                       onClick={() => navigate("/calendar")}
-                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
+                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
                     >
                       <Calendar size={16} className="text-amber-500 shrink-0" />
-                      <span className="text-sm text-slate-700 truncate">{e.title}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{e.title}</span>
                     </button>
                   ))}
                 </div>
               )}
               {teams.length > 0 && (
                 <div>
-                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 uppercase">Teams</div>
+                  <div className="px-4 py-1 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase">Teams</div>
                   {teams.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => navigate(`/teams/${t.id}`)}
-                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
+                      className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-left"
                     >
                       <Users size={16} className="text-violet-500 shrink-0" />
-                      <span className="text-sm text-slate-700 truncate">{t.name}</span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{t.name}</span>
                     </button>
                   ))}
                 </div>

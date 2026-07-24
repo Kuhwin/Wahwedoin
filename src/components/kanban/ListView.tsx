@@ -7,7 +7,7 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 import { Trash2 } from "lucide-react";
-import { PRIORITY_CONFIG, type Task } from "@/lib/types";
+import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ListViewProps {
@@ -20,7 +20,6 @@ interface ListViewProps {
 export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClick }: ListViewProps) {
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
-    const taskId = result.draggableId;
     const destIndex = result.destination.index;
     const sourceIndex = result.source.index;
     if (destIndex === sourceIndex) return;
@@ -39,23 +38,23 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50">
-            <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+          <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
               Task
             </th>
-            <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
               Status
             </th>
-            <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
               Priority
             </th>
-            <th className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
               Due Date
             </th>
-            <th className="text-right text-xs font-medium text-slate-500 uppercase tracking-wider px-4 py-3">
+            <th className="text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
               Actions
             </th>
           </tr>
@@ -66,7 +65,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
           {(provided) => (
             <div ref={provided.innerRef} {...provided.droppableProps}>
               {tasks.length === 0 ? (
-                <div className="text-center py-8 text-sm text-slate-500">
+                <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">
                   No tasks yet. Add one to get started.
                 </div>
               ) : (
@@ -78,8 +77,8 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                       {...provided.draggableProps}
                       {...provided.dragHandleProps}
                       className={cn(
-                        "flex items-center border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-grab active:cursor-grabbing",
-                        snapshot.isDragging && "bg-indigo-50 shadow-lg ring-1 ring-indigo-200"
+                        "flex items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-grab active:cursor-grabbing",
+                        snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800"
                       )}
                     >
                       <div
@@ -97,7 +96,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                               "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
                               task.status === "done"
                                 ? "bg-green-500 border-green-500"
-                                : "border-slate-300"
+                                : "border-slate-300 dark:border-slate-600"
                             )}
                           >
                             {task.status === "done" && (
@@ -108,7 +107,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                           </button>
                           <span className={cn(
                             "text-sm font-medium truncate",
-                            task.status === "done" ? "text-slate-400 line-through" : "text-slate-900"
+                            task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
                           )}>
                             {task.title}
                           </span>
@@ -118,7 +117,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                             value={task.status}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
-                            className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
                             <option value="todo">To Do</option>
                             <option value="in_progress">In Progress</option>
@@ -130,7 +129,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                             value={task.priority}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
-                            className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
@@ -144,7 +143,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                             value={task.due_date || ""}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
-                            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
                         <div className="px-4 py-3 text-right shrink-0">
@@ -153,7 +152,7 @@ export default function ListView({ tasks, onUpdateTask, onDeleteTask, onTaskClic
                               e.stopPropagation();
                               onDeleteTask(task.id);
                             }}
-                            className="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>

@@ -53,9 +53,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={toast.id}
             className={cn(
               "pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium animate-in fade-in slide-in-from-bottom-2",
-              toast.type === "success" && "bg-white border-green-200 text-green-800",
-              toast.type === "error" && "bg-white border-red-200 text-red-800",
-              toast.type === "info" && "bg-white border-slate-200 text-slate-800"
+              toast.type === "success" && "bg-white dark:bg-slate-900 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300",
+              toast.type === "error" && "bg-white dark:bg-slate-900 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300",
+              toast.type === "info" && "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
             )}
           >
             <span className="flex-1">{toast.message}</span>
@@ -73,7 +73,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             )}
             <button
               onClick={() => removeToast(toast.id)}
-              className="p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors"
+              className="p-0.5 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
             >
               <X size={14} />
             </button>
