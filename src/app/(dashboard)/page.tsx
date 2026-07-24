@@ -43,29 +43,28 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: projectsData } = await supabase
-          .from("projects")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const [projectsRes, tasksRes, actRes] = await Promise.all([
+          supabase
+            .from("projects")
+            .select("id, name, team_id, status, created_at")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("tasks")
+            .select("id, project_id, title, status, priority, due_date, position, created_at")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("activities")
+            .select("id, user_id, action, detail, created_at")
+            .order("created_at", { ascending: false })
+            .limit(7),
+        ]);
 
-        if (projectsData) setProjects(projectsData);
+        if (projectsRes.data) setProjects(projectsRes.data as Project[]);
+        if (tasksRes.data) setTasks(tasksRes.data as Task[]);
 
-        const { data: tasksData } = await supabase
-          .from("tasks")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (tasksData) setTasks(tasksData);
-
-        const { data: actData } = await supabase
-          .from("activities")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(7);
-
-        if (actData) {
-          setActivities(actData);
-          const userIds = [...new Set(actData.map((a: ActivityType) => a.user_id).filter(Boolean))];
+        if (actRes.data) {
+          setActivities(actRes.data as ActivityType[]);
+          const userIds = [...new Set(actRes.data.map((a: ActivityType) => a.user_id).filter(Boolean))];
           if (userIds.length > 0) {
             const { data: profiles } = await supabase
               .from("user_profiles")

@@ -30,32 +30,35 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   const loadData = useCallback(async () => {
     const { data: projectsData } = await supabase
       .from("projects")
-      .select("*")
+      .select("id, name, team_id, status, created_at")
       .eq("team_id", teamId)
       .order("created_at", { ascending: false });
 
-    if (projectsData) {
-      setProjects(projectsData);
-      const projectIds = projectsData.map((p: Project) => p.id);
-      if (projectIds.length > 0) {
-        const { data: tasksData } = await supabase
-          .from("tasks")
-          .select("*")
-          .in("project_id", projectIds);
-        if (tasksData) setTasks(tasksData);
-      }
-    }
+    if (projectsData) setProjects(projectsData as Project[]);
 
-    const { data: actData } = await supabase
-      .from("activities")
-      .select("*")
-      .or(`team_id.eq.${teamId},project_id.in.(${(projectsData || []).map((p: Project) => p.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
-      .order("created_at", { ascending: false })
-      .limit(7);
+    const projectIds = (projectsData || []).map((p: { id: string }) => p.id);
+    const projectIdStr = projectIds.length > 0 ? projectIds.join(",") : "00000000-0000-0000-0000-000000000000";
 
-    if (actData) {
-      setActivities(actData);
-      const userIds = [...new Set(actData.map((a: Activity) => a.user_id).filter(Boolean))];
+    const [tasksRes, actRes] = await Promise.all([
+      projectIds.length > 0
+        ? supabase
+            .from("tasks")
+            .select("id, project_id, title, status, priority, due_date, created_at, assignee_id")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("activities")
+        .select("id, user_id, action, detail, created_at")
+        .or(`team_id.eq.${teamId},project_id.in.(${projectIdStr})`)
+        .order("created_at", { ascending: false })
+        .limit(7),
+    ]);
+
+    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+
+    if (actRes.data) {
+      setActivities(actRes.data as Activity[]);
+      const userIds = [...new Set(actRes.data.map((a: Activity) => a.user_id).filter(Boolean))];
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from("user_profiles")

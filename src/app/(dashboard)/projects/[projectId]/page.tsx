@@ -61,7 +61,7 @@ export default function ProjectPage() {
 
     const { data: projectData } = await supabase
       .from("projects")
-      .select("*")
+      .select("id, name, team_id, status, created_at, description")
       .eq("id", projectId)
       .single();
 
@@ -71,64 +71,60 @@ export default function ProjectPage() {
     }
     setProject(projectData);
 
-    const { data: tasksData } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("position", { ascending: true });
+    const [tasksRes, sectionsRes, membersRes, tagsRes] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("id, project_id, title, description, status, priority, section_id, assignee_id, due_date, position, created_by, created_at, updated_at")
+        .eq("project_id", projectId)
+        .order("position", { ascending: true }),
+      supabase
+        .from("sections")
+        .select("id, project_id, name, color, position")
+        .eq("project_id", projectId)
+        .order("position", { ascending: true }),
+      projectData.team_id
+        ? supabase
+            .from("team_members")
+            .select("id, team_id, user_id, role, joined_at")
+            .eq("team_id", projectData.team_id)
+        : Promise.resolve({ data: [] }),
+      projectData.team_id
+        ? supabase
+            .from("tags")
+            .select("id, team_id, name, color, created_at")
+            .eq("team_id", projectData.team_id)
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    if (tasksData) setTasks(tasksData);
+    if (tasksRes.data) setTasks(tasksRes.data);
 
-    const { data: sectionsData } = await supabase
-      .from("sections")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("position", { ascending: true });
-
-    if (sectionsData && sectionsData.length > 0) {
-      setSections(sectionsData);
+    if (sectionsRes.data && sectionsRes.data.length > 0) {
+      setSections(sectionsRes.data);
     } else {
       const inserted = await supabase
         .from("sections")
-        .insert(
-          DEFAULT_SECTIONS.map((s) => ({
-            ...s,
-            project_id: projectId,
-          }))
-        )
+        .insert(DEFAULT_SECTIONS.map((s) => ({ ...s, project_id: projectId })))
         .select();
-
       if (inserted.data) setSections(inserted.data);
     }
 
-    const { data: membersData } = await supabase
-      .from("team_members")
-      .select("*")
-      .eq("team_id", projectData.team_id);
-
-    if (membersData) {
-      setMembers(membersData);
-      // Load member profiles
-      const userIds = membersData.map((m: TeamMember) => m.user_id);
-      const { data: profiles } = await supabase
-        .from("user_profiles")
-        .select("user_id, display_name")
-        .in("user_id", userIds);
-      if (profiles) {
-        const map: Record<string, string> = {};
-        profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
-        setMemberProfiles(map);
+    if (membersRes.data) {
+      setMembers(membersRes.data);
+      const userIds = membersRes.data.map((m: TeamMember) => m.user_id);
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("user_profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+        if (profiles) {
+          const map: Record<string, string> = {};
+          profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+          setMemberProfiles(map);
+        }
       }
     }
 
-    // Load team tags
-    if (projectData.team_id) {
-      const { data: tagsData } = await supabase
-        .from("tags")
-        .select("*")
-        .eq("team_id", projectData.team_id);
-      if (tagsData) setTags(tagsData);
-    }
+    if (tagsRes.data) setTags(tagsRes.data);
 
     setLoading(false);
   }, [projectId, supabase, router]);

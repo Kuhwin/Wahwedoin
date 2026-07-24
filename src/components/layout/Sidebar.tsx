@@ -63,7 +63,7 @@ export default function Sidebar({
     try {
       const { data: memberships, error } = await supabase
         .from("team_members")
-        .select("team_id, teams(*)")
+        .select("team_id, teams(id, name, description, created_at)")
         .eq("user_id", user.id);
 
       if (error || !memberships) return;
@@ -76,7 +76,7 @@ export default function Sidebar({
         teamList.map(async (team) => {
           const { data: projects } = await supabase
             .from("projects")
-            .select("*")
+            .select("id, name, team_id, status, created_at")
             .eq("team_id", team.id)
             .order("name");
 

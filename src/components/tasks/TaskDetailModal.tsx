@@ -107,55 +107,54 @@ export default function TaskDetailModal({
       } = await supabase.auth.getUser();
       if (user) setCurrentUserId(user.id);
 
-      const { data: commentsData } = await supabase
-        .from("task_comments")
-        .select("*")
-        .eq("task_id", task!.id)
-        .order("created_at", { ascending: true });
-      if (commentsData) setComments(commentsData);
+      const [commentsRes, subtasksRes, tagLinksRes, activityRes, attachRes, assigneeRes] = await Promise.all([
+        supabase
+          .from("task_comments")
+          .select("id, task_id, user_id, content, created_at")
+          .eq("task_id", task!.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("tasks")
+          .select("id, project_id, title, description, status, priority, position, created_at")
+          .eq("parent_id", task!.id)
+          .order("position", { ascending: true }),
+        supabase
+          .from("task_tags")
+          .select("tag_id")
+          .eq("task_id", task!.id),
+        supabase
+          .from("activities")
+          .select("id, user_id, action, detail, created_at")
+          .eq("project_id", task!.project_id)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("task_attachments")
+          .select("id, task_id, file_name, file_url, file_size, uploaded_by, created_at")
+          .eq("task_id", task!.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("task_assignees")
+          .select("user_id")
+          .eq("task_id", task!.id),
+      ]);
 
-      const { data: subtasksData } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("parent_id", task!.id)
-        .order("position", { ascending: true });
-      if (subtasksData) setSubtasks(subtasksData);
+      if (commentsRes.data) setComments(commentsRes.data);
+      if (subtasksRes.data) setSubtasks(subtasksRes.data);
+      if (activityRes.data) setActivities(activityRes.data);
+      if (attachRes.data) setAttachments(attachRes.data as TaskAttachment[]);
+      if (assigneeRes.data) setTaskAssignees(assigneeRes.data.map((a: { user_id: string }) => a.user_id));
 
-      const { data: tagLinks } = await supabase
-        .from("task_tags")
-        .select("tag_id")
-        .eq("task_id", task!.id);
-      if (tagLinks && tagLinks.length > 0) {
-        const tagIds = tagLinks.map((l: { tag_id: string }) => l.tag_id);
+      if (tagLinksRes.data && tagLinksRes.data.length > 0) {
+        const tagIds = tagLinksRes.data.map((l: { tag_id: string }) => l.tag_id);
         const { data: tagsData } = await supabase
           .from("tags")
-          .select("*")
+          .select("id, team_id, name, color, created_at")
           .in("id", tagIds);
         if (tagsData) setTaskTags(tagsData);
       } else {
         setTaskTags([]);
       }
-
-      const { data: activityData } = await supabase
-        .from("activities")
-        .select("*")
-        .eq("project_id", task!.project_id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      if (activityData) setActivities(activityData);
-
-      const { data: attachData } = await supabase
-        .from("task_attachments")
-        .select("*")
-        .eq("task_id", task!.id)
-        .order("created_at", { ascending: false });
-      if (attachData) setAttachments(attachData);
-
-      const { data: assigneeData } = await supabase
-        .from("task_assignees")
-        .select("user_id")
-        .eq("task_id", task!.id);
-      if (assigneeData) setTaskAssignees(assigneeData.map((a: { user_id: string }) => a.user_id));
     }
 
     void loadAll();
