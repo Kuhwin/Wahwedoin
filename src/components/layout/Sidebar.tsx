@@ -152,9 +152,9 @@ export default function Sidebar({
     setTeamError("");
 
     try {
-      const seedRes = await fetch("/api/seed", { method: "POST" });
-      if (!seedRes.ok) {
-        setTeamError("Failed to initialize organization.");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTeamError("You must be logged in.");
         setCreatingTeam(false);
         return;
       }
@@ -166,7 +166,7 @@ export default function Sidebar({
         .single();
 
       if (!org) {
-        setTeamError("Could not find organization.");
+        setTeamError("Could not find organization. Please contact support.");
         setCreatingTeam(false);
         return;
       }

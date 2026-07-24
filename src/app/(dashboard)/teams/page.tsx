@@ -64,13 +64,6 @@ export default function TeamsPage() {
         return;
       }
 
-      const seedRes = await fetch("/api/seed", { method: "POST" });
-      if (!seedRes.ok) {
-        setMessage({ type: "error", text: "Failed to initialize organization." });
-        setCreating(false);
-        return;
-      }
-
       const { data: org, error: orgError } = await supabase
         .from("organizations")
         .select("id")
@@ -78,7 +71,7 @@ export default function TeamsPage() {
         .single();
 
       if (orgError || !org) {
-        setMessage({ type: "error", text: "Could not find organization." });
+        setMessage({ type: "error", text: "Could not find organization. Please contact support." });
         setCreating(false);
         return;
       }
