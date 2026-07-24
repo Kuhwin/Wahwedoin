@@ -113,6 +113,27 @@ export interface Activity {
 
 export type ViewMode = "board" | "list" | "calendar";
 
+export interface TeamInvite {
+  id: string;
+  team_id: string;
+  email: string;
+  role: "admin" | "member" | "viewer";
+  invited_by: string | null;
+  status: "pending" | "accepted" | "declined";
+  created_at: string;
+  expires_at: string;
+}
+
+export interface CalendarLink {
+  id: string;
+  user_id: string;
+  team_id: string;
+  label: string;
+  ical_url: string;
+  color: string;
+  created_at: string;
+}
+
 export const PRIORITY_CONFIG = {
   low: { label: "Low", color: "bg-slate-100 text-slate-600" },
   medium: { label: "Medium", color: "bg-blue-100 text-blue-600" },

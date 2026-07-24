@@ -20,6 +20,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
+import { logActivity } from "@/lib/activities";
 import type { User } from "@supabase/supabase-js";
 import type { Team, Project } from "@/lib/types";
 
@@ -124,6 +125,7 @@ export default function Sidebar({
       if (!error) {
         setQuickAddTitle("");
         setShowQuickAdd(false);
+        logActivity({ user_id: user.id, action: "created task via quick add", detail: quickAddTitle.trim() });
       }
     } catch {
       // Silently fail

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Users, Settings } from "lucide-react";
+import { Plus, Users, Settings, Mail, Trash2, UserPlus, Copy, Check } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
-import { type Team, type TeamMember } from "@/lib/types";
+import { type Team, type TeamMember, type TeamInvite } from "@/lib/types";
 import { generateSlug } from "@/lib/utils";
 
 export default function TeamsPage() {
@@ -20,8 +20,12 @@ export default function TeamsPage() {
   const [creating, setCreating] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
+  const [inviting, setInviting] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -62,8 +66,7 @@ export default function TeamsPage() {
 
       const seedRes = await fetch("/api/seed", { method: "POST" });
       if (!seedRes.ok) {
-        const seedBody = await seedRes.json();
-        setMessage({ type: "error", text: seedBody.error || "Failed to initialize organization." });
+        setMessage({ type: "error", text: "Failed to initialize organization." });
         setCreating(false);
         return;
       }
@@ -75,7 +78,7 @@ export default function TeamsPage() {
         .single();
 
       if (orgError || !org) {
-        setMessage({ type: "error", text: "Could not find organization. Please try again." });
+        setMessage({ type: "error", text: "Could not find organization." });
         setCreating(false);
         return;
       }
@@ -104,7 +107,7 @@ export default function TeamsPage() {
       });
 
       if (memberError) {
-        setMessage({ type: "error", text: memberError.message || "Team created but failed to add you as owner." });
+        setMessage({ type: "error", text: "Team created but failed to add you as owner." });
         setCreating(false);
         return;
       }
@@ -122,29 +125,105 @@ export default function TeamsPage() {
 
   async function loadMembers(team: Team) {
     setSelectedTeam(team);
-    const { data } = await supabase
+    setMessage(null);
+
+    const { data: membersData } = await supabase
       .from("team_members")
       .select("*")
       .eq("team_id", team.id);
-    if (data) setMembers(data);
+    if (membersData) setMembers(membersData);
+
+    const { data: invitesData } = await supabase
+      .from("team_invites")
+      .select("*")
+      .eq("team_id", team.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    if (invitesData) setInvites(invitesData);
   }
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedTeam || !inviteEmail.trim()) return;
+    setInviting(true);
+    setMessage(null);
 
-    const { error } = await supabase.from("team_members").insert({
-      team_id: selectedTeam.id,
-      user_id: inviteEmail.trim(),
-      role: "member",
-    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Check if already a member
+    const alreadyMember = members.some(
+      (m) => m.user_email?.toLowerCase() === inviteEmail.trim().toLowerCase()
+    );
+    if (alreadyMember) {
+      setMessage({ type: "error", text: "This person is already a team member." });
+      setInviting(false);
+      return;
+    }
+
+    // Check if already invited
+    const alreadyInvited = invites.some(
+      (i) => i.email.toLowerCase() === inviteEmail.trim().toLowerCase()
+    );
+    if (alreadyInvited) {
+      setMessage({ type: "error", text: "This person already has a pending invite." });
+      setInviting(false);
+      return;
+    }
+
+    const { data: invite, error } = await supabase
+      .from("team_invites")
+      .insert({
+        team_id: selectedTeam.id,
+        email: inviteEmail.trim().toLowerCase(),
+        role: inviteRole,
+        invited_by: user.id,
+      })
+      .select()
+      .single();
 
     if (error) {
-      setMessage({ type: "error", text: error.message || "Failed to invite member." });
-    } else {
+      setMessage({ type: "error", text: error.message || "Failed to send invite." });
+    } else if (invite) {
+      // Create notification for the invited user (find their user_id if they exist)
+      const { data: inviteeProfile } = await supabase
+        .from("user_profiles")
+        .select("user_id")
+        .eq("user_id", inviteEmail.trim())
+        .maybeSingle();
+
+      if (inviteeProfile) {
+        await supabase.from("notifications").insert({
+          user_id: inviteeProfile.user_id,
+          title: `You've been invited to ${selectedTeam.name}`,
+          body: `You've been invited as a ${inviteRole}. Check your email for the invite link.`,
+          type: "member",
+          link: `/teams`,
+        });
+      }
+
+      setInvites([invite, ...invites]);
       setInviteEmail("");
-      loadMembers(selectedTeam);
+      setMessage({ type: "success", text: `Invite sent to ${invite.email}` });
     }
+    setInviting(false);
+  }
+
+  async function handleRevokeInvite(inviteId: string) {
+    await supabase.from("team_invites").delete().eq("id", inviteId);
+    setInvites(invites.filter((i) => i.id !== inviteId));
+  }
+
+  function copyInviteLink(email: string) {
+    const url = `${window.location.origin}/auth/signup?invite=${encodeURIComponent(email)}`;
+    navigator.clipboard.writeText(url);
+    setCopied(email);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleRemoveMember(memberId: string) {
+    await supabase.from("team_members").delete().eq("id", memberId);
+    setMembers(members.filter((m) => m.id !== memberId));
   }
 
   if (loading) {
@@ -171,7 +250,7 @@ export default function TeamsPage() {
               onClick={() => setMessage(null)}
               className="ml-3 text-current opacity-60 hover:opacity-100"
             >
-              ✕
+              x
             </button>
           </div>
         </div>
@@ -258,44 +337,119 @@ export default function TeamsPage() {
         </form>
       </Modal>
 
-      {/* Members Modal */}
+      {/* Members & Invite Modal */}
       <Modal
         open={!!selectedTeam}
         onClose={() => setSelectedTeam(null)}
         title={selectedTeam ? `${selectedTeam.name} - Members` : ""}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            {members.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-4">No members yet</p>
-            ) : (
-              members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Avatar email={member.user_email || member.user_id} size="sm" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{member.user_email || member.user_id}</p>
-                      <p className="text-xs text-slate-500">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
+        <div className="space-y-5">
+          {/* Current Members */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Members ({members.length})</h4>
+            <div className="space-y-2">
+              {members.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">No members yet</p>
+              ) : (
+                members.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar email={member.user_email || member.user_id} size="sm" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{member.user_email || member.user_id}</p>
+                        <p className="text-xs text-slate-500">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={member.role === "owner" ? "info" : "default"}>
+                        {member.role}
+                      </Badge>
+                      {member.role !== "owner" && (
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors"
+                          title="Remove member"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <Badge variant={member.role === "owner" ? "info" : "default"}>
-                    {member.role}
-                  </Badge>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
 
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <input
-              type="email"
-              placeholder="Invite by email..."
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <Button type="submit" size="sm">Invite</Button>
-          </form>
+          {/* Pending Invites */}
+          {invites.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Pending Invites ({invites.length})</h4>
+              <div className="space-y-2">
+                {invites.map((invite) => (
+                  <div key={invite.id} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Mail size={16} className="text-amber-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{invite.email}</p>
+                        <p className="text-xs text-slate-500">Invited as {invite.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => copyInviteLink(invite.email)}
+                        className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Copy invite link"
+                      >
+                        {copied === invite.email ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                      </button>
+                      <button
+                        onClick={() => handleRevokeInvite(invite.id)}
+                        className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Revoke invite"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Invite Form */}
+          <div className="border-t border-slate-200 pt-4">
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              <UserPlus size={12} className="inline mr-1" />
+              Invite by email
+            </h4>
+            <form onSubmit={(e) => void handleInvite(e)} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="teammate@email.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  required
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <Button type="submit" size="sm" disabled={inviting || !inviteEmail.trim()}>
+                  {inviting ? "..." : "Invite"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                They&apos;ll receive a notification and can sign up with this email to join the team.
+              </p>
+            </form>
+          </div>
         </div>
       </Modal>
     </div>

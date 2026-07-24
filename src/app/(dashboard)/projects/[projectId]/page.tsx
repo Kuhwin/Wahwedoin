@@ -14,6 +14,7 @@ import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
 import { type Project, type Task, type Section, type TeamMember, type Tag } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { logActivity } from "@/lib/activities";
 
 const DEFAULT_SECTIONS = [
   { name: "To Do", color: "#64748b", position: 0 },
@@ -39,10 +40,14 @@ export default function ProjectPage() {
   const [newTaskSection, setNewTaskSection] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const supabase = createClient();
   const projectId = params.projectId as string;
 
   const loadData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUser(user.id);
+
     const { data: projectData } = await supabase
       .from("projects")
       .select("*")
@@ -151,6 +156,9 @@ export default function ProjectPage() {
       setNewTaskDueDate("");
       setNewTaskSection("");
       setShowAddTask(false);
+      if (user?.id) {
+        logActivity({ project_id: projectId, user_id: user.id, action: "created task", detail: data.title });
+      }
     }
   }
 
@@ -162,18 +170,40 @@ export default function ProjectPage() {
 
     if (!error) {
       setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
-      // Also update selectedTask if it's the same
       setSelectedTask((prev) =>
         prev && prev.id === taskId ? { ...prev, ...updates } : prev
       );
+      // Log activity for meaningful changes
+      if (currentUser) {
+        const task = tasks.find((t) => t.id === taskId);
+        const taskTitle = task?.title || "task";
+        if ("status" in updates) {
+          const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
+          logActivity({ project_id: projectId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
+        } else if ("assignee_id" in updates) {
+          logActivity({ project_id: projectId, user_id: currentUser, action: "changed assignee on", detail: taskTitle });
+        } else if ("priority" in updates) {
+          logActivity({ project_id: projectId, user_id: currentUser, action: `set priority ${updates.priority} on`, detail: taskTitle });
+        } else if ("due_date" in updates) {
+          logActivity({ project_id: projectId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
+        } else if ("title" in updates || "description" in updates) {
+          logActivity({ project_id: projectId, user_id: currentUser, action: "edited", detail: taskTitle });
+        } else if ("section_id" in updates) {
+          logActivity({ project_id: projectId, user_id: currentUser, action: "moved", detail: taskTitle });
+        }
+      }
     }
   }
 
   async function handleDeleteTask(taskId: string) {
+    const task = tasks.find((t) => t.id === taskId);
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (!error) {
       setTasks(tasks.filter((t) => t.id !== taskId));
       setSelectedTask(null);
+      if (currentUser) {
+        logActivity({ project_id: projectId, user_id: currentUser, action: "deleted task", detail: task?.title });
+      }
     }
   }
 
@@ -193,6 +223,9 @@ export default function ProjectPage() {
 
     if (data && !error) {
       setSections([...sections, data]);
+      if (currentUser) {
+        logActivity({ project_id: projectId, user_id: currentUser, action: "created section", detail: name });
+      }
     }
   }
 
@@ -204,13 +237,20 @@ export default function ProjectPage() {
 
     if (!error) {
       setSections(sections.map((s) => (s.id === sectionId ? { ...s, ...updates } : s)));
+      if (currentUser && updates.name) {
+        logActivity({ project_id: projectId, user_id: currentUser, action: "renamed section to", detail: updates.name });
+      }
     }
   }
 
   async function handleDeleteSection(sectionId: string) {
+    const section = sections.find((s) => s.id === sectionId);
     const { error } = await supabase.from("sections").delete().eq("id", sectionId);
     if (!error) {
       setSections(sections.filter((s) => s.id !== sectionId));
+      if (currentUser) {
+        logActivity({ project_id: projectId, user_id: currentUser, action: "deleted section", detail: section?.name });
+      }
     }
   }
 

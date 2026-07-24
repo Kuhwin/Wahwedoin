@@ -1,18 +1,36 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { type Event, type Team } from "@/lib/types";
+import Avatar from "@/components/ui/Avatar";
+import { type Event, type Team, type CalendarLink } from "@/lib/types";
+
+interface ExternalEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  description: string;
+  allDay: boolean;
+  color: string;
+}
+
+const CALENDAR_COLORS = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
+  "#f97316", "#eab308", "#22c55e", "#06b6d4",
+];
 
 export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([]);
+  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
+  const [showLinkCal, setShowLinkCal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -21,33 +39,163 @@ export default function CalendarPage() {
   const [newEndDate, setNewEndDate] = useState("");
   const [newAllDay, setNewAllDay] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Calendar linking state
+  const [calLinks, setCalLinks] = useState<CalendarLink[]>([]);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkLabel, setLinkLabel] = useState("");
+  const [linkColor, setLinkColor] = useState(CALENDAR_COLORS[0]);
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState("");
+  const [loadingCal, setLoadingCal] = useState(false);
+
   const supabase = createClient();
 
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  const loadData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      const { data: memberships } = await supabase
-        .from("team_members")
-        .select("team_id, teams(*)")
-        .eq("user_id", user.id);
+    const { data: memberships } = await supabase
+      .from("team_members")
+      .select("team_id, teams(*)")
+      .eq("user_id", user.id);
 
-      if (memberships) {
-        const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
-        setTeams(teamList);
-        if (teamList.length > 0) setNewTeamId(teamList[0].id);
-      }
-
-      const { data: eventsData } = await supabase
-        .from("events")
-        .select("*")
-        .order("start_date", { ascending: true });
-
-      if (eventsData) setEvents(eventsData);
+    if (memberships) {
+      const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
+      setTeams(teamList);
+      if (teamList.length > 0 && !newTeamId) setNewTeamId(teamList[0].id);
     }
-    void load();
-  }, [supabase]);
+
+    const { data: eventsData } = await supabase
+      .from("events")
+      .select("*")
+      .order("start_date", { ascending: true });
+
+    if (eventsData) setEvents(eventsData);
+
+    // Load calendar links for user's teams
+    const teamIds = (memberships || []).map((m: { team_id: string }) => m.team_id);
+    if (teamIds.length > 0) {
+      const { data: links } = await supabase
+        .from("calendar_links")
+        .select("*")
+        .in("team_id", teamIds);
+      if (links) {
+        setCalLinks(links);
+        // Fetch external events for all links
+        fetchAllExternalEvents(links);
+      }
+    }
+  }, [supabase, newTeamId]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  async function fetchAllExternalEvents(links: CalendarLink[]) {
+    setLoadingCal(true);
+    const allEvents: ExternalEvent[] = [];
+
+    await Promise.all(
+      links.map(async (link) => {
+        try {
+          const res = await fetch("/api/calendar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: link.ical_url, color: link.color }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.events) {
+              allEvents.push(
+                ...data.events.map((e: ExternalEvent) => ({
+                  ...e,
+                  color: link.color,
+                }))
+              );
+            }
+          }
+        } catch {
+          // Skip failed calendars silently
+        }
+      })
+    );
+
+    setExternalEvents(allEvents);
+    setLoadingCal(false);
+  }
+
+  async function handleLinkCalendar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!linkUrl.trim()) return;
+    setLinking(true);
+    setLinkError("");
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Pick first team if none selected
+    const teamId = newTeamId || teams[0]?.id;
+    if (!teamId) {
+      setLinkError("You need to be in a team first.");
+      setLinking(false);
+      return;
+    }
+
+    // Test the URL first
+    try {
+      const testRes = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: linkUrl.trim(), color: linkColor }),
+      });
+      const testData = await testRes.json();
+      if (!testRes.ok) {
+        setLinkError(testData.error || "Could not fetch this calendar. Check the URL.");
+        setLinking(false);
+        return;
+      }
+      if (testData.events?.length === 0) {
+        setLinkError("Calendar loaded but no events found. The URL may be correct but the calendar is empty.");
+      }
+    } catch {
+      setLinkError("Could not reach this calendar URL.");
+      setLinking(false);
+      return;
+    }
+
+    const { data: link, error } = await supabase
+      .from("calendar_links")
+      .insert({
+        user_id: user.id,
+        team_id: teamId,
+        label: linkLabel.trim() || "My Calendar",
+        ical_url: linkUrl.trim(),
+        color: linkColor,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      setLinkError(error.message || "Failed to save calendar link.");
+    } else if (link) {
+      setCalLinks([...calLinks, link]);
+      setLinkUrl("");
+      setLinkLabel("");
+      setShowLinkCal(false);
+      setLinkError("");
+      // Re-fetch all external events
+      fetchAllExternalEvents([...calLinks, link]);
+    }
+    setLinking(false);
+  }
+
+  async function handleRemoveLink(linkId: string) {
+    await supabase.from("calendar_links").delete().eq("id", linkId);
+    const remaining = calLinks.filter((l) => l.id !== linkId);
+    setCalLinks(remaining);
+    fetchAllExternalEvents(remaining);
+  }
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -64,11 +212,32 @@ export default function CalendarPage() {
 
   function getEventsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return events.filter((event) => {
+
+    // Internal events
+    const internal = events.filter((event) => {
       const start = event.start_date.split("T")[0];
       const end = event.end_date.split("T")[0];
       return dateStr >= start && dateStr <= end;
-    });
+    }).map((e) => ({
+      id: e.id,
+      title: e.title,
+      color: e.color,
+      type: "internal" as const,
+    }));
+
+    // External events
+    const external = externalEvents.filter((event) => {
+      const start = event.start.split("T")[0];
+      const end = event.end.split("T")[0];
+      return dateStr >= start && dateStr <= end;
+    }).map((e) => ({
+      id: e.id,
+      title: e.title,
+      color: e.color,
+      type: "external" as const,
+    }));
+
+    return [...internal, ...external];
   }
 
   function prevMonth() {
@@ -124,13 +293,48 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
-          <p className="text-sm text-slate-500 mt-1">Shared calendar across all teams</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Shared calendar across all teams
+            {loadingCal && (
+              <span className="inline-flex items-center gap-1 ml-2 text-indigo-600">
+                <Loader2 size={12} className="animate-spin" /> Loading calendars...
+              </span>
+            )}
+          </p>
         </div>
-        <Button onClick={() => { setSelectedDate(""); setShowCreate(true); }}>
-          <Plus size={16} />
-          New Event
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowLinkCal(true)}>
+            <Link2 size={14} />
+            Link Calendar
+          </Button>
+          <Button onClick={() => { setSelectedDate(""); setShowCreate(true); }}>
+            <Plus size={16} />
+            New Event
+          </Button>
+        </div>
       </div>
+
+      {/* Linked Calendars */}
+      {calLinks.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs font-medium text-slate-500">Linked:</span>
+          {calLinks.map((link) => (
+            <div
+              key={link.id}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 group"
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: link.color }} />
+              {link.label}
+              <button
+                onClick={() => handleRemoveLink(link.id)}
+                className="opacity-0 group-hover:opacity-100 ml-0.5 text-slate-400 hover:text-red-500 transition-all"
+              >
+                <Trash2 size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Calendar Navigation */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -265,6 +469,69 @@ export default function CalendarPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Link Calendar Modal */}
+      <Modal open={showLinkCal} onClose={() => { setShowLinkCal(false); setLinkError(""); }} title="Link Google Calendar">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Paste your Google Calendar&apos;s public iCal URL to show your events alongside your team&apos;s.
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+            <p className="font-medium text-slate-700">How to get your iCal URL:</p>
+            <ol className="list-decimal list-inside space-y-0.5 text-slate-500">
+              <li>Open <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Calendar</a></li>
+              <li>Click the gear icon → Settings</li>
+              <li>Select your calendar on the left</li>
+              <li>Scroll to &quot;Integrate calendar&quot;</li>
+              <li>Copy the &quot;Public address in iCal format&quot;</li>
+            </ol>
+          </div>
+
+          <form onSubmit={(e) => void handleLinkCalendar(e)} className="space-y-3">
+            {linkError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {linkError}
+              </div>
+            )}
+            <Input
+              label="Calendar URL"
+              placeholder="https://calendar.google.com/calendar/ical/..."
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              required
+            />
+            <Input
+              label="Label (optional)"
+              placeholder="e.g. My Calendar"
+              value={linkLabel}
+              onChange={(e) => setLinkLabel(e.target.value)}
+            />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">Color</label>
+              <div className="flex gap-2">
+                {CALENDAR_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setLinkColor(color)}
+                    className={`h-7 w-7 rounded-lg transition-all ${linkColor === color ? "ring-2 ring-offset-2 ring-indigo-500 scale-110" : "hover:scale-105"}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" type="button" onClick={() => { setShowLinkCal(false); setLinkError(""); }}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={linking || !linkUrl.trim()}>
+                {linking ? "Linking..." : "Link Calendar"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </Modal>
     </div>
   );

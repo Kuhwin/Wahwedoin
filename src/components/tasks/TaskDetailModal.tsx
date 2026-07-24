@@ -28,6 +28,7 @@ import {
   type TeamMember,
 } from "@/lib/types";
 import { formatRelativeTime, cn } from "@/lib/utils";
+import { logActivity } from "@/lib/activities";
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -201,6 +202,9 @@ export default function TaskDetailModal({
     if (data && !error) {
       setComments([...comments, data]);
       setNewComment("");
+      if (user?.id) {
+        logActivity({ project_id: task!.project_id, user_id: user.id, action: "commented on", detail: task!.title });
+      }
     }
   }
 
@@ -241,6 +245,9 @@ export default function TaskDetailModal({
       setSubtasks([...subtasks, data]);
       setNewSubtask("");
       subtaskInputRef.current?.focus();
+      if (currentUserId) {
+        logActivity({ project_id: task!.project_id, user_id: currentUserId, action: "added subtask to", detail: task!.title });
+      }
     }
   }
 
