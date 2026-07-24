@@ -2,11 +2,21 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Check, Users, ArrowRight } from "lucide-react";
+import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw } from "lucide-react";
+
+interface LinkedAccount {
+  id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  scope: string;
+  created_at: string;
+}
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
@@ -14,30 +24,45 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<"profile" | "account">("profile");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [orgMembers, setOrgMembers] = useState<{ user_id: string; display_name: string; user_email: string }[]>([]);
   const [switching, setSwitching] = useState(false);
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
+  const [linkingLoading, setLinkingLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
+    const linked = searchParams.get("linked");
+    const errorParam = searchParams.get("error");
+    if (linked === "success") {
+      setMessage("Google account linked successfully!");
+      window.history.replaceState({}, "", "/settings?tab=account");
+    }
+    if (errorParam) {
+      setMessage(`Failed to link account: ${errorParam}`);
+      window.history.replaceState({}, "", "/settings?tab=account");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
         router.push("/auth/login");
         return;
       }
-      setUser({ id: user.id, email: user.email || "" });
+      setUser({ id: authUser.id, email: authUser.email || "" });
 
       const { data: profile } = await supabase
         .from("user_profiles")
         .select("display_name, avatar_url")
-        .eq("user_id", user.id)
+        .eq("user_id", authUser.id)
         .single();
 
       if (profile) {
@@ -55,9 +80,16 @@ export default function SettingsPage() {
             .from("user_profiles")
             .select("user_id, display_name, user_email")
             .in("user_id", uniqueIds);
-          if (profiles) setOrgMembers(profiles);
+          if (profiles) setOrgMembers(profiles as { user_id: string; display_name: string; user_email: string }[]);
         }
       }
+
+      const { data: accounts } = await supabase
+        .from("user_google_accounts")
+        .select("id, email, display_name, avatar_url, scope, created_at")
+        .eq("user_id", authUser.id)
+        .order("created_at", { ascending: false });
+      if (accounts) setLinkedAccounts(accounts as LinkedAccount[]);
 
       setLoading(false);
     }
@@ -88,62 +120,38 @@ export default function SettingsPage() {
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-      setMessage("Failed to upload image. Make sure the avatars bucket exists.");
+      setMessage("Upload failed: " + uploadError.message);
       setUploading(false);
       return;
     }
 
-    const { data: urlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(filePath);
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
 
-    const publicUrl = urlData.publicUrl;
+    await supabase.from("user_profiles").upsert(
+      { user_id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
 
-    const { error: updateError } = await supabase
-      .from("user_profiles")
-      .update({ avatar_url: publicUrl })
-      .eq("user_id", user.id);
-
-    if (updateError) {
-      setMessage("Image uploaded but failed to save profile.");
-    } else {
-      setAvatarUrl(publicUrl);
-      setMessage("Avatar updated!");
-    }
+    setAvatarUrl(publicUrl);
     setUploading(false);
+    setMessage("Profile photo updated.");
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) return;
+    if (!displayName.trim() || !user) return;
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase
-      .from("user_profiles")
-      .upsert({ user_id: user.id, display_name: displayName.trim() || null }, { onConflict: "user_id" });
+    const { error } = await supabase.from("user_profiles").upsert(
+      { user_id: user.id, display_name: displayName.trim(), updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
 
     if (error) {
-      setMessage(error.message);
+      setMessage("Failed to save: " + error.message);
     } else {
-      setMessage("Profile updated!");
-    }
-    setSaving(false);
-  }
-
-  async function handleUpdateEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newEmail.trim()) return;
-    setSaving(true);
-    setMessage("");
-
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Check your email for a confirmation link.");
-      setNewEmail("");
+      setMessage("Profile updated.");
     }
     setSaving(false);
   }
@@ -174,6 +182,20 @@ export default function SettingsPage() {
     setSwitching(true);
     await supabase.auth.signOut();
     router.push(`/auth/login?email=${encodeURIComponent(targetEmail)}`);
+  }
+
+  function handleLinkGoogle() {
+    if (!user) return;
+    setLinkingLoading(true);
+    window.location.href = `/api/auth/google/link?user_id=${user.id}`;
+  }
+
+  async function handleUnlinkAccount(accountId: string) {
+    const { error } = await supabase.from("user_google_accounts").delete().eq("id", accountId);
+    if (!error) {
+      setLinkedAccounts(linkedAccounts.filter((a) => a.id !== accountId));
+      setMessage("Account disconnected.");
+    }
   }
 
   if (loading || !user) {
@@ -264,25 +286,8 @@ export default function SettingsPage() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 className="flex-1"
               />
-              <Button type="submit" size="sm" disabled={saving}>
-                {saving ? "Saving..." : <><Check size={14} /> Save</>}
-              </Button>
-            </form>
-          </div>
-
-          {/* Update Email */}
-          <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Update Email</h3>
-            <form onSubmit={(e) => void handleUpdateEmail(e)} className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="new@email.com"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="submit" size="sm" disabled={saving}>
-                {saving ? "Saving..." : "Update"}
+              <Button type="submit" size="sm" disabled={saving || !displayName.trim()}>
+                {saving ? "Saving..." : "Save"}
               </Button>
             </form>
           </div>
@@ -291,6 +296,77 @@ export default function SettingsPage() {
 
       {tab === "account" && (
         <div className="space-y-4">
+          {/* Connected Google Accounts */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Link2 size={16} className="text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Connected Google Accounts</h3>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Connect multiple Google accounts to pull calendar, drive, docs, and email from each into one view.
+            </p>
+
+            {linkedAccounts.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {linkedAccounts.map((account) => (
+                  <div key={account.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <Avatar
+                      name={account.display_name}
+                      email={account.email}
+                      avatarUrl={account.avatar_url}
+                      size="sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
+                        {account.display_name || account.email}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{account.email}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {account.scope.includes("calendar") && (
+                        <span title="Calendar" className="p-1 text-blue-500"><Calendar size={12} /></span>
+                      )}
+                      {account.scope.includes("drive") && (
+                        <span title="Drive" className="p-1 text-green-500"><FileText size={12} /></span>
+                      )}
+                      {account.scope.includes("gmail") && (
+                        <span title="Gmail" className="p-1 text-red-500"><Mail size={12} /></span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => void handleUnlinkAccount(account.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title="Disconnect account"
+                    >
+                      <Unlink size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleLinkGoogle}
+              disabled={linkingLoading}
+            >
+              {linkingLoading ? (
+                <>
+                  <RefreshCw size={14} className="mr-1 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Link2 size={14} className="mr-1" />
+                  Connect Google Account
+                </>
+              )}
+            </Button>
+          </div>
+
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Change Password</h3>
             <form onSubmit={(e) => void handleUpdatePassword(e)} className="space-y-3">
