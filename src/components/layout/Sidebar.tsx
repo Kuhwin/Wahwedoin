@@ -17,9 +17,13 @@ import {
   Plus,
   X,
   FolderKanban,
+  MoreVertical,
+  Trash2,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import type { User } from "@supabase/supabase-js";
 import type { Team, Project } from "@/lib/types";
 
@@ -57,6 +61,8 @@ export default function Sidebar({
   const [newTeamDesc, setNewTeamDesc] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
   const [teamError, setTeamError] = useState("");
+  const [teamMenuOpen, setTeamMenuOpen] = useState<string | null>(null);
+  const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<TeamWithProjects | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -216,6 +222,18 @@ export default function Sidebar({
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/auth/login");
+  }
+
+  async function handleDeleteTeam() {
+    if (!confirmDeleteTeam) return;
+    const { error } = await supabase.from("teams").delete().eq("id", confirmDeleteTeam.id);
+    if (error) {
+      alert("Failed to delete team: " + error.message);
+      return;
+    }
+    setTeams(teams.filter((t) => t.id !== confirmDeleteTeam.id));
+    setConfirmDeleteTeam(null);
+    setTeamMenuOpen(null);
   }
 
   const navItems = [
@@ -399,7 +417,7 @@ export default function Sidebar({
               const isTeamExpanded = expandedTeams.has(team.id);
               const teamActive = pathname.startsWith(`/teams/${team.id}`);
               return (
-                <div key={team.id}>
+                <div key={team.id} className="group">
                   {expanded ? (
                     <div className="flex items-center gap-0">
                       <button
@@ -427,6 +445,25 @@ export default function Sidebar({
                           {team.projects.length}
                         </span>
                       </Link>
+                      <div className="relative">
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTeamMenuOpen(teamMenuOpen === team.id ? null : team.id); }}
+                          className="p-1 rounded text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-all dark:text-slate-500 dark:hover:text-slate-300"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+                        {teamMenuOpen === team.id && (
+                          <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[140px]">
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDeleteTeam(team); setTeamMenuOpen(null); }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 size={12} />
+                              Delete Team
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <Link
@@ -617,6 +654,23 @@ export default function Sidebar({
           </div>
         </>
       )}
+
+      {/* Delete Team Confirmation */}
+      <Modal open={!!confirmDeleteTeam} onClose={() => setConfirmDeleteTeam(null)} title="Delete Team">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Are you sure you want to delete <strong>{confirmDeleteTeam?.name}</strong>? This will permanently remove the team, all its projects, tasks, and members.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmDeleteTeam(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void handleDeleteTeam()}>
+              Delete Team
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
