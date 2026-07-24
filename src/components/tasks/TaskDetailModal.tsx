@@ -108,7 +108,7 @@ export default function TaskDetailModal({
         .select("tag_id")
         .eq("task_id", task!.id);
       if (tagLinks && tagLinks.length > 0) {
-        const tagIds = tagLinks.map((l) => l.tag_id);
+        const tagIds = tagLinks.map((l: { tag_id: string }) => l.tag_id);
         const { data: tagsData } = await supabase
           .from("tags")
           .select("*")
@@ -156,7 +156,7 @@ export default function TaskDetailModal({
     const { data, error } = await supabase
       .from("task_comments")
       .insert({
-        task_id: task.id,
+        task_id: task!.id,
         user_id: user?.id,
         body: newComment.trim(),
       })
@@ -178,7 +178,7 @@ export default function TaskDetailModal({
 
   // --- Title / Description ---
   async function handleSaveEdit() {
-    await onUpdate(task.id, {
+    await onUpdate(task!.id, {
       title: editTitle,
       description: editDesc || null,
     });
@@ -192,12 +192,12 @@ export default function TaskDetailModal({
     const { data, error } = await supabase
       .from("tasks")
       .insert({
-        project_id: task.project_id,
+        project_id: task!.project_id,
         title: newSubtask.trim(),
         status: "todo",
         priority: "medium",
         position: maxPos + 1,
-        parent_id: task.id,
+        parent_id: task!.id,
         created_by: currentUserId,
       })
       .select()
@@ -229,7 +229,7 @@ export default function TaskDetailModal({
     if (taskTags.some((t) => t.id === tagId)) return;
     const { error } = await supabase
       .from("task_tags")
-      .insert({ task_id: task.id, tag_id: tagId });
+      .insert({ task_id: task!.id, tag_id: tagId });
 
     if (!error) {
       const tag = availableTags.find((t) => t.id === tagId);
@@ -242,7 +242,7 @@ export default function TaskDetailModal({
     const { error } = await supabase
       .from("task_tags")
       .delete()
-      .eq("task_id", task.id)
+      .eq("task_id", task!.id)
       .eq("tag_id", tagId);
 
     if (!error) {
@@ -276,7 +276,7 @@ export default function TaskDetailModal({
       .single();
 
     if (tag && !error) {
-      await supabase.from("task_tags").insert({ task_id: task.id, tag_id: tag.id });
+      await supabase.from("task_tags").insert({ task_id: task!.id, tag_id: tag.id });
       setTaskTags([...taskTags, tag]);
       setNewTagName("");
       setCreatingTag(false);
