@@ -30,7 +30,7 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
   const [showLinkCal, setShowLinkCal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [, setSelectedDate] = useState<string>("");
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newTeamId, setNewTeamId] = useState("");

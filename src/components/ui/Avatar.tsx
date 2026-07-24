@@ -4,7 +4,7 @@ interface AvatarProps {
   name?: string | null;
   email: string;
   avatarUrl?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
@@ -43,6 +43,7 @@ function getInitials(name: string | null | undefined, email: string) {
 
 export default function Avatar({ name, email, avatarUrl, size = "md", className }: AvatarProps) {
   const sizeClasses = {
+    xs: "h-5 w-5 text-[8px]",
     sm: "h-6 w-6 text-[10px]",
     md: "h-8 w-8 text-xs",
     lg: "h-10 w-10 text-sm",
