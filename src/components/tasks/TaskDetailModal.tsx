@@ -14,6 +14,10 @@ import {
   User,
   Calendar,
   Columns3,
+  Paperclip,
+  Upload,
+  File,
+  Download,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -26,6 +30,7 @@ import {
   type Activity,
   type Section,
   type TeamMember,
+  type TaskAttachment,
 } from "@/lib/types";
 import { formatRelativeTime, cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -78,6 +83,9 @@ export default function TaskDetailModal({
   const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const assigneeDropdownRef = useRef<HTMLDivElement>(null);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -130,6 +138,13 @@ export default function TaskDetailModal({
         .order("created_at", { ascending: false })
         .limit(30);
       if (activityData) setActivities(activityData);
+
+      const { data: attachData } = await supabase
+        .from("task_attachments")
+        .select("*")
+        .eq("task_id", task!.id)
+        .order("created_at", { ascending: false });
+      if (attachData) setAttachments(attachData);
     }
 
     void loadAll();
@@ -215,6 +230,69 @@ export default function TaskDetailModal({
     }
   }
 
+  async function handleUploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !task) return;
+    setUploading(true);
+
+    const ext = file.name.split(".").pop() || "";
+    const filePath = `${task.id}/${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("task-attachments")
+      .upload(filePath, file, { contentType: file.type });
+
+    if (uploadError) {
+      setUploading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("task_attachments")
+      .insert({
+        task_id: task.id,
+        user_id: currentUserId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        mime_type: file.type,
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setAttachments([data, ...attachments]);
+      if (currentUserId) {
+        logActivity({ project_id: task.project_id, user_id: currentUserId, action: "attached file to", detail: task.title });
+      }
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleDeleteAttachment(attachment: TaskAttachment) {
+    await supabase.storage.from("task-attachments").remove([attachment.file_path]);
+    const { error } = await supabase.from("task_attachments").delete().eq("id", attachment.id);
+    if (!error) {
+      setAttachments(attachments.filter((a) => a.id !== attachment.id));
+    }
+  }
+
+  async function handleDownloadAttachment(attachment: TaskAttachment) {
+    const { data } = await supabase.storage
+      .from("task-attachments")
+      .createSignedUrl(attachment.file_path, 60);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, "_blank");
+    }
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   async function handleSaveEdit() {
     await onUpdate(task!.id, {
       title: editTitle,
@@ -248,6 +326,13 @@ export default function TaskDetailModal({
       if (currentUserId) {
         logActivity({ project_id: task!.project_id, user_id: currentUserId, action: "added subtask to", detail: task!.title });
       }
+    }
+  }
+
+  async function handleDeleteSubtask(subtaskId: string) {
+    const { error } = await supabase.from("tasks").delete().eq("id", subtaskId);
+    if (!error) {
+      setSubtasks(subtasks.filter((s) => s.id !== subtaskId));
     }
   }
 
@@ -590,6 +675,12 @@ export default function TaskDetailModal({
                 >
                   {subtask.title}
                 </span>
+                <button
+                  onClick={() => void handleDeleteSubtask(subtask.id)}
+                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 transition-opacity shrink-0"
+                >
+                  <Trash2 size={10} />
+                </button>
               </div>
             ))}
           </div>
@@ -618,6 +709,61 @@ export default function TaskDetailModal({
               <Plus size={14} />
             </Button>
           </form>
+        </div>
+
+        {/* Attachments */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Paperclip size={16} className="text-slate-400" />
+              <h3 className="text-sm font-semibold text-slate-700">Attachments</h3>
+              {attachments.length > 0 && (
+                <span className="text-xs text-slate-400">{attachments.length}</span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => void handleUploadFile(e)}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+            >
+              <Upload size={12} />
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+
+          {attachments.length > 0 && (
+            <div className="space-y-1">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                >
+                  <File size={14} className="text-slate-400 shrink-0" />
+                  <button
+                    onClick={() => void handleDownloadAttachment(att)}
+                    className="flex-1 text-sm text-slate-700 hover:text-indigo-600 truncate text-left transition-colors"
+                  >
+                    {att.file_name}
+                  </button>
+                  <span className="text-[10px] text-slate-400 shrink-0">
+                    {formatFileSize(att.file_size)}
+                  </span>
+                  <button
+                    onClick={() => void handleDeleteAttachment(att)}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 hover:text-red-500 transition-opacity shrink-0"
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tags */}

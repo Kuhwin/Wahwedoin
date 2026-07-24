@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
@@ -43,6 +43,10 @@ export default function ProjectPage() {
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const supabase = createClient();
   const projectId = params.projectId as string;
 
@@ -338,6 +342,29 @@ export default function ProjectPage() {
     return "in_progress";
   }
 
+  const subtaskCounts: Record<string, { total: number; done: number }> = {};
+  tasks.forEach((t) => {
+    if (t.parent_id) {
+      if (!subtaskCounts[t.parent_id]) {
+        subtaskCounts[t.parent_id] = { total: 0, done: 0 };
+      }
+      subtaskCounts[t.parent_id].total++;
+      if (t.status === "done") subtaskCounts[t.parent_id].done++;
+    }
+  });
+
+  const parentTasks = tasks.filter((t) => !t.parent_id);
+
+  const filteredTasks = parentTasks.filter((t) => {
+    if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+    if (filterStatus !== "all" && t.status !== filterStatus) return false;
+    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+    if (filterAssignee !== "all" && t.assignee_id !== filterAssignee) return false;
+    return true;
+  });
+
+  const hasActiveFilters = filterSearch || filterStatus !== "all" || filterPriority !== "all" || filterAssignee !== "all";
+
   if (loading || !project) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -432,11 +459,73 @@ export default function ProjectPage() {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white border border-slate-200 rounded-xl">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="all">All Status</option>
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value)}
+          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="all">All Priority</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+        <select
+          value={filterAssignee}
+          onChange={(e) => setFilterAssignee(e.target.value)}
+          className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          <option value="all">All Assignees</option>
+          {members.map((m) => (
+            <option key={m.user_id} value={m.user_id}>
+              {memberProfiles[m.user_id] || m.user_email || m.user_id}
+            </option>
+          ))}
+        </select>
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setFilterSearch(""); setFilterStatus("all"); setFilterPriority("all"); setFilterAssignee("all"); }}
+            className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <X size={12} />
+            Clear
+          </button>
+        )}
+        {hasActiveFilters && (
+          <span className="text-xs text-slate-400">
+            {filteredTasks.length} of {parentTasks.length} tasks
+          </span>
+        )}
+      </div>
+
       {/* Board / List */}
       {view === "board" ? (
         <KanbanBoard
-          tasks={tasks}
+          tasks={filteredTasks}
           sections={sections}
+          subtaskCounts={subtaskCounts}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onAddTask={handleAddTaskFromBoard}
@@ -449,7 +538,7 @@ export default function ProjectPage() {
         />
       ) : (
         <ListView
-          tasks={tasks}
+          tasks={filteredTasks}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onTaskClick={setSelectedTask}

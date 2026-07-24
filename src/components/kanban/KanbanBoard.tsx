@@ -26,6 +26,7 @@ import Button from "@/components/ui/Button";
 interface KanbanBoardProps {
   tasks: Task[];
   sections: Section[];
+  subtaskCounts?: Record<string, { total: number; done: number }>;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddTask?: (task: Partial<Task>) => Promise<void>;
@@ -63,6 +64,7 @@ function getStatusForSection(
 export default function KanbanBoard({
   tasks,
   sections,
+  subtaskCounts = {},
   onUpdateTask,
   onDeleteTask,
   onAddTask,
@@ -478,6 +480,12 @@ export default function KanbanBoard({
                                             month: "short",
                                             day: "numeric",
                                           })}
+                                        </span>
+                                      )}
+                                      {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
+                                        <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                          <Check size={8} />
+                                          {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
                                         </span>
                                       )}
                                     </div>
