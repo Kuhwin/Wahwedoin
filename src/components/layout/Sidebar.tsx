@@ -51,6 +51,7 @@ export default function Sidebar({
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState("");
+  const [quickAddProjectId, setQuickAddProjectId] = useState("");
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
@@ -109,12 +110,13 @@ export default function Sidebar({
   }
 
   async function handleQuickAdd() {
-    if (!quickAddTitle.trim()) return;
+    if (!quickAddTitle.trim() || !quickAddProjectId) return;
     setQuickAddLoading(true);
 
     try {
       const { error } = await supabase.from("tasks").insert({
         title: quickAddTitle.trim(),
+        project_id: quickAddProjectId,
         assignee_id: user.id,
         created_by: user.id,
         status: "todo",
@@ -124,8 +126,9 @@ export default function Sidebar({
 
       if (!error) {
         setQuickAddTitle("");
+        setQuickAddProjectId("");
         setShowQuickAdd(false);
-        logActivity({ user_id: user.id, action: "created task via quick add", detail: quickAddTitle.trim() });
+        logActivity({ user_id: user.id, project_id: quickAddProjectId, action: "created task via quick add", detail: quickAddTitle.trim() });
       }
     } catch {
       // Silently fail
@@ -248,7 +251,7 @@ export default function Sidebar({
       {expanded && (
         <div className="px-3 pb-2">
           {showQuickAdd ? (
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+            <div className="space-y-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
               <input
                 autoFocus
                 type="text"
@@ -256,29 +259,44 @@ export default function Sidebar({
                 value={quickAddTitle}
                 onChange={(e) => setQuickAddTitle(e.target.value)}
                 onKeyDown={handleQuickAddKeyDown}
-                className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none"
+                className="w-full bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none"
               />
-              <button
-                onClick={() => void handleQuickAdd()}
-                disabled={quickAddLoading || !quickAddTitle.trim()}
-                className={cn(
-                  "p-1 rounded-md transition-colors",
-                  quickAddTitle.trim()
-                    ? "text-indigo-600 hover:bg-indigo-50"
-                    : "text-slate-300"
+              <select
+                value={quickAddProjectId}
+                onChange={(e) => setQuickAddProjectId(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">Select project...</option>
+                {teams.flatMap((team) =>
+                  team.projects.map((p) => (
+                    <option key={p.id} value={p.id}>{team.name} / {p.name}</option>
+                  ))
                 )}
-              >
-                <Send size={14} />
-              </button>
-              <button
-                onClick={() => {
-                  setShowQuickAdd(false);
-                  setQuickAddTitle("");
-                }}
-                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 transition-colors"
-              >
-                <X size={14} />
-              </button>
+              </select>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => void handleQuickAdd()}
+                  disabled={quickAddLoading || !quickAddTitle.trim() || !quickAddProjectId}
+                  className={cn(
+                    "px-2 py-1 text-xs font-medium rounded-md transition-colors",
+                    quickAddTitle.trim() && quickAddProjectId
+                      ? "text-white bg-indigo-600 hover:bg-indigo-700"
+                      : "text-slate-300 bg-slate-100 cursor-not-allowed"
+                  )}
+                >
+                  {quickAddLoading ? "Adding..." : "Add"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowQuickAdd(false);
+                    setQuickAddTitle("");
+                    setQuickAddProjectId("");
+                  }}
+                  className="px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : (
             <button

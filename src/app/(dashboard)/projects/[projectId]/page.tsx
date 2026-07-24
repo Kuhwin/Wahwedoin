@@ -256,6 +256,34 @@ export default function ProjectPage() {
     }
   }
 
+  async function handleAddTaskFromBoard(updates: Partial<Task>) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const maxPos = tasks.length > 0 ? Math.max(...tasks.map((t) => t.position)) + 1 : 0;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        project_id: projectId,
+        title: updates.title || "Untitled",
+        priority: updates.priority || "medium",
+        assignee_id: updates.assignee_id || null,
+        due_date: updates.due_date || null,
+        section_id: updates.section_id || null,
+        position: updates.position ?? maxPos,
+        status: updates.status || "todo",
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setTasks([...tasks, data]);
+      if (user?.id) {
+        logActivity({ project_id: projectId, user_id: user.id, action: "created task", detail: data.title });
+      }
+    }
+  }
+
   async function handleArchiveProject() {
     if (!project) return;
     await supabase.from("projects").update({ status: project.status === "archived" ? "active" : "archived" }).eq("id", projectId);
@@ -411,6 +439,7 @@ export default function ProjectPage() {
           sections={sections}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
+          onAddTask={handleAddTaskFromBoard}
           onAddSection={handleAddSection}
           onUpdateSection={handleUpdateSection}
           onDeleteSection={handleDeleteSection}

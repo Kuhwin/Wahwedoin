@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Calendar, Plus, Trash2, ExternalLink, Clock } from "lucide-react";
+import { Calendar, Plus, Trash2, ExternalLink, Clock, Repeat, CalendarDays } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -18,9 +18,17 @@ interface TeamMeetingsProps {
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function getNextOccurrence(meeting: TeamMeeting): Date | null {
-  if (meeting.day_of_week === null || !meeting.time) return null;
   const now = new Date();
-  const [hours, minutes] = meeting.time.split(":").map(Number);
+  const [hours, minutes] = (meeting.time || "09:00").split(":").map(Number);
+
+  if (meeting.meeting_date) {
+    const target = new Date(meeting.meeting_date);
+    target.setHours(hours, minutes, 0, 0);
+    if (target > now) return target;
+    return null;
+  }
+
+  if (meeting.day_of_week === null || !meeting.time) return null;
   const target = new Date();
   target.setHours(hours, minutes, 0, 0);
   const diff = (meeting.day_of_week - now.getDay() + 7) % 7;
@@ -40,16 +48,23 @@ function formatCountdown(date: Date): string {
   return `in ${mins}m`;
 }
 
+function formatMeetingDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeetingsProps) {
   const [meetings, setMeetings] = useState<TeamMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDay, setNewDay] = useState<string>("");
+  const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
   const [newDuration, setNewDuration] = useState("30");
   const [newMeetUrl, setNewMeetUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [meetingType, setMeetingType] = useState<"recurring" | "onetime">("recurring");
   const supabase = createClient();
 
   const loadMeetings = useCallback(async () => {
@@ -69,6 +84,8 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
 
   async function handleCreate() {
     if (!newName.trim()) return;
+    if (meetingType === "onetime" && !newDate) return;
+    if (meetingType === "recurring" && newDay === "") return;
     setSaving(true);
 
     const { data, error } = await supabase
@@ -76,7 +93,9 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
       .insert({
         team_id: teamId,
         name: newName.trim(),
-        day_of_week: newDay !== "" ? Number(newDay) : null,
+        day_of_week: meetingType === "recurring" ? Number(newDay) : null,
+        meeting_date: meetingType === "onetime" ? newDate : null,
+        is_recurring: meetingType === "recurring",
         time: newTime || null,
         duration_minutes: Number(newDuration) || 30,
         meet_url: newMeetUrl.trim() || null,
@@ -88,13 +107,19 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
     if (data && !error) {
       setMeetings([...meetings, data]);
       setShowCreate(false);
-      setNewName("");
-      setNewDay("");
-      setNewTime("");
-      setNewDuration("30");
-      setNewMeetUrl("");
+      resetForm();
     }
     setSaving(false);
+  }
+
+  function resetForm() {
+    setNewName("");
+    setNewDay("");
+    setNewDate("");
+    setNewTime("");
+    setNewDuration("30");
+    setNewMeetUrl("");
+    setMeetingType("recurring");
   }
 
   async function handleDelete(id: string) {
@@ -128,7 +153,10 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
           {nextMeeting && (
             <p className="text-sm text-slate-600">
               Next: <span className="font-medium text-indigo-600">{nextMeeting.name}</span>
-              {" "} — {DAYS[nextMeeting.day_of_week!]} at {nextMeeting.time}
+              {" "} — {nextMeeting.meeting_date
+                ? formatMeetingDate(nextMeeting.meeting_date)
+                : DAYS[nextMeeting.day_of_week!]}
+              {nextMeeting.time && ` at ${nextMeeting.time}`}
               <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
                 <Clock size={10} /> {formatCountdown(getNextOccurrence(nextMeeting)!)}
               </span>
@@ -144,20 +172,37 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
       {meetings.length === 0 ? (
         <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
           <Calendar size={40} className="text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 mb-3">No recurring meetings set up</p>
+          <p className="text-sm text-slate-500 mb-3">No meetings scheduled</p>
           <Button onClick={() => setShowCreate(true)} size="sm"><Plus size={14} /> Add Meeting</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {sorted.map((meeting) => {
             const next = getNextOccurrence(meeting);
+            const isRecurring = meeting.is_recurring !== false && meeting.day_of_week !== null && !meeting.meeting_date;
             return (
               <div key={meeting.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-200 transition-all group">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-medium text-slate-900">{meeting.name}</h4>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-slate-900">{meeting.name}</h4>
+                      <span className={cn(
+                        "text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
+                        isRecurring ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
+                      )}>
+                        {isRecurring ? (
+                          <span className="flex items-center gap-0.5"><Repeat size={8} /> Weekly</span>
+                        ) : (
+                          <span className="flex items-center gap-0.5"><CalendarDays size={8} /> One-time</span>
+                        )}
+                      </span>
+                    </div>
                     <p className="text-sm text-slate-500 mt-0.5">
-                      {meeting.day_of_week !== null ? DAYS[meeting.day_of_week] : "Flexible"}
+                      {meeting.meeting_date
+                        ? formatMeetingDate(meeting.meeting_date)
+                        : meeting.day_of_week !== null
+                          ? `Every ${DAYS[meeting.day_of_week]}`
+                          : "Flexible"}
                       {meeting.time && ` at ${meeting.time}`}
                       {meeting.duration_minutes && ` · ${meeting.duration_minutes}min`}
                     </p>
@@ -206,26 +251,65 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
         </div>
       )}
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Meeting">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); resetForm(); }} title="New Meeting">
         <div className="space-y-4">
           <Input label="Meeting Name" placeholder="e.g. Weekly Sync" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+
+          {/* Meeting Type Toggle */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Day of Week</label>
-            <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-              <option value="">Flexible / Not recurring</option>
-              {DAYS.map((day, i) => (
-                <option key={i} value={i}>{day}</option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-slate-700">Meeting Type</label>
+            <div className="flex bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setMeetingType("recurring")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                  meetingType === "recurring" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"
+                )}
+              >
+                <Repeat size={14} />
+                Recurring
+              </button>
+              <button
+                onClick={() => setMeetingType("onetime")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                  meetingType === "onetime" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"
+                )}
+              >
+                <CalendarDays size={14} />
+                One-time
+              </button>
+            </div>
           </div>
+
+          {meetingType === "recurring" ? (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">Day of Week</label>
+              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="">Select a day...</option>
+                {DAYS.map((day, i) => (
+                  <option key={i} value={i}>{day}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <Input
+              label="Date"
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              required
+            />
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Input label="Time" type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
             <Input label="Duration (min)" type="number" value={newDuration} onChange={(e) => setNewDuration(e.target.value)} />
           </div>
           <Input label="Google Meet Link (optional)" placeholder="https://meet.google.com/..." value={newMeetUrl} onChange={(e) => setNewMeetUrl(e.target.value)} />
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={() => void handleCreate()} disabled={saving || !newName.trim()}>
+            <Button variant="secondary" onClick={() => { setShowCreate(false); resetForm(); }}>Cancel</Button>
+            <Button onClick={() => void handleCreate()} disabled={saving || !newName.trim() || (meetingType === "onetime" && !newDate) || (meetingType === "recurring" && newDay === "")}>
               {saving ? "Creating..." : "Create Meeting"}
             </Button>
           </div>

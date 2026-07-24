@@ -28,6 +28,7 @@ interface KanbanBoardProps {
   sections: Section[];
   onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
+  onAddTask?: (task: Partial<Task>) => Promise<void>;
   onAddSection: (name: string) => Promise<void>;
   onUpdateSection: (sectionId: string, updates: Partial<Section>) => Promise<void>;
   onDeleteSection: (sectionId: string) => Promise<void>;
@@ -64,6 +65,7 @@ export default function KanbanBoard({
   sections,
   onUpdateTask,
   onDeleteTask,
+  onAddTask,
   onAddSection,
   onUpdateSection,
   onDeleteSection,
@@ -178,16 +180,26 @@ export default function KanbanBoard({
     if (!title) return;
     const status = getStatusForSection(sectionId, sections);
     const tasksInSection = tasks.filter((t) => t.section_id === sectionId);
-    await onUpdateTask(
-      crypto.randomUUID(),
-      {
+    if (onAddTask) {
+      await onAddTask({
         title,
         status,
         section_id: sectionId,
         position: tasksInSection.length,
         priority: "medium",
-      } as Partial<Task>
-    );
+      });
+    } else {
+      await onUpdateTask(
+        crypto.randomUUID(),
+        {
+          title,
+          status,
+          section_id: sectionId,
+          position: tasksInSection.length,
+          priority: "medium",
+        } as Partial<Task>
+      );
+    }
     setQuickAddTitle("");
     setQuickAddSectionId(null);
   }

@@ -163,6 +163,8 @@ export interface TeamMeeting {
   team_id: string;
   name: string;
   day_of_week: number | null;
+  meeting_date: string | null;
+  is_recurring: boolean;
   time: string | null;
   duration_minutes: number;
   meet_url: string | null;
