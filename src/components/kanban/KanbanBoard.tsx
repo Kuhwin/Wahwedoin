@@ -16,15 +16,19 @@ import {
   Check,
   X,
   MoveRight,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PRIORITY_CONFIG, type Task, type Section } from "@/lib/types";
+import { PRIORITY_CONFIG, type Task, type Section, type TeamMember } from "@/lib/types";
 import Button from "@/components/ui/Button";
+import Avatar from "@/components/ui/Avatar";
 
 interface KanbanBoardProps {
   tasks: Task[];
   sections: Section[];
   subtaskCounts?: Record<string, { total: number; done: number }>;
+  teamMembers?: TeamMember[];
+  memberProfiles?: Record<string, string>;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   onDeleteTask: (taskId: string) => Promise<void>;
   onAddTask?: (task: Partial<Task>) => Promise<void>;
@@ -34,6 +38,7 @@ interface KanbanBoardProps {
   onTaskClick?: (task: Task) => void;
   onBulkDelete?: (taskIds: string[]) => Promise<void>;
   onBulkMove?: (taskIds: string[], sectionId: string) => Promise<void>;
+  onBulkAssign?: (taskIds: string[], userId: string) => Promise<void>;
 }
 
 const PRIORITY_BORDER: Record<Task["priority"], string> = {
@@ -63,6 +68,8 @@ export default function KanbanBoard({
   tasks,
   sections,
   subtaskCounts = {},
+  teamMembers = [],
+  memberProfiles = {},
   onUpdateTask,
   onDeleteTask,
   onAddTask,
@@ -72,6 +79,7 @@ export default function KanbanBoard({
   onTaskClick,
   onBulkDelete,
   onBulkMove,
+  onBulkAssign,
 }: KanbanBoardProps) {
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
   const [menuSectionId, setMenuSectionId] = useState<string | null>(null);
@@ -84,6 +92,8 @@ export default function KanbanBoard({
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [bulkMoveSectionId, setBulkMoveSectionId] = useState<string>("");
   const [showBulkMove, setShowBulkMove] = useState(false);
+  const [bulkAssignUserId, setBulkAssignUserId] = useState<string>("");
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const addSectionInputRef = useRef<HTMLInputElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
@@ -148,6 +158,14 @@ export default function KanbanBoard({
     setSelectedTaskIds(new Set());
     setShowBulkMove(false);
     setBulkMoveSectionId("");
+  }
+
+  async function handleBulkAssign() {
+    if (!onBulkAssign || !bulkAssignUserId || selectedTaskIds.size === 0) return;
+    await onBulkAssign(Array.from(selectedTaskIds), bulkAssignUserId);
+    setSelectedTaskIds(new Set());
+    setShowBulkAssign(false);
+    setBulkAssignUserId("");
   }
 
   function handleDragEnd(result: DropResult) {
@@ -248,19 +266,31 @@ export default function KanbanBoard({
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
-                <Button
-                  variant="primary"
-                  onClick={() => void handleBulkMove()}
-                  disabled={!bulkMoveSectionId}
-                  className="!py-1 !px-2 !text-xs"
-                >
+                <Button variant="primary" onClick={() => void handleBulkMove()} disabled={!bulkMoveSectionId} className="!py-1 !px-2 !text-xs">
                   Move
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => { setShowBulkMove(false); setBulkMoveSectionId(""); }}
-                  className="!py-1 !px-2 !text-xs"
+                <Button variant="ghost" onClick={() => { setShowBulkMove(false); setBulkMoveSectionId(""); }} className="!py-1 !px-2 !text-xs">
+                  Cancel
+                </Button>
+              </div>
+            ) : showBulkAssign ? (
+              <div className="flex items-center gap-2">
+                <select
+                  value={bulkAssignUserId}
+                  onChange={(e) => setBulkAssignUserId(e.target.value)}
+                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
+                  <option value="">Select person...</option>
+                  {teamMembers.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>
+                      {memberProfiles[m.user_id] || m.user_email || m.user_id}
+                    </option>
+                  ))}
+                </select>
+                <Button variant="primary" onClick={() => void handleBulkAssign()} disabled={!bulkAssignUserId} className="!py-1 !px-2 !text-xs">
+                  Assign
+                </Button>
+                <Button variant="ghost" onClick={() => { setShowBulkAssign(false); setBulkAssignUserId(""); }} className="!py-1 !px-2 !text-xs">
                   Cancel
                 </Button>
               </div>
@@ -273,6 +303,15 @@ export default function KanbanBoard({
                   <MoveRight size={12} />
                   Move to...
                 </button>
+                {onBulkAssign && teamMembers.length > 0 && (
+                  <button
+                    onClick={() => setShowBulkAssign(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    <User size={12} />
+                    Assign...
+                  </button>
+                )}
                 {onBulkDelete && (
                   <button
                     onClick={() => void handleBulkDelete()}
@@ -480,6 +519,22 @@ export default function KanbanBoard({
                                           <Check size={8} />
                                           {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
                                         </span>
+                                      )}
+                                      {(task as any).assignee_ids && (task as any).assignee_ids.length > 0 && (
+                                        <div className="flex items-center -space-x-1 mt-1">
+                                          {(task as any).assignee_ids.slice(0, 3).map((uid: string) => (
+                                            <Avatar
+                                              key={uid}
+                                              name={memberProfiles[uid] || uid}
+                                              email={uid}
+                                              size="sm"
+                                              className="ring-2 ring-white"
+                                            />
+                                          ))}
+                                          {(task as any).assignee_ids.length > 3 && (
+                                            <span className="text-[10px] text-slate-400 ml-1.5">+{(task as any).assignee_ids.length - 3}</span>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
                                   </div>

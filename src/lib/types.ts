@@ -66,6 +66,13 @@ export interface Task {
   updated_at: string;
   assignee_email?: string;
   assignee_name?: string;
+  assignee_ids?: string[];
+}
+
+export interface TaskAssignee {
+  task_id: string;
+  user_id: string;
+  assigned_at: string;
 }
 
 export interface Tag {

@@ -86,6 +86,7 @@ export default function TaskDetailModal({
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [taskAssignees, setTaskAssignees] = useState<string[]>([]);
 
   useEffect(() => {
     if (!task) return;
@@ -145,6 +146,12 @@ export default function TaskDetailModal({
         .eq("task_id", task!.id)
         .order("created_at", { ascending: false });
       if (attachData) setAttachments(attachData);
+
+      const { data: assigneeData } = await supabase
+        .from("task_assignees")
+        .select("user_id")
+        .eq("task_id", task!.id);
+      if (assigneeData) setTaskAssignees(assigneeData.map((a: { user_id: string }) => a.user_id));
     }
 
     void loadAll();
@@ -408,9 +415,22 @@ export default function TaskDetailModal({
     }
   }
 
-  async function handleAssigneeChange(userId: string | null) {
-    await onUpdate(task!.id, { assignee_id: userId });
-    setShowAssigneeDropdown(false);
+  async function handleAssigneeToggle(userId: string) {
+    const isAssigned = taskAssignees.includes(userId);
+    if (isAssigned) {
+      await supabase.from("task_assignees").delete().eq("task_id", task!.id).eq("user_id", userId);
+      setTaskAssignees(taskAssignees.filter((id) => id !== userId));
+    } else {
+      await supabase.from("task_assignees").insert({ task_id: task!.id, user_id: userId });
+      setTaskAssignees([...taskAssignees, userId]);
+    }
+  }
+
+  async function handleAssignMyself() {
+    if (!currentUserId) return;
+    if (taskAssignees.includes(currentUserId)) return;
+    await supabase.from("task_assignees").insert({ task_id: task!.id, user_id: currentUserId });
+    setTaskAssignees([...taskAssignees, currentUserId]);
   }
 
   async function handleSectionChange(sectionId: string | null) {
@@ -553,72 +573,74 @@ export default function TaskDetailModal({
             </div>
           )}
 
-          {/* Assignee */}
+          {/* Assignees */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
-              <User size={12} /> Assignee
+              <User size={12} /> Assignees
             </label>
             <div className="relative" ref={assigneeDropdownRef}>
               <button
                 onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
                 className="w-full flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
-                {task.assignee_id ? (
-                  <>
-                    <Avatar
-                      name={getMemberName(task.assignee_id)}
-                      email={task.assignee_email || task.assignee_id}
-                      size="sm"
-                    />
-                    <span className="truncate text-slate-700">
-                      {getMemberName(task.assignee_id)}
-                    </span>
-                  </>
+                {taskAssignees.length > 0 ? (
+                  <div className="flex items-center -space-x-1.5">
+                    {taskAssignees.slice(0, 3).map((uid) => (
+                      <Avatar key={uid} name={getMemberName(uid)} email={uid} size="sm" className="ring-2 ring-slate-50" />
+                    ))}
+                    {taskAssignees.length > 3 && (
+                      <span className="text-[10px] text-slate-500 ml-2">+{taskAssignees.length - 3}</span>
+                    )}
+                  </div>
                 ) : (
                   <span className="text-slate-400 italic">Unassigned</span>
                 )}
               </button>
 
               {showAssigneeDropdown && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-48 overflow-y-auto">
-                  <button
-                    onClick={() => handleAssigneeChange(null)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 text-left"
-                  >
-                    <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-400">
-                      ?
-                    </span>
-                    Unassigned
-                  </button>
-                  {memberProfiles.map((member) => (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto">
+                  {currentUserId && (
                     <button
-                      key={member.user_id}
-                      onClick={() => handleAssigneeChange(member.user_id)}
+                      onClick={() => void handleAssignMyself()}
+                      disabled={taskAssignees.includes(currentUserId)}
                       className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
-                        task.assignee_id === member.user_id && "bg-indigo-50"
+                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-left border-b border-slate-100 transition-colors",
+                        taskAssignees.includes(currentUserId)
+                          ? "text-slate-400 cursor-not-allowed"
+                          : "text-indigo-600 hover:bg-indigo-50 font-medium"
                       )}
                     >
-                      <Avatar
-                        name={member.display_name}
-                        email={member.user_email || member.user_id}
-                        size="sm"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-700 truncate">
-                          {member.display_name || member.user_email || "Unknown"}
-                        </p>
-                        {member.display_name && member.user_email && (
-                          <p className="text-[11px] text-slate-400 truncate">
-                            {member.user_email}
-                          </p>
-                        )}
-                      </div>
-                      {task.assignee_id === member.user_id && (
-                        <Check size={14} className="ml-auto text-indigo-600 shrink-0" />
-                      )}
+                      <User size={14} />
+                      {taskAssignees.includes(currentUserId) ? "Already assigned" : "Assign myself"}
                     </button>
-                  ))}
+                  )}
+                  {memberProfiles.map((member) => {
+                    const isAssigned = taskAssignees.includes(member.user_id);
+                    return (
+                      <button
+                        key={member.user_id}
+                        onClick={() => void handleAssigneeToggle(member.user_id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
+                          isAssigned && "bg-indigo-50"
+                        )}
+                      >
+                        <Avatar
+                          name={member.display_name}
+                          email={member.user_email || member.user_id}
+                          size="sm"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-slate-700 truncate">
+                            {member.display_name || member.user_email || "Unknown"}
+                          </p>
+                        </div>
+                        {isAssigned && (
+                          <Check size={14} className="text-indigo-600 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

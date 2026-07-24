@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import MobileNav from "@/components/layout/MobileNav";
+import { ToastProvider } from "@/components/ui/Toast";
 import type { User } from "@supabase/supabase-js";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -90,6 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-slate-50">
       <Sidebar
         user={user!}
@@ -148,5 +150,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
     </div>
+    </ToastProvider>
   );
 }

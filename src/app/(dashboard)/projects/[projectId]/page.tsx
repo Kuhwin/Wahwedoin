@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X } from "lucide-react";
@@ -12,6 +12,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
+import { useToast } from "@/components/ui/Toast";
 import { type Project, type Task, type Section, type TeamMember, type Tag } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -39,6 +40,10 @@ export default function ProjectPage() {
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskSection, setNewTaskSection] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { addToast } = useToast();
+
+  const selectedTaskRef = useRef(selectedTask);
+  selectedTaskRef.current = selectedTask;
   const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -132,6 +137,31 @@ export default function ProjectPage() {
     void loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable) return;
+
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setShowAddTask(true);
+      }
+      if (e.key === "Escape") {
+        setSelectedTask(null);
+        setShowAddTask(false);
+      }
+      const st = selectedTaskRef.current;
+      if (st) {
+        if (e.key === "1") void handleUpdateTask(st.id, { priority: "low" });
+        if (e.key === "2") void handleUpdateTask(st.id, { priority: "medium" });
+        if (e.key === "3") void handleUpdateTask(st.id, { priority: "high" });
+        if (e.key === "4") void handleUpdateTask(st.id, { priority: "urgent" });
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleUpdateTask]);
+
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -210,6 +240,14 @@ export default function ProjectPage() {
       if (currentUser) {
         logActivity({ project_id: projectId, user_id: currentUser, action: "deleted task", detail: task?.title });
       }
+      addToast(
+        `Deleted "${task?.title || "task"}"`,
+        "success",
+        async () => {
+          const { data, error: restoreError } = await supabase.from("tasks").insert(task).select().single();
+          if (data && !restoreError) setTasks((prev) => [...prev, data]);
+        },
+      );
     }
   }
 
@@ -304,6 +342,7 @@ export default function ProjectPage() {
   }
 
   async function handleBulkDelete(taskIds: string[]) {
+    const deletedTasks = tasks.filter((t) => taskIds.includes(t.id));
     const { error } = await supabase.from("tasks").delete().in("id", taskIds);
     if (!error) {
       setTasks((prev) => prev.filter((t) => !taskIds.includes(t.id)));
@@ -311,6 +350,16 @@ export default function ProjectPage() {
       if (currentUser) {
         logActivity({ project_id: projectId, user_id: currentUser, action: `deleted ${taskIds.length} tasks`, detail: "" });
       }
+      addToast(
+        `Deleted ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""}`,
+        "success",
+        async () => {
+          for (const t of deletedTasks) {
+            const { data } = await supabase.from("tasks").insert(t).select().single();
+            if (data) setTasks((prev) => [...prev, data]);
+          }
+        },
+      );
     }
   }
 
@@ -330,6 +379,23 @@ export default function ProjectPage() {
         const sectionName = sections.find((s) => s.id === sectionId)?.name || "section";
         logActivity({ project_id: projectId, user_id: currentUser, action: `moved ${taskIds.length} tasks to`, detail: sectionName });
       }
+    }
+  }
+
+  async function handleBulkAssign(taskIds: string[], userId: string) {
+    for (const taskId of taskIds) {
+      await supabase.from("task_assignees").upsert({ task_id: taskId, user_id: userId }, { onConflict: "task_id,user_id" });
+    }
+    setTasks((prev) =>
+      prev.map((t) =>
+        taskIds.includes(t.id)
+          ? { ...t, assignee_ids: [...new Set([...((t as any).assignee_ids || []), userId])] }
+          : t
+      )
+    );
+    if (currentUser) {
+      const assigneeName = memberProfiles[userId] || userId;
+      logActivity({ project_id: projectId, user_id: currentUser, action: `assigned ${assigneeName} to`, detail: `${taskIds.length} tasks` });
     }
   }
 
@@ -526,6 +592,8 @@ export default function ProjectPage() {
           tasks={filteredTasks}
           sections={sections}
           subtaskCounts={subtaskCounts}
+          teamMembers={members}
+          memberProfiles={memberProfiles}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onAddTask={handleAddTaskFromBoard}
@@ -535,6 +603,7 @@ export default function ProjectPage() {
           onTaskClick={setSelectedTask}
           onBulkDelete={handleBulkDelete}
           onBulkMove={handleBulkMove}
+          onBulkAssign={handleBulkAssign}
         />
       ) : (
         <ListView
