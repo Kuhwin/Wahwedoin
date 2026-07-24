@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityType[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
@@ -52,7 +53,21 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(15);
 
-        if (actData) setActivities(actData);
+        if (actData) {
+          setActivities(actData);
+          const userIds = [...new Set(actData.map((a: ActivityType) => a.user_id).filter(Boolean))];
+          if (userIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from("user_profiles")
+              .select("user_id, display_name")
+              .in("user_id", userIds);
+            if (profiles) {
+              const map: Record<string, string> = {};
+              profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+              setUserNames(map);
+            }
+          }
+        }
 
         void checkDueDateNotifications();
       } catch {
@@ -269,7 +284,7 @@ export default function DashboardPage() {
               activities.map((act) => (
                 <div key={act.id} className="p-3">
                   <p className="text-sm text-slate-700">
-                    <span className="font-medium">{act.user_email?.split("@")[0] || "Someone"}</span>
+                    <span className="font-medium">{userNames[act.user_id] || "Someone"}</span>
                     {" "}{act.action}
                     {act.detail && <span className="font-medium"> {act.detail}</span>}
                   </p>
