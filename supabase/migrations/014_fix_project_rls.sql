@@ -1,5 +1,19 @@
--- Fix project RLS: allow operations on personal projects (team_id IS NULL)
--- or if user is a team member/admin
+-- Fix project RLS: allow any team member to manage their projects
+-- and allow personal projects (team_id IS NULL) too
+
+-- SELECT
+DROP POLICY IF EXISTS "Users can view their team projects" ON projects;
+CREATE POLICY "Users can view their team projects"
+  ON projects FOR SELECT
+  TO authenticated
+  USING (
+    team_id IS NULL
+    OR
+    team_id IN (
+      SELECT team_id FROM team_members
+      WHERE user_id = auth.uid()
+    )
+  );
 
 -- INSERT
 DROP POLICY IF EXISTS "Team members can create projects" ON projects;
@@ -31,7 +45,7 @@ CREATE POLICY "Team members can update projects"
 
 -- DELETE
 DROP POLICY IF EXISTS "Team admins can delete projects" ON projects;
-CREATE POLICY "Team admins can delete projects"
+CREATE POLICY "Team members can delete projects"
   ON projects FOR DELETE
   TO authenticated
   USING (
@@ -39,6 +53,6 @@ CREATE POLICY "Team admins can delete projects"
     OR
     team_id IN (
       SELECT team_id FROM team_members
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
+      WHERE user_id = auth.uid() AND role IN ('owner', 'admin', 'member')
     )
   );

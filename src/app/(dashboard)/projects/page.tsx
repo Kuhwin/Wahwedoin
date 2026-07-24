@@ -98,10 +98,13 @@ export default function ProjectsPage() {
 
   async function handleDelete(project: Project) {
     const { error } = await supabase.from("projects").delete().eq("id", project.id);
-    if (!error) {
-      setProjects(projects.filter((p) => p.id !== project.id));
-      setConfirmDelete(null);
+    if (error) {
+      console.error("Delete project error:", error);
+      alert("Failed to delete project: " + error.message);
+      return;
     }
+    setProjects(projects.filter((p) => p.id !== project.id));
+    setConfirmDelete(null);
     setMenuOpen(null);
   }
 
