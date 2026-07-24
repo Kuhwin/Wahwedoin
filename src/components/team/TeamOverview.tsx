@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { FolderKanban, Clock, AlertCircle, CheckCircle2, Plus } from "lucide-react";
+import { FolderKanban, Clock, AlertCircle, CheckCircle2, Plus, ChevronRight, ChevronDown } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import { type Project, type Task, type TeamMember, type Activity } from "@/lib/types";
@@ -21,6 +21,10 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   const [activities, setActivities] = useState<Activity[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [allActivities, setAllActivities] = useState<Activity[]>([]);
+  const [allUserNames, setAllUserNames] = useState<Record<string, string>>({});
+  const [allActivitiesLoading, setAllActivitiesLoading] = useState(false);
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
@@ -47,7 +51,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
       .select("*")
       .or(`team_id.eq.${teamId},project_id.in.(${(projectsData || []).map((p: Project) => p.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(7);
 
     if (actData) {
       setActivities(actData);
@@ -70,6 +74,38 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  async function loadAllActivities() {
+    setAllActivitiesLoading(true);
+    const { data: projectsData } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("team_id", teamId);
+    const projectIds = (projectsData || []).map((p: { id: string }) => p.id);
+
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .or(`team_id.eq.${teamId},project_id.in.(${projectIds.join(",") || "00000000-0000-0000-0000-000000000000"})`)
+      .order("created_at", { ascending: false });
+    if (data) {
+      setAllActivities(data);
+      const userIds = [...new Set(data.map((a: Activity) => a.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("user_profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+        if (profiles) {
+          const map: Record<string, string> = {};
+          profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+          setAllUserNames(map);
+        }
+      }
+    }
+    setAllActivitiesLoading(false);
+    setShowAllActivities(true);
+  }
 
   if (loading) {
     return (
@@ -218,18 +254,37 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
               {activities.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">No activity yet</p>
               ) : (
-                activities.map((act) => (
-                  <div key={act.id} className="p-3">
-                    <p className="text-sm text-slate-700">
-                      <span className="font-medium">{userNames[act.user_id] || "Someone"}</span>
-                      {" "}{act.action}
-                      {act.detail && <span className="font-medium"> {act.detail}</span>}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {new Date(act.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </p>
-                  </div>
-                ))
+                <>
+                  {(showAllActivities ? allActivities : activities).map((act) => (
+                    <div key={act.id} className="p-3">
+                      <p className="text-sm text-slate-700">
+                        <span className="font-medium">{(showAllActivities ? allUserNames : userNames)[act.user_id] || "Someone"}</span>
+                        {" "}{act.action}
+                        {act.detail && <span className="font-medium"> {act.detail}</span>}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {new Date(act.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    </div>
+                  ))}
+                  {!showAllActivities ? (
+                    <button
+                      onClick={() => void loadAllActivities()}
+                      disabled={allActivitiesLoading}
+                      className="w-full p-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
+                    >
+                      {allActivitiesLoading ? "Loading..." : "View all activity"}
+                      <ChevronRight size={14} />
+                    </button>
+                  ) : allActivities.length > 7 && (
+                    <button
+                      onClick={() => setShowAllActivities(false)}
+                      className="w-full p-3 text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+                    >
+                      Show less <ChevronDown size={14} />
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

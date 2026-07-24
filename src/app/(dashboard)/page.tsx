@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -14,10 +14,13 @@ import {
   Activity,
   Flag,
   TrendingUp,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import type { Project, Task, Activity as ActivityType } from "@/lib/types";
 import { PRIORITY_CONFIG, type ViewMode } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
+import Modal from "@/components/ui/Modal";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -25,7 +28,14 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [allActivities, setAllActivities] = useState<ActivityType[]>([]);
+  const [allUserNames, setAllUserNames] = useState<Record<string, string>>({});
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesPage, setActivitiesPage] = useState(0);
+  const [hasMoreActivities, setHasMoreActivities] = useState(true);
   const supabase = createClient();
+  const ACTIVITIES_PER_PAGE = 20;
 
   useEffect(() => {
     async function load() {
@@ -51,7 +61,7 @@ export default function DashboardPage() {
           .from("activities")
           .select("*")
           .order("created_at", { ascending: false })
-          .limit(15);
+          .limit(7);
 
         if (actData) {
           setActivities(actData);
@@ -77,6 +87,44 @@ export default function DashboardPage() {
     }
     void load();
   }, [supabase]);
+
+  const loadAllActivities = useCallback(async (page: number, reset: boolean) => {
+    setActivitiesLoading(true);
+    const from = page * ACTIVITIES_PER_PAGE;
+    const to = from + ACTIVITIES_PER_PAGE - 1;
+
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (data) {
+      if (data.length < ACTIVITIES_PER_PAGE) setHasMoreActivities(false);
+      setAllActivities((prev) => (reset ? data : [...prev, ...data]));
+      const userIds = [...new Set(data.map((a: ActivityType) => a.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("user_profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+        if (profiles) {
+          const map: Record<string, string> = {};
+          profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+          setAllUserNames((prev) => ({ ...prev, ...map }));
+        }
+      }
+    }
+    setActivitiesLoading(false);
+  }, [supabase]);
+
+  function handleOpenAllActivities() {
+    setShowAllActivities(true);
+    setActivitiesPage(0);
+    setHasMoreActivities(true);
+    setAllActivities([]);
+    void loadAllActivities(0, true);
+  }
 
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === "done").length;
@@ -281,10 +329,46 @@ export default function DashboardPage() {
             {activities.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-8">No activity yet</p>
             ) : (
-              activities.map((act) => (
-                <div key={act.id} className="p-3">
+              <>
+                {activities.map((act) => (
+                  <div key={act.id} className="p-3">
+                    <p className="text-sm text-slate-700">
+                      <span className="font-medium">{userNames[act.user_id] || "Someone"}</span>
+                      {" "}{act.action}
+                      {act.detail && <span className="font-medium"> {act.detail}</span>}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {formatRelativeTime(act.created_at)}
+                    </p>
+                  </div>
+                ))}
+                <button
+                  onClick={handleOpenAllActivities}
+                  className="w-full p-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
+                >
+                  View all activity <ChevronRight size={14} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Full Activity Modal */}
+      <Modal open={showAllActivities} onClose={() => setShowAllActivities(false)} title="All Activity">
+        <div className="max-h-[60vh] overflow-y-auto">
+          {allActivities.length === 0 && activitiesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={20} className="animate-spin text-slate-400" />
+            </div>
+          ) : allActivities.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-8">No activity yet</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {allActivities.map((act) => (
+                <div key={act.id} className="py-3 first:pt-0 last:pb-0">
                   <p className="text-sm text-slate-700">
-                    <span className="font-medium">{userNames[act.user_id] || "Someone"}</span>
+                    <span className="font-medium">{allUserNames[act.user_id] || userNames[act.user_id] || "Someone"}</span>
                     {" "}{act.action}
                     {act.detail && <span className="font-medium"> {act.detail}</span>}
                   </p>
@@ -292,11 +376,20 @@ export default function DashboardPage() {
                     {formatRelativeTime(act.created_at)}
                   </p>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+              {hasMoreActivities && (
+                <button
+                  onClick={() => { setActivitiesPage((p) => p + 1); void loadAllActivities(activitiesPage + 1, false); }}
+                  disabled={activitiesLoading}
+                  className="w-full py-3 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center justify-center gap-1"
+                >
+                  {activitiesLoading ? <Loader2 size={14} className="animate-spin" /> : "Load more"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      </Modal>
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

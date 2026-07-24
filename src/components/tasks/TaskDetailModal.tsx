@@ -18,6 +18,7 @@ import {
   Upload,
   File,
   Download,
+  ChevronRight,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -79,6 +80,9 @@ export default function TaskDetailModal({
   const [newTagColor, setNewTagColor] = useState("#6366f1");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [allActivities, setAllActivities] = useState<Activity[]>([]);
+  const [allActivitiesLoading, setAllActivitiesLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
@@ -137,7 +141,7 @@ export default function TaskDetailModal({
         .select("*")
         .eq("project_id", task!.project_id)
         .order("created_at", { ascending: false })
-        .limit(30);
+        .limit(5);
       if (activityData) setActivities(activityData);
 
       const { data: attachData } = await supabase
@@ -202,6 +206,18 @@ export default function TaskDetailModal({
     if (profile?.display_name) return profile.display_name;
     if (profile?.user_email) return profile.user_email.split("@")[0];
     return userId.slice(0, 8);
+  }
+
+  async function loadAllActivities() {
+    setAllActivitiesLoading(true);
+    const { data } = await supabase
+      .from("activities")
+      .select("*")
+      .eq("project_id", task!.project_id)
+      .order("created_at", { ascending: false });
+    if (data) setAllActivities(data);
+    setAllActivitiesLoading(false);
+    setShowAllActivities(true);
   }
 
   async function handleAddComment(e: React.FormEvent) {
@@ -911,7 +927,7 @@ export default function TaskDetailModal({
             </div>
             <div className="space-y-0 relative">
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
-              {activities.map((activity) => {
+              {(showAllActivities ? allActivities : activities).map((activity) => {
                 const isOwn = activity.user_id === currentUserId;
                 const userName = isOwn ? "You" : (activity.user_email?.split("@")[0] || "Someone");
                 return (
@@ -933,6 +949,24 @@ export default function TaskDetailModal({
                 );
               })}
             </div>
+            {!showAllActivities && (
+              <button
+                onClick={() => void loadAllActivities()}
+                disabled={allActivitiesLoading}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+              >
+                {allActivitiesLoading ? "Loading..." : "Show all activity"}
+                <ChevronRight size={12} />
+              </button>
+            )}
+            {showAllActivities && allActivities.length > 5 && (
+              <button
+                onClick={() => setShowAllActivities(false)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Show less
+              </button>
+            )}
           </div>
         )}
 
