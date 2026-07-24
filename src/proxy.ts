@@ -25,26 +25,32 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/settings");
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
+  const isApiOrStatic = request.nextUrl.pathname.startsWith("/api") ||
+    request.nextUrl.pathname.startsWith("/_next");
 
-  if (isProtectedRoute || isAuthRoute) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  if (isApiOrStatic) {
+    return supabaseResponse;
+  }
 
-    if (isProtectedRoute && !user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/auth/login";
-      return NextResponse.redirect(url);
-    }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (isAuthRoute && user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
+  if (isAuthRoute && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  const isPublicRoute = request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname === "/auth/login" ||
+    request.nextUrl.pathname === "/auth/signup";
+
+  if (!isPublicRoute && !isAuthRoute && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

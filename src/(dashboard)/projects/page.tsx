@@ -113,7 +113,7 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <Link
               key={project.id}
-              href={`/dashboard/projects/${project.id}`}
+              href={`/projects/${project.id}`}
               className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group"
             >
               <div className="flex items-start justify-between mb-3">

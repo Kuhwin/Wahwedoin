@@ -64,11 +64,11 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
   }
 
   const navItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/dashboard/my-tasks", icon: CheckSquare, label: "My Tasks" },
-    { href: "/dashboard/calendar", icon: Calendar, label: "Calendar" },
-    { href: "/dashboard/teams", icon: Users, label: "Teams" },
-    { href: "/dashboard/projects", icon: FolderKanban, label: "Projects" },
+    { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/my-tasks", icon: CheckSquare, label: "My Tasks" },
+    { href: "/calendar", icon: Calendar, label: "Calendar" },
+    { href: "/teams", icon: Users, label: "Teams" },
+    { href: "/projects", icon: FolderKanban, label: "Projects" },
   ];
 
   const sidebarContent = (
@@ -76,7 +76,7 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
       {/* Logo */}
       <div className="px-4 py-5 flex items-center justify-between border-b border-slate-200">
         {expanded && (
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">WD</span>
             </div>
@@ -84,7 +84,7 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
           </Link>
         )}
         {!expanded && (
-          <Link href="/dashboard" className="mx-auto">
+          <Link href="/" className="mx-auto">
             <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-sm">WD</span>
             </div>
@@ -115,7 +115,7 @@ export default function Sidebar({ user, expanded, onToggle, mobileOpen, onMobile
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}

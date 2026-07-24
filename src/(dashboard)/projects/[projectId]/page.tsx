@@ -37,7 +37,7 @@ export default function ProjectPage() {
         .single();
 
       if (!projectData) {
-        router.push("/dashboard/projects");
+        router.push("/projects");
         return;
       }
       setProject(projectData);
@@ -124,7 +124,7 @@ export default function ProjectPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/projects"
+            href="/projects"
             className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
           >
             <ArrowLeft size={18} />

@@ -112,7 +112,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   {projects.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => navigate(`/dashboard/projects/${p.id}`)}
+                      onClick={() => navigate(`/projects/${p.id}`)}
                       className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
                     >
                       <FolderKanban size={16} className="text-indigo-500 shrink-0" />
@@ -127,7 +127,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   {tasks.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => navigate(`/dashboard/projects/${t.project_id}`)}
+                      onClick={() => navigate(`/projects/${t.project_id}`)}
                       className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
                     >
                       <CheckSquare size={16} className="text-green-500 shrink-0" />
@@ -142,7 +142,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   {events.map((e) => (
                     <button
                       key={e.id}
-                      onClick={() => navigate("/dashboard/calendar")}
+                      onClick={() => navigate("/calendar")}
                       className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
                     >
                       <Calendar size={16} className="text-amber-500 shrink-0" />
@@ -157,7 +157,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
                   {teams.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => navigate("/dashboard/teams")}
+                      onClick={() => navigate("/teams")}
                       className="flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-50 text-left"
                     >
                       <Users size={16} className="text-violet-500 shrink-0" />

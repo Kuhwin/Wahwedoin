@@ -6,11 +6,11 @@ import { LayoutDashboard, CheckSquare, Calendar, Users, FolderKanban } from "luc
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Home" },
-  { href: "/dashboard/my-tasks", icon: CheckSquare, label: "Tasks" },
-  { href: "/dashboard/calendar", icon: Calendar, label: "Calendar" },
-  { href: "/dashboard/teams", icon: Users, label: "Teams" },
-  { href: "/dashboard/projects", icon: FolderKanban, label: "Projects" },
+  { href: "/", icon: LayoutDashboard, label: "Home" },
+  { href: "/my-tasks", icon: CheckSquare, label: "Tasks" },
+  { href: "/calendar", icon: Calendar, label: "Calendar" },
+  { href: "/teams", icon: Users, label: "Teams" },
+  { href: "/projects", icon: FolderKanban, label: "Projects" },
 ];
 
 export default function MobileNav() {
@@ -20,7 +20,7 @@ export default function MobileNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 md:hidden">
       <div className="flex items-center justify-around h-14">
         {items.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}

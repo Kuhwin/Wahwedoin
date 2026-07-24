@@ -106,7 +106,7 @@ export default function DashboardPage() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
-          href="/dashboard/projects"
+          href="/projects"
           className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-300 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
@@ -120,7 +120,7 @@ export default function DashboardPage() {
         </Link>
 
         <Link
-          href="/dashboard/my-tasks"
+          href="/my-tasks"
           className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-300 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
@@ -134,7 +134,7 @@ export default function DashboardPage() {
         </Link>
 
         <Link
-          href="/dashboard/calendar"
+          href="/calendar"
           className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-indigo-300 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
@@ -153,7 +153,7 @@ export default function DashboardPage() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Recent Projects</h2>
-            <Link href="/dashboard/projects" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+            <Link href="/projects" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
               View all
             </Link>
           </div>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
             {projects.slice(0, 5).map((project) => (
               <Link
                 key={project.id}
-                href={`/dashboard/projects/${project.id}`}
+                href={`/projects/${project.id}`}
                 className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all"
               >
                 <div className="flex items-center gap-3">
