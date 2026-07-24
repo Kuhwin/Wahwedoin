@@ -7,7 +7,7 @@ export interface Organization {
 
 export interface Team {
   id: string;
-  org_id: string;
+  org_id: string | null;
   name: string;
   slug: string;
   description: string | null;

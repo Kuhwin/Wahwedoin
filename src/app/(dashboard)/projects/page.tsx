@@ -144,7 +144,7 @@ export default function ProjectsPage() {
         <form onSubmit={handleCreate} className="space-y-4">
           <Input
             label="Project Name"
-            placeholder="e.g. Future Barbados Website"
+            placeholder="e.g. Beach Cleanup Drive"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             required

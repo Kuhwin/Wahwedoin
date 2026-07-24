@@ -51,7 +51,6 @@ export default function TeamsPage() {
     setCreating(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    const orgId = "00000000-0000-0000-0000-000000000000";
 
     const { data: team, error: teamError } = await supabase
       .from("teams")
@@ -59,7 +58,6 @@ export default function TeamsPage() {
         name: newName.trim(),
         slug: generateSlug(newName),
         description: newDesc.trim() || null,
-        org_id: orgId,
       })
       .select()
       .single();
@@ -168,7 +166,7 @@ export default function TeamsPage() {
         <form onSubmit={handleCreate} className="space-y-4">
           <Input
             label="Team Name"
-            placeholder="e.g. Future Barbados"
+            placeholder="e.g. Nuffinarians"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             required
