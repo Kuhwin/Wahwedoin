@@ -203,7 +203,7 @@ export default function CalendarPage() {
         <form onSubmit={handleCreate} className="space-y-4">
           <Input
             label="Event Title"
-            placeholder="e.g. Team Meeting"
+            placeholder="Liming"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             required

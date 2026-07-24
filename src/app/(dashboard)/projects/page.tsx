@@ -19,6 +19,7 @@ export default function ProjectsPage() {
   const [newTeamId, setNewTeamId] = useState("");
   const [newColor, setNewColor] = useState<string>(PROJECT_COLORS[0]);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -53,10 +54,11 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!newName.trim() || !newTeamId) return;
     setCreating(true);
+    setError(null);
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
+    const { data, error: createError } = await supabase
       .from("projects")
       .insert({
         name: newName.trim(),
@@ -68,11 +70,18 @@ export default function ProjectsPage() {
       .select()
       .single();
 
-    if (data && !error) {
+    if (createError) {
+      setError(createError.message || "Failed to create project. Please try again.");
+      setCreating(false);
+      return;
+    }
+
+    if (data) {
       setProjects([data, ...projects]);
       setShowCreate(false);
       setNewName("");
       setNewDesc("");
+      setError(null);
     }
     setCreating(false);
   }
@@ -92,7 +101,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
           <p className="text-sm text-slate-500 mt-1">Manage all your team projects</p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={() => { setError(null); setShowCreate(true); }}>
           <Plus size={16} />
           New Project
         </Button>
@@ -103,7 +112,7 @@ export default function ProjectsPage() {
           <FolderKanban size={48} className="text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
           <p className="text-sm text-slate-500 mb-4">Create your first project to get started</p>
-          <Button onClick={() => setShowCreate(true)}>
+          <Button onClick={() => { setError(null); setShowCreate(true); }}>
             <Plus size={16} />
             Create Project
           </Button>
@@ -140,8 +149,13 @@ export default function ProjectsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Project">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); setError(null); }} title="Create Project">
         <form onSubmit={handleCreate} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
           <Input
             label="Project Name"
             placeholder="e.g. Beach Cleanup Drive"
@@ -186,7 +200,7 @@ export default function ProjectsPage() {
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>
+            <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); setError(null); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={creating}>

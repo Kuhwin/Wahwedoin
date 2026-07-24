@@ -21,6 +21,7 @@ export default function TeamsPage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -49,29 +50,72 @@ export default function TeamsPage() {
     e.preventDefault();
     if (!newName.trim()) return;
     setCreating(true);
+    setMessage(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setMessage({ type: "error", text: "You must be logged in to create a team." });
+        setCreating(false);
+        return;
+      }
 
-    const { data: team, error: teamError } = await supabase
-      .from("teams")
-      .insert({
-        name: newName.trim(),
-        slug: generateSlug(newName),
-        description: newDesc.trim() || null,
-      })
-      .select()
-      .single();
+      const seedRes = await fetch("/api/seed", { method: "POST" });
+      if (!seedRes.ok) {
+        const seedBody = await seedRes.json();
+        setMessage({ type: "error", text: seedBody.error || "Failed to initialize organization." });
+        setCreating(false);
+        return;
+      }
 
-    if (team && !teamError && user) {
-      await supabase.from("team_members").insert({
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .select("id")
+        .limit(1)
+        .single();
+
+      if (orgError || !org) {
+        setMessage({ type: "error", text: "Could not find organization. Please try again." });
+        setCreating(false);
+        return;
+      }
+
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .insert({
+          org_id: org.id,
+          name: newName.trim(),
+          slug: generateSlug(newName),
+          description: newDesc.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (teamError) {
+        setMessage({ type: "error", text: teamError.message || "Failed to create team." });
+        setCreating(false);
+        return;
+      }
+
+      const { error: memberError } = await supabase.from("team_members").insert({
         team_id: team.id,
         user_id: user.id,
         role: "owner",
       });
+
+      if (memberError) {
+        setMessage({ type: "error", text: memberError.message || "Team created but failed to add you as owner." });
+        setCreating(false);
+        return;
+      }
+
       setTeams([...teams, team]);
       setShowCreate(false);
       setNewName("");
       setNewDesc("");
+      setMessage({ type: "success", text: "Team created successfully!" });
+    } catch {
+      setMessage({ type: "error", text: "An unexpected error occurred." });
     }
     setCreating(false);
   }
@@ -95,7 +139,9 @@ export default function TeamsPage() {
       role: "member",
     });
 
-    if (!error) {
+    if (error) {
+      setMessage({ type: "error", text: error.message || "Failed to invite member." });
+    } else {
       setInviteEmail("");
       loadMembers(selectedTeam);
     }
@@ -111,6 +157,26 @@ export default function TeamsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {message && (
+        <div
+          className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
+            message.type === "error"
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : "bg-green-50 text-green-700 border border-green-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span>{message.text}</span>
+            <button
+              onClick={() => setMessage(null)}
+              className="ml-3 text-current opacity-60 hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Teams</h1>

@@ -40,6 +40,15 @@ export interface Project {
   completed_count?: number;
 }
 
+export interface Section {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string;
+  position: number;
+  created_at: string;
+}
+
 export interface Task {
   id: string;
   project_id: string;
@@ -48,13 +57,23 @@ export interface Task {
   status: "todo" | "in_progress" | "done";
   priority: "low" | "medium" | "high" | "urgent";
   assignee_id: string | null;
+  section_id: string | null;
   due_date: string | null;
   position: number;
+  parent_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
   assignee_email?: string;
   assignee_name?: string;
+}
+
+export interface Tag {
+  id: string;
+  team_id: string;
+  name: string;
+  color: string;
+  created_at: string;
 }
 
 export interface TaskComment {

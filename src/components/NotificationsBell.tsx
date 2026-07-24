@@ -2,20 +2,36 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Bell } from "lucide-react";
+import { Bell, CheckCircle, MessageSquare, Users, FolderKanban, Calendar } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
+import Link from "next/link";
 
 interface NotificationItem {
   id: string;
-  message: string;
+  title: string;
+  body: string;
+  type: string;
+  link: string | null;
   read: boolean;
   created_at: string;
+}
+
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  task: <CheckCircle size={14} className="text-blue-500" />,
+  comment: <MessageSquare size={14} className="text-purple-500" />,
+  member: <Users size={14} className="text-green-500" />,
+  project: <FolderKanban size={14} className="text-indigo-500" />,
+  event: <Calendar size={14} className="text-orange-500" />,
+  default: <Bell size={14} className="text-slate-400" />,
+};
+
+function getIcon(type: string) {
+  return TYPE_ICONS[type] || TYPE_ICONS.default;
 }
 
 export default function NotificationsBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -23,24 +39,15 @@ export default function NotificationsBell() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setUserId(user.id);
 
-      // We'll use activities as notifications for now
       const { data } = await supabase
-        .from("activities")
+        .from("notifications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(10);
 
-      if (data) {
-        setNotifications(data.map((a: { id: string; action: string; detail: string | null; created_at: string }) => ({
-          id: a.id,
-          message: `${a.action}${a.detail ? `: ${a.detail}` : ""}`,
-          read: false,
-          created_at: a.created_at,
-        })));
-      }
+      if (data) setNotifications(data);
     }
     void load();
   }, [supabase]);
@@ -56,6 +63,17 @@ export default function NotificationsBell() {
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  async function handleMarkAsRead(id: string) {
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", id);
+
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -73,8 +91,15 @@ export default function NotificationsBell() {
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200">
+          <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900">Notifications</h3>
+            <Link
+              href="/inbox"
+              onClick={() => setOpen(false)}
+              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              View all
+            </Link>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
@@ -85,14 +110,28 @@ export default function NotificationsBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                  onClick={() => {
+                    if (!n.read) handleMarkAsRead(n.id);
+                  }}
+                  className={`px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${
                     !n.read ? "bg-indigo-50/50" : ""
                   }`}
                 >
-                  <p className="text-sm text-slate-700">{n.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {formatRelativeTime(n.created_at)}
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <div className="mt-0.5 flex-shrink-0">{getIcon(n.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${!n.read ? "font-semibold text-slate-900" : "text-slate-700"}`}>
+                        {n.title}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{n.body}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        {formatRelativeTime(n.created_at)}
+                      </p>
+                    </div>
+                    {!n.read && (
+                      <span className="h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
+                    )}
+                  </div>
                 </div>
               ))
             )}

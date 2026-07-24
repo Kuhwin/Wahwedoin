@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CheckSquare, Calendar, Users, FolderKanban } from "lucide-react";
+import { Home, CheckSquare, Inbox, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/", icon: LayoutDashboard, label: "Home" },
+  { href: "/", icon: Home, label: "Home" },
   { href: "/my-tasks", icon: CheckSquare, label: "Tasks" },
+  { href: "/inbox", icon: Inbox, label: "Inbox" },
   { href: "/calendar", icon: Calendar, label: "Calendar" },
-  { href: "/teams", icon: Users, label: "Teams" },
-  { href: "/projects", icon: FolderKanban, label: "Projects" },
 ];
 
 export default function MobileNav() {

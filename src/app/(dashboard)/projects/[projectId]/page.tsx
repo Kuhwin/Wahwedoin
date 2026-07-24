@@ -1,22 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Settings, Plus, LayoutGrid, List, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { type Project, type Task, type TeamMember } from "@/lib/types";
+import { type Project, type Task, type Section, type TeamMember } from "@/lib/types";
+
+const DEFAULT_SECTIONS = [
+  { name: "To Do", color: "#64748b", position: 0 },
+  { name: "In Progress", color: "#3b82f6", position: 1 },
+  { name: "Done", color: "#22c55e", position: 2 },
+];
 
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [view, setView] = useState<"board" | "list">("board");
   const [loading, setLoading] = useState(true);
@@ -28,38 +35,61 @@ export default function ProjectPage() {
   const supabase = createClient();
   const projectId = params.projectId as string;
 
-  useEffect(() => {
-    async function load() {
-      const { data: projectData } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", projectId)
-        .single();
+  const loadData = useCallback(async () => {
+    const { data: projectData } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .single();
 
-      if (!projectData) {
-        router.push("/projects");
-        return;
-      }
-      setProject(projectData);
-
-      const { data: tasksData } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("position", { ascending: true });
-
-      if (tasksData) setTasks(tasksData);
-
-      const { data: membersData } = await supabase
-        .from("team_members")
-        .select("*")
-        .eq("team_id", projectData.team_id);
-
-      if (membersData) setMembers(membersData);
-      setLoading(false);
+    if (!projectData) {
+      router.push("/projects");
+      return;
     }
-    void load();
+    setProject(projectData);
+
+    const { data: tasksData } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("position", { ascending: true });
+
+    if (tasksData) setTasks(tasksData);
+
+    const { data: sectionsData } = await supabase
+      .from("sections")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("position", { ascending: true });
+
+    if (sectionsData && sectionsData.length > 0) {
+      setSections(sectionsData);
+    } else {
+      const inserted = await supabase
+        .from("sections")
+        .insert(
+          DEFAULT_SECTIONS.map((s) => ({
+            ...s,
+            project_id: projectId,
+          }))
+        )
+        .select();
+
+      if (inserted.data) setSections(inserted.data);
+    }
+
+    const { data: membersData } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("team_id", projectData.team_id);
+
+    if (membersData) setMembers(membersData);
+    setLoading(false);
   }, [projectId, supabase, router]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   async function handleAddTask(e: React.FormEvent) {
     e.preventDefault();
@@ -99,7 +129,7 @@ export default function ProjectPage() {
       .eq("id", taskId);
 
     if (!error) {
-      setTasks(tasks.map((t) => t.id === taskId ? { ...t, ...updates } : t));
+      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
     }
   }
 
@@ -107,6 +137,43 @@ export default function ProjectPage() {
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (!error) {
       setTasks(tasks.filter((t) => t.id !== taskId));
+    }
+  }
+
+  async function handleAddSection(name: string) {
+    const maxPos = sections.length > 0 ? Math.max(...sections.map((s) => s.position)) + 1 : 0;
+
+    const { data, error } = await supabase
+      .from("sections")
+      .insert({
+        project_id: projectId,
+        name,
+        color: "#6366f1",
+        position: maxPos,
+      })
+      .select()
+      .single();
+
+    if (data && !error) {
+      setSections([...sections, data]);
+    }
+  }
+
+  async function handleUpdateSection(sectionId: string, updates: Partial<Section>) {
+    const { error } = await supabase
+      .from("sections")
+      .update(updates)
+      .eq("id", sectionId);
+
+    if (!error) {
+      setSections(sections.map((s) => (s.id === sectionId ? { ...s, ...updates } : s)));
+    }
+  }
+
+  async function handleDeleteSection(sectionId: string) {
+    const { error } = await supabase.from("sections").delete().eq("id", sectionId);
+    if (!error) {
+      setSections(sections.filter((s) => s.id !== sectionId));
     }
   }
 
@@ -164,8 +231,12 @@ export default function ProjectPage() {
       {view === "board" ? (
         <KanbanBoard
           tasks={tasks}
+          sections={sections}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
+          onAddSection={handleAddSection}
+          onUpdateSection={handleUpdateSection}
+          onDeleteSection={handleDeleteSection}
         />
       ) : (
         <ListView
