@@ -12,14 +12,25 @@ interface HeaderProps {
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; displayName?: string } | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase.auth.getUser();
-      if (data.user) setUser({ email: data.user.email || "" });
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("display_name")
+          .eq("user_id", data.user.id)
+          .single();
+
+        setUser({
+          email: data.user.email || "",
+          displayName: profile?.display_name || undefined,
+        });
+      }
     }
     void load();
   }, [supabase]);
@@ -63,7 +74,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
             <NotificationsBell />
 
-            {user && <Avatar email={user.email} size="sm" />}
+            {user && (
+              <Avatar
+                name={user.displayName}
+                email={user.email}
+                size="sm"
+              />
+            )}
           </div>
         </div>
       </header>

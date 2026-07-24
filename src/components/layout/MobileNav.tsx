@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CheckSquare, Inbox, Calendar } from "lucide-react";
+import { Home, CheckSquare, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/my-tasks", icon: CheckSquare, label: "Tasks" },
-  { href: "/inbox", icon: Inbox, label: "Inbox" },
   { href: "/calendar", icon: Calendar, label: "Calendar" },
 ];
 

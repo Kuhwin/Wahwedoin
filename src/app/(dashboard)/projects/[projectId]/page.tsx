@@ -7,10 +7,13 @@ import { ArrowLeft, Plus, LayoutGrid, List } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
+import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { type Project, type Task, type Section, type TeamMember } from "@/lib/types";
+import Avatar from "@/components/ui/Avatar";
+import { type Project, type Task, type Section, type TeamMember, type Tag } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_SECTIONS = [
   { name: "To Do", color: "#64748b", position: 0 },
@@ -25,6 +28,7 @@ export default function ProjectPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [view, setView] = useState<"board" | "list">("board");
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -32,6 +36,9 @@ export default function ProjectPage() {
   const [newTaskPriority, setNewTaskPriority] = useState<Task["priority"]>("medium");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskSection, setNewTaskSection] = useState("");
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
   const supabase = createClient();
   const projectId = params.projectId as string;
 
@@ -83,7 +90,30 @@ export default function ProjectPage() {
       .select("*")
       .eq("team_id", projectData.team_id);
 
-    if (membersData) setMembers(membersData);
+    if (membersData) {
+      setMembers(membersData);
+      // Load member profiles
+      const userIds = membersData.map((m: TeamMember) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+      if (profiles) {
+        const map: Record<string, string> = {};
+        profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+        setMemberProfiles(map);
+      }
+    }
+
+    // Load team tags
+    if (projectData.team_id) {
+      const { data: tagsData } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("team_id", projectData.team_id);
+      if (tagsData) setTags(tagsData);
+    }
+
     setLoading(false);
   }, [projectId, supabase, router]);
 
@@ -106,6 +136,7 @@ export default function ProjectPage() {
         priority: newTaskPriority,
         assignee_id: newTaskAssignee || null,
         due_date: newTaskDueDate || null,
+        section_id: newTaskSection || null,
         position: maxPos,
         created_by: user?.id,
       })
@@ -118,6 +149,7 @@ export default function ProjectPage() {
       setNewTaskPriority("medium");
       setNewTaskAssignee("");
       setNewTaskDueDate("");
+      setNewTaskSection("");
       setShowAddTask(false);
     }
   }
@@ -130,6 +162,10 @@ export default function ProjectPage() {
 
     if (!error) {
       setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+      // Also update selectedTask if it's the same
+      setSelectedTask((prev) =>
+        prev && prev.id === taskId ? { ...prev, ...updates } : prev
+      );
     }
   }
 
@@ -137,6 +173,7 @@ export default function ProjectPage() {
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (!error) {
       setTasks(tasks.filter((t) => t.id !== taskId));
+      setSelectedTask(null);
     }
   }
 
@@ -205,6 +242,23 @@ export default function ProjectPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Member Avatars */}
+          <div className="hidden sm:flex items-center -space-x-2 mr-2">
+            {members.slice(0, 5).map((member) => (
+              <Avatar
+                key={member.id}
+                name={memberProfiles[member.user_id]}
+                email={member.user_email || member.user_id}
+                size="sm"
+                className="ring-2 ring-white"
+              />
+            ))}
+            {members.length > 5 && (
+              <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-600 ring-2 ring-white">
+                +{members.length - 5}
+              </div>
+            )}
+          </div>
           {/* View Toggle */}
           <div className="flex bg-slate-100 rounded-lg p-0.5">
             <button
@@ -237,12 +291,14 @@ export default function ProjectPage() {
           onAddSection={handleAddSection}
           onUpdateSection={handleUpdateSection}
           onDeleteSection={handleDeleteSection}
+          onTaskClick={setSelectedTask}
         />
       ) : (
         <ListView
           tasks={tasks}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
+          onTaskClick={setSelectedTask}
         />
       )}
 
@@ -269,12 +325,40 @@ export default function ProjectPage() {
               <option value="urgent">Urgent</option>
             </select>
           </div>
-          <Input
-            label="Assignee (User ID)"
-            placeholder="User ID"
-            value={newTaskAssignee}
-            onChange={(e) => setNewTaskAssignee(e.target.value)}
-          />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">Assignee</label>
+            <select
+              value={newTaskAssignee}
+              onChange={(e) => setNewTaskAssignee(e.target.value)}
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">Unassigned</option>
+              {members.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {memberProfiles[member.user_id] || member.user_email || member.user_id}
+                </option>
+              ))}
+            </select>
+          </div>
+          {sections.length > 0 && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700">Section</label>
+              <select
+                value={newTaskSection}
+                onChange={(e) => setNewTaskSection(e.target.value)}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">No section</option>
+                {[...sections]
+                  .sort((a, b) => a.position - b.position)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           <Input
             label="Due Date"
             type="date"
@@ -289,6 +373,18 @@ export default function ProjectPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        open={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onUpdate={handleUpdateTask}
+        onDelete={handleDeleteTask}
+        availableTags={tags}
+        teamMembers={members}
+        sections={sections}
+      />
     </div>
   );
 }

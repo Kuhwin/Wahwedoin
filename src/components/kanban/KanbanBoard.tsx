@@ -28,6 +28,7 @@ interface KanbanBoardProps {
   onAddSection: (name: string) => Promise<void>;
   onUpdateSection: (sectionId: string, updates: Partial<Section>) => Promise<void>;
   onDeleteSection: (sectionId: string) => Promise<void>;
+  onTaskClick?: (task: Task) => void;
 }
 
 const PRIORITY_BORDER: Record<Task["priority"], string> = {
@@ -61,6 +62,7 @@ export default function KanbanBoard({
   onAddSection,
   onUpdateSection,
   onDeleteSection,
+  onTaskClick,
 }: KanbanBoardProps) {
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
   const [menuSectionId, setMenuSectionId] = useState<string | null>(null);
@@ -284,8 +286,9 @@ export default function KanbanBoard({
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
+                            onClick={() => onTaskClick?.(task)}
                             className={cn(
-                              "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative",
+                              "bg-white border border-slate-200 border-l-4 rounded-xl p-3 shadow-sm hover:shadow-md transition-all group relative cursor-pointer",
                               PRIORITY_BORDER[task.priority],
                               snapshot.isDragging &&
                                 "shadow-lg ring-2 ring-indigo-200"

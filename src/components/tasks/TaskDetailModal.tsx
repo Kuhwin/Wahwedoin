@@ -11,6 +11,9 @@ import {
   Tag,
   ListTodo,
   History,
+  User,
+  Calendar,
+  Columns3,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -21,6 +24,8 @@ import {
   type TaskComment,
   type Tag as TagType,
   type Activity,
+  type Section,
+  type TeamMember,
 } from "@/lib/types";
 import { formatRelativeTime, cn } from "@/lib/utils";
 
@@ -31,6 +36,14 @@ interface TaskDetailModalProps {
   onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
   availableTags?: TagType[];
+  teamMembers?: TeamMember[];
+  sections?: Section[];
+}
+
+interface MemberProfile {
+  user_id: string;
+  display_name: string;
+  user_email?: string;
 }
 
 export default function TaskDetailModal({
@@ -40,36 +53,30 @@ export default function TaskDetailModal({
   onUpdate,
   onDelete,
   availableTags = [],
+  teamMembers = [],
+  sections = [],
 }: TaskDetailModalProps) {
   const supabase = createClient();
 
-  // Comments
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [newComment, setNewComment] = useState("");
-
-  // Editing
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
-
-  // Subtasks
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
   const subtaskInputRef = useRef<HTMLInputElement>(null);
-
-  // Tags
   const [taskTags, setTaskTags] = useState<TagType[]>([]);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [creatingTag, setCreatingTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Activities
   const [activities, setActivities] = useState<Activity[]>([]);
-
-  // Current user id for activity attribution
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  const assigneeDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -86,7 +93,6 @@ export default function TaskDetailModal({
       } = await supabase.auth.getUser();
       if (user) setCurrentUserId(user.id);
 
-      // Comments
       const { data: commentsData } = await supabase
         .from("task_comments")
         .select("*")
@@ -94,7 +100,6 @@ export default function TaskDetailModal({
         .order("created_at", { ascending: true });
       if (commentsData) setComments(commentsData);
 
-      // Subtasks
       const { data: subtasksData } = await supabase
         .from("tasks")
         .select("*")
@@ -102,7 +107,6 @@ export default function TaskDetailModal({
         .order("position", { ascending: true });
       if (subtasksData) setSubtasks(subtasksData);
 
-      // Task tags
       const { data: tagLinks } = await supabase
         .from("task_tags")
         .select("tag_id")
@@ -118,7 +122,6 @@ export default function TaskDetailModal({
         setTaskTags([]);
       }
 
-      // Activities
       const { data: activityData } = await supabase
         .from("activities")
         .select("*")
@@ -131,21 +134,53 @@ export default function TaskDetailModal({
     void loadAll();
   }, [task, supabase]);
 
+  // Load member profiles
+  useEffect(() => {
+    if (teamMembers.length === 0) return;
+    async function loadProfiles() {
+      const userIds = teamMembers.map((m) => m.user_id);
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+      if (data) {
+        const profiles = userIds.map((uid) => {
+          const profile = data.find((p: { user_id: string; display_name: string }) => p.user_id === uid);
+          const member = teamMembers.find((m) => m.user_id === uid);
+          return {
+            user_id: uid,
+            display_name: profile?.display_name || "",
+            user_email: member?.user_email,
+          };
+        });
+        setMemberProfiles(profiles);
+      }
+    }
+    void loadProfiles();
+  }, [teamMembers, supabase]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
         setShowTagDropdown(false);
       }
+      if (assigneeDropdownRef.current && !assigneeDropdownRef.current.contains(e.target as Node)) {
+        setShowAssigneeDropdown(false);
+      }
     }
-    if (showTagDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showTagDropdown]);
+  }, []);
 
   if (!task) return null;
 
-  // --- Comments ---
+  function getMemberName(userId: string) {
+    const profile = memberProfiles.find((p) => p.user_id === userId);
+    if (profile?.display_name) return profile.display_name;
+    if (profile?.user_email) return profile.user_email.split("@")[0];
+    return userId.slice(0, 8);
+  }
+
   async function handleAddComment(e: React.FormEvent) {
     e.preventDefault();
     if (!newComment.trim()) return;
@@ -176,7 +211,6 @@ export default function TaskDetailModal({
     }
   }
 
-  // --- Title / Description ---
   async function handleSaveEdit() {
     await onUpdate(task!.id, {
       title: editTitle,
@@ -185,7 +219,6 @@ export default function TaskDetailModal({
     setEditing(false);
   }
 
-  // --- Subtasks ---
   async function handleAddSubtask() {
     if (!newSubtask.trim()) return;
     const maxPos = subtasks.reduce((max, s) => Math.max(max, s.position), -1);
@@ -198,6 +231,7 @@ export default function TaskDetailModal({
         priority: "medium",
         position: maxPos + 1,
         parent_id: task!.id,
+        section_id: task!.section_id,
         created_by: currentUserId,
       })
       .select()
@@ -224,7 +258,6 @@ export default function TaskDetailModal({
     }
   }
 
-  // --- Tags ---
   async function handleAddTag(tagId: string) {
     if (taskTags.some((t) => t.id === tagId)) return;
     const { error } = await supabase
@@ -283,6 +316,27 @@ export default function TaskDetailModal({
     }
   }
 
+  async function handleAssigneeChange(userId: string | null) {
+    await onUpdate(task!.id, { assignee_id: userId });
+    setShowAssigneeDropdown(false);
+  }
+
+  async function handleSectionChange(sectionId: string | null) {
+    const status = sectionId
+      ? getSectionStatus(sectionId)
+      : task!.status;
+    await onUpdate(task!.id, { section_id: sectionId, status });
+  }
+
+  function getSectionStatus(sectionId: string): Task["status"] {
+    const sorted = [...sections].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex((s) => s.id === sectionId);
+    if (sorted.length <= 1) return "todo";
+    if (idx === 0) return "todo";
+    if (idx >= sorted.length - 1) return "done";
+    return "in_progress";
+  }
+
   const completedSubtasks = subtasks.filter((s) => s.status === "done").length;
   const totalSubtasks = subtasks.length;
 
@@ -332,8 +386,11 @@ export default function TaskDetailModal({
 
         {/* Meta row */}
         <div className="grid grid-cols-2 gap-3">
+          {/* Status */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500">Status</label>
+            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+              <Check size={12} /> Status
+            </label>
             <select
               value={task.status}
               onChange={(e) =>
@@ -346,6 +403,8 @@ export default function TaskDetailModal({
               <option value="done">Done</option>
             </select>
           </div>
+
+          {/* Priority */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500">Priority</label>
             <select
@@ -361,8 +420,12 @@ export default function TaskDetailModal({
               <option value="urgent">Urgent</option>
             </select>
           </div>
+
+          {/* Due Date */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500">Due Date</label>
+            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+              <Calendar size={12} /> Due Date
+            </label>
             <input
               type="date"
               value={task.due_date || ""}
@@ -372,15 +435,99 @@ export default function TaskDetailModal({
               className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
+
+          {/* Section */}
+          {sections.length > 0 && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                <Columns3 size={12} /> Section
+              </label>
+              <select
+                value={task.section_id || ""}
+                onChange={(e) =>
+                  handleSectionChange(e.target.value || null)
+                }
+                className="block w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">No section</option>
+                {[...sections]
+                  .sort((a, b) => a.position - b.position)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+          {/* Assignee */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-500">Assignee</label>
-            <div className="flex items-center gap-2 pt-1.5">
-              {task.assignee_id ? (
-                <Badge variant="info" className="max-w-full truncate">
-                  {task.assignee_email || task.assignee_name || task.assignee_id.slice(0, 8)}
-                </Badge>
-              ) : (
-                <span className="text-sm text-slate-400 italic">Unassigned</span>
+            <label className="text-xs font-medium text-slate-500 flex items-center gap-1">
+              <User size={12} /> Assignee
+            </label>
+            <div className="relative" ref={assigneeDropdownRef}>
+              <button
+                onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
+                className="w-full flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {task.assignee_id ? (
+                  <>
+                    <Avatar
+                      name={getMemberName(task.assignee_id)}
+                      email={task.assignee_email || task.assignee_id}
+                      size="sm"
+                    />
+                    <span className="truncate text-slate-700">
+                      {getMemberName(task.assignee_id)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-400 italic">Unassigned</span>
+                )}
+              </button>
+
+              {showAssigneeDropdown && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg py-1 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => handleAssigneeChange(null)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 text-left"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-400">
+                      ?
+                    </span>
+                    Unassigned
+                  </button>
+                  {memberProfiles.map((member) => (
+                    <button
+                      key={member.user_id}
+                      onClick={() => handleAssigneeChange(member.user_id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 transition-colors",
+                        task.assignee_id === member.user_id && "bg-indigo-50"
+                      )}
+                    >
+                      <Avatar
+                        name={member.display_name}
+                        email={member.user_email || member.user_id}
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-700 truncate">
+                          {member.display_name || member.user_email || "Unknown"}
+                        </p>
+                        {member.display_name && member.user_email && (
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {member.user_email}
+                          </p>
+                        )}
+                      </div>
+                      {task.assignee_id === member.user_id && (
+                        <Check size={14} className="ml-auto text-indigo-600 shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -627,11 +774,11 @@ export default function TaskDetailModal({
             <div className="space-y-3 mb-4">
               {comments.map((comment) => (
                 <div key={comment.id} className="flex gap-3 group">
-                  <Avatar email={comment.user_email || comment.user_id} size="sm" />
+                  <Avatar name={comment.user_name} email={comment.user_email || comment.user_id} size="sm" />
                   <div className="flex-1 bg-slate-50 rounded-lg p-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-slate-700">
-                        {comment.user_email || "Unknown"}
+                        {comment.user_name || comment.user_email || "Unknown"}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-slate-400">

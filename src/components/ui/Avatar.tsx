@@ -1,6 +1,7 @@
-import { cn, getInitials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface AvatarProps {
+  name?: string | null;
   email: string;
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -27,7 +28,19 @@ function getColor(email: string) {
   return COLORS[Math.abs(hash) % COLORS.length];
 }
 
-export default function Avatar({ email, size = "md", className }: AvatarProps) {
+function getInitials(name: string | null | undefined, email: string) {
+  if (name && name.trim()) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  const namePart = email.split("@")[0];
+  return namePart.slice(0, 2).toUpperCase();
+}
+
+export default function Avatar({ name, email, size = "md", className }: AvatarProps) {
   return (
     <div
       className={cn(
@@ -40,9 +53,9 @@ export default function Avatar({ email, size = "md", className }: AvatarProps) {
         },
         className
       )}
-      title={email}
+      title={name || email}
     >
-      {getInitials(email)}
+      {getInitials(name, email)}
     </div>
   );
 }

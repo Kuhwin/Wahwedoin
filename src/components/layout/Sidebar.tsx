@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Home,
   CheckSquare,
-  Inbox,
   Calendar,
   Settings,
   LogOut,
@@ -20,7 +19,7 @@ import {
   Send,
   FolderKanban,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, generateSlug } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 import type { Team, Project } from "@/lib/types";
 
@@ -49,10 +48,14 @@ export default function Sidebar({
 
   const [teams, setTeams] = useState<TeamWithProjects[]>([]);
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
-  const [inboxCount, setInboxCount] = useState(0);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDesc, setNewTeamDesc] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [teamError, setTeamError] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -88,24 +91,9 @@ export default function Sidebar({
     }
   }, [supabase, user.id]);
 
-  const loadInboxCount = useCallback(async () => {
-    try {
-      const { count } = await supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("assignee_id", user.id)
-        .neq("status", "done");
-
-      setInboxCount(count ?? 0);
-    } catch {
-      // Table might not exist yet
-    }
-  }, [supabase, user.id]);
-
   useEffect(() => {
     void loadData();
-    void loadInboxCount();
-  }, [loadData, loadInboxCount]);
+  }, [loadData]);
 
   function toggleTeam(teamId: string) {
     setExpandedTeams((prev) => {
@@ -136,7 +124,6 @@ export default function Sidebar({
       if (!error) {
         setQuickAddTitle("");
         setShowQuickAdd(false);
-        void loadInboxCount();
       }
     } catch {
       // Silently fail
@@ -156,6 +143,72 @@ export default function Sidebar({
     }
   }
 
+  async function handleCreateTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+    setTeamError("");
+
+    try {
+      const seedRes = await fetch("/api/seed", { method: "POST" });
+      if (!seedRes.ok) {
+        setTeamError("Failed to initialize organization.");
+        setCreatingTeam(false);
+        return;
+      }
+
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("id")
+        .limit(1)
+        .single();
+
+      if (!org) {
+        setTeamError("Could not find organization.");
+        setCreatingTeam(false);
+        return;
+      }
+
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .insert({
+          org_id: org.id,
+          name: newTeamName.trim(),
+          slug: generateSlug(newTeamName),
+          description: newTeamDesc.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (teamError) {
+        setTeamError(teamError.message || "Failed to create team.");
+        setCreatingTeam(false);
+        return;
+      }
+
+      const { error: memberError } = await supabase.from("team_members").insert({
+        team_id: team.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
+      if (memberError) {
+        setTeamError("Team created but failed to add you as owner.");
+        setCreatingTeam(false);
+        return;
+      }
+
+      setTeams([...teams, { ...team, projects: [] }]);
+      setShowCreateTeam(false);
+      setNewTeamName("");
+      setNewTeamDesc("");
+      setExpandedTeams(new Set([team.id]));
+    } catch {
+      setTeamError("An unexpected error occurred.");
+    }
+    setCreatingTeam(false);
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/auth/login");
@@ -164,7 +217,6 @@ export default function Sidebar({
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
     { href: "/my-tasks", icon: CheckSquare, label: "My Tasks" },
-    { href: "/inbox", icon: Inbox, label: "Inbox", badge: inboxCount },
     { href: "/calendar", icon: Calendar, label: "Calendar" },
   ];
 
@@ -274,32 +326,55 @@ export default function Sidebar({
                   isActive ? "text-indigo-600" : "text-slate-400"
                 )}
               />
-              {expanded && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {"badge" in item &&
-                    typeof item.badge === "number" &&
-                    item.badge > 0 && (
-                      <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[11px] font-semibold px-1.5">
-                        {item.badge > 99 ? "99+" : item.badge}
-                      </span>
-                    )}
-                </>
-              )}
+              {expanded && <span className="flex-1">{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
       {/* Teams Section */}
-      {teams.length > 0 && (
-        <div className="flex-1 overflow-y-auto px-3 py-2">
-          {expanded && (
-            <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+        {expanded && (
+          <div className="px-3 py-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
               Teams
-            </div>
-          )}
+            </span>
+            <button
+              onClick={() => setShowCreateTeam(true)}
+              className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+              title="New Team"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        )}
 
+        {teams.length === 0 ? (
+          expanded ? (
+            <div className="px-3 py-4">
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center">
+                <p className="text-xs text-slate-500 mb-3">No teams yet</p>
+                <button
+                  onClick={() => setShowCreateTeam(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  <Plus size={12} />
+                  Create Team
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="px-2 pb-2 flex justify-center">
+              <button
+                onClick={() => setShowCreateTeam(true)}
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+                title="New Team"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          )
+        ) : (
           <div className="space-y-0.5">
             {teams.map((team) => {
               const isTeamExpanded = expandedTeams.has(team.id);
@@ -345,7 +420,7 @@ export default function Sidebar({
                   </button>
 
                   {/* Projects under team */}
-                  {expanded && isTeamExpanded && team.projects.length > 0 && (
+                  {expanded && isTeamExpanded && (
                     <div className="ml-5 pl-3 border-l border-slate-100 space-y-0.5 pb-1">
                       {team.projects.map((project) => {
                         const projectActive = pathname === `/projects/${project.id}`;
@@ -370,25 +445,22 @@ export default function Sidebar({
                           </Link>
                         );
                       })}
-                    </div>
-                  )}
-
-                  {expanded && isTeamExpanded && team.projects.length === 0 && (
-                    <div className="ml-5 pl-3 border-l border-slate-100 pb-1">
-                      <span className="text-xs text-slate-400 italic px-2 py-1 block">
-                        No projects yet
-                      </span>
+                      <Link
+                        href={`/projects?team=${team.id}`}
+                        onClick={onMobileClose}
+                        className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      >
+                        <Plus size={12} className="shrink-0" />
+                        <span className="text-xs">Add Project</span>
+                      </Link>
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* Spacer when no teams */}
-      {teams.length === 0 && <div className="flex-1" />}
+        )}
+      </div>
 
       {/* Footer */}
       <div className="px-3 py-3 border-t border-slate-200 space-y-0.5">
@@ -446,6 +518,74 @@ export default function Sidebar({
           <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 md:hidden">
             {sidebarContent}
           </aside>
+        </>
+      )}
+
+      {/* Create Team Modal */}
+      {showCreateTeam && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/50"
+            onClick={() => setShowCreateTeam(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-semibold text-slate-900">Create Team</h2>
+                <button
+                  onClick={() => setShowCreateTeam(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <form onSubmit={(e) => void handleCreateTeam(e)} className="space-y-4">
+                {teamError && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    {teamError}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">Team Name</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="e.g. Nuffinarians"
+                    value={newTeamName}
+                    onChange={(e) => setNewTeamName(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">Description</label>
+                  <textarea
+                    placeholder="What does this team do?"
+                    value={newTeamDesc}
+                    onChange={(e) => setNewTeamDesc(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateTeam(false)}
+                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingTeam || !newTeamName.trim()}
+                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {creatingTeam ? "Creating..." : "Create Team"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </>
       )}
     </>
