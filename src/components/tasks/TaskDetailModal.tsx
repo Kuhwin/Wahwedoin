@@ -35,6 +35,7 @@ import {
 } from "@/lib/types";
 import { formatRelativeTime, cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
+import ReactMarkdown from "react-markdown";
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -70,6 +71,7 @@ export default function TaskDetailModal({
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [descPreview, setDescPreview] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
   const subtaskInputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +82,7 @@ export default function TaskDetailModal({
   const [newTagColor, setNewTagColor] = useState("#6366f1");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [activityUserNames, setActivityUserNames] = useState<Record<string, string>>({});
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [allActivitiesLoading, setAllActivitiesLoading] = useState(false);
@@ -141,7 +144,21 @@ export default function TaskDetailModal({
 
       if (commentsRes.data) setComments(commentsRes.data);
       if (subtasksRes.data) setSubtasks(subtasksRes.data);
-      if (activityRes.data) setActivities(activityRes.data);
+      if (activityRes.data) {
+        setActivities(activityRes.data);
+        const userIds = [...new Set(activityRes.data.map((a: Activity) => a.user_id).filter(Boolean))];
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("user_profiles")
+            .select("user_id, display_name")
+            .in("user_id", userIds);
+          if (profiles) {
+            const map: Record<string, string> = {};
+            profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+            setActivityUserNames(map);
+          }
+        }
+      }
       if (attachRes.data) setAttachments(attachRes.data as TaskAttachment[]);
       if (assigneeRes.data) setTaskAssignees(assigneeRes.data.map((a: { user_id: string }) => a.user_id));
 
@@ -211,10 +228,24 @@ export default function TaskDetailModal({
     setAllActivitiesLoading(true);
     const { data } = await supabase
       .from("activities")
-      .select("*")
+      .select("id, user_id, action, detail, created_at")
       .eq("project_id", task!.project_id)
       .order("created_at", { ascending: false });
-    if (data) setAllActivities(data);
+    if (data) {
+      setAllActivities(data);
+      const userIds = [...new Set(data.map((a: Activity) => a.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("user_profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+        if (profiles) {
+          const map: Record<string, string> = {};
+          profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+          setActivityUserNames((prev) => ({ ...prev, ...map }));
+        }
+      }
+    }
     setAllActivitiesLoading(false);
     setShowAllActivities(true);
   }
@@ -478,13 +509,35 @@ export default function TaskDetailModal({
               onChange={(e) => setEditTitle(e.target.value)}
               className="w-full text-lg font-semibold text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <textarea
-              value={editDesc}
-              onChange={(e) => setEditDesc(e.target.value)}
-              placeholder="Add a description..."
-              className="w-full text-sm text-slate-600 border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              rows={3}
-            />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setDescPreview(false)}
+                  className={cn("text-xs font-medium px-2 py-0.5 rounded", !descPreview ? "bg-indigo-100 text-indigo-700" : "text-slate-500 hover:text-slate-700")}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setDescPreview(true)}
+                  className={cn("text-xs font-medium px-2 py-0.5 rounded", descPreview ? "bg-indigo-100 text-indigo-700" : "text-slate-500 hover:text-slate-700")}
+                >
+                  Preview
+                </button>
+              </div>
+              {descPreview ? (
+                <div className="text-sm text-slate-600 border border-slate-300 rounded-lg px-3 py-2 min-h-[68px] prose prose-sm max-w-none">
+                  {editDesc ? <ReactMarkdown>{editDesc}</ReactMarkdown> : <span className="text-slate-400 italic">Nothing to preview</span>}
+                </div>
+              ) : (
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="Add a description... (Markdown supported)"
+                  className="w-full text-sm text-slate-600 border border-slate-300 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  rows={3}
+                />
+              )}
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSaveEdit}>
                 Save
@@ -502,12 +555,21 @@ export default function TaskDetailModal({
             >
               {task.title}
             </h2>
-            <p
-              className="text-sm text-slate-600 mt-2 whitespace-pre-wrap cursor-pointer hover:text-slate-800 transition-colors"
-              onClick={() => setEditing(true)}
-            >
-              {task.description || <span className="text-slate-400 italic">Click to add a description...</span>}
-            </p>
+            {task.description ? (
+              <div
+                className="text-sm text-slate-600 mt-2 cursor-pointer hover:text-slate-800 transition-colors prose prose-sm max-w-none"
+                onClick={() => setEditing(true)}
+              >
+                <ReactMarkdown>{task.description}</ReactMarkdown>
+              </div>
+            ) : (
+              <p
+                className="text-sm text-slate-400 italic mt-2 cursor-pointer hover:text-slate-600 transition-colors"
+                onClick={() => setEditing(true)}
+              >
+                Click to add a description...
+              </p>
+            )}
           </div>
         )}
 
@@ -928,7 +990,7 @@ export default function TaskDetailModal({
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-slate-200" />
               {(showAllActivities ? allActivities : activities).map((activity) => {
                 const isOwn = activity.user_id === currentUserId;
-                const userName = isOwn ? "You" : (activity.user_email?.split("@")[0] || "Someone");
+                const userName = isOwn ? "You" : (activityUserNames[activity.user_id] || "Someone");
                 return (
                   <div key={activity.id} className="flex items-start gap-2.5 py-2 relative">
                     <div className="w-[15px] h-[15px] rounded-full bg-slate-200 border-2 border-white shrink-0 mt-0.5 z-10" />

@@ -195,6 +195,9 @@ export default function ProjectPage() {
   }
 
   async function handleUpdateTask(taskId: string, updates: Partial<Task>) {
+    const task = tasks.find((t) => t.id === taskId);
+    const oldSectionId = task?.section_id ?? null;
+    const oldStatus = task?.status ?? "todo";
     const { error } = await supabase
       .from("tasks")
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -205,9 +208,17 @@ export default function ProjectPage() {
       setSelectedTask((prev) =>
         prev && prev.id === taskId ? { ...prev, ...updates } : prev
       );
-      // Log activity for meaningful changes
+      if ("section_id" in updates && updates.section_id !== oldSectionId) {
+        addToast(
+          `Moved "${task?.title || "task"}"`,
+          "success",
+          async () => {
+            await supabase.from("tasks").update({ section_id: oldSectionId, status: oldStatus, updated_at: new Date().toISOString() }).eq("id", taskId);
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, section_id: oldSectionId, status: oldStatus } : t)));
+          },
+        );
+      }
       if (currentUser) {
-        const task = tasks.find((t) => t.id === taskId);
         const taskTitle = task?.title || "task";
         if ("status" in updates) {
           const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
@@ -360,6 +371,7 @@ export default function ProjectPage() {
   }
 
   async function handleBulkMove(taskIds: string[], sectionId: string) {
+    const movedTasks = tasks.filter((t) => taskIds.includes(t.id)).map((t) => ({ id: t.id, section_id: t.section_id, status: t.status }));
     const status = getStatusForSection(sectionId);
     const { error } = await supabase
       .from("tasks")
@@ -375,6 +387,21 @@ export default function ProjectPage() {
         const sectionName = sections.find((s) => s.id === sectionId)?.name || "section";
         logActivity({ project_id: projectId, user_id: currentUser, action: `moved ${taskIds.length} tasks to`, detail: sectionName });
       }
+      addToast(
+        `Moved ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""}`,
+        "success",
+        async () => {
+          for (const t of movedTasks) {
+            await supabase.from("tasks").update({ section_id: t.section_id, status: t.status, updated_at: new Date().toISOString() }).eq("id", t.id);
+          }
+          setTasks((prev) =>
+            prev.map((t) => {
+              const old = movedTasks.find((m) => m.id === t.id);
+              return old ? { ...t, section_id: old.section_id, status: old.status } : t;
+            })
+          );
+        },
+      );
     }
   }
 
