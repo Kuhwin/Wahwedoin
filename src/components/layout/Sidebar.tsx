@@ -550,6 +550,13 @@ export default function Sidebar({
           <LogOut size={18} className="text-slate-400 dark:text-slate-500" />
           {expanded && <span>Sign Out</span>}
         </button>
+        {expanded && (
+          <div className="flex items-center gap-3 px-3 pt-2 text-xs text-slate-400 dark:text-slate-500">
+            <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Privacy</Link>
+            <span>&middot;</span>
+            <Link href="/terms" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Terms</Link>
+          </div>
+        )}
       </div>
 
       {/* Collapse Toggle (desktop only) */}
