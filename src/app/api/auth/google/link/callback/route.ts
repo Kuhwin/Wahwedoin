@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
     if (dbError) {
       console.error("DB error saving linked account:", dbError);
-      return NextResponse.redirect(new URL(`/settings?tab=account&error=db_error`, request.url));
+      return NextResponse.redirect(new URL(`/settings?tab=account&error=${encodeURIComponent(dbError.message || dbError.code || "db_error")}`, request.url));
     }
 
     return NextResponse.redirect(new URL("/settings?tab=account&linked=success", request.url));
