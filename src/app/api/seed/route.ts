@@ -6,7 +6,7 @@ export async function POST() {
 
   const { error } = await supabase
     .from("organizations")
-    .upsert({ name: "Possibilities Agency", slug: "possibilities-agency" }, { onConflict: "slug" });
+    .upsert({ name: "Default Team", slug: "default-team" }, { onConflict: "slug" });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

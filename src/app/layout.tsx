@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Wah We Doin",
-  description: "Project management for the Possibilities Agency",
+  description: "Project management for your team",
 };
 
 export const dynamic = "force-dynamic";
