@@ -285,7 +285,7 @@ export default function CalendarPage() {
   function getEventsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    // Internal events
+    // Internal events (include both start and end day)
     const internal = events.filter((event) => {
       const start = event.start_date.split("T")[0];
       const end = event.end_date.split("T")[0];
@@ -296,12 +296,16 @@ export default function CalendarPage() {
       color: e.color,
       type: "internal" as const,
       source: undefined,
+      allDay: false,
     }));
 
-    // External events
+    // External events — all-day events use exclusive end (Google Calendar convention)
     const external = externalEvents.filter((event) => {
       const start = event.start.split("T")[0];
       const end = event.end.split("T")[0];
+      if (event.allDay) {
+        return dateStr >= start && dateStr < end;
+      }
       return dateStr >= start && dateStr <= end;
     }).map((e) => ({
       id: e.id,
@@ -309,6 +313,7 @@ export default function CalendarPage() {
       color: e.color,
       type: "external" as const,
       source: e.source,
+      allDay: e.allDay,
     }));
 
     return [...internal, ...external];
@@ -361,6 +366,13 @@ export default function CalendarPage() {
   }
 
   const monthName = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  function sourceLabel(source?: string): string {
+    if (!source) return "";
+    if (source === "Barbados Holidays") return "BH";
+    if (source.includes("@")) return source.split("@")[0].slice(0, 3).toUpperCase();
+    return source.slice(0, 3).toUpperCase();
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -467,10 +479,15 @@ export default function CalendarPage() {
                       {dayEvents.slice(0, 3).map((event) => (
             <div
               key={event.id}
-              className="text-[10px] px-1 py-0.5 rounded truncate text-white"
+              className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white"
               style={{ backgroundColor: event.color }}
               title={`${event.title}${event.source ? ` (${event.source})` : ""}`}
             >
+              {event.type === "external" && (
+                <span className="flex-shrink-0 text-[8px] font-bold opacity-80 bg-black/20 rounded px-0.5">
+                  {sourceLabel(event.source)}
+                </span>
+              )}
                           {event.title}
                         </div>
                       ))}
