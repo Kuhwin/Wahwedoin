@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fetchAllAccountsDrive } from "@/lib/linkedAccounts";
-import { FileText, ExternalLink, FolderOpen, Search } from "lucide-react";
+import { fetchAllAccountsDrive, fetchDriveFolder } from "@/lib/linkedAccounts";
+import { FileText, ExternalLink, FolderOpen, Search, ChevronRight } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 
 interface DriveFile {
@@ -13,13 +13,20 @@ interface DriveFile {
   webViewLink?: string;
   modifiedTime?: string;
   iconLink?: string;
+  parents?: string[];
   source: string;
 }
 
 interface AccountDrive {
   accountEmail: string;
   accountName: string;
+  accountId: string;
   files: DriveFile[];
+}
+
+interface Breadcrumb {
+  id: string | null;
+  name: string;
 }
 
 function getFileIcon(mimeType: string) {
@@ -28,6 +35,7 @@ function getFileIcon(mimeType: string) {
   if (mimeType.includes("document")) return <FileText size={20} className="text-blue-500" />;
   if (mimeType.includes("presentation")) return <FileText size={20} className="text-orange-500" />;
   if (mimeType.includes("pdf")) return <FileText size={20} className="text-red-500" />;
+  if (mimeType.includes("image")) return <FileText size={20} className="text-pink-500" />;
   return <FileText size={20} className="text-slate-400" />;
 }
 
@@ -50,11 +58,25 @@ function formatTime(date?: string) {
   });
 }
 
+function sortFiles(files: DriveFile[]) {
+  return [...files].sort((a, b) => {
+    const aIsFolder = a.mimeType.includes("folder");
+    const bIsFolder = b.mimeType.includes("folder");
+    if (aIsFolder && !bIsFolder) return -1;
+    if (!aIsFolder && bIsFolder) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export default function DrivePage() {
   const [accounts, setAccounts] = useState<AccountDrive[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [currentAccount, setCurrentAccount] = useState<AccountDrive | null>(null);
+  const [folderStack, setFolderStack] = useState<Breadcrumb[]>([{ id: null, name: "My Drive" }]);
+  const [folderFiles, setFolderFiles] = useState<DriveFile[] | null>(null);
+  const [loadingFolder, setLoadingFolder] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -70,6 +92,8 @@ export default function DrivePage() {
         setAccounts(results);
         if (results.length === 0) {
           setError("no_accounts");
+        } else if (results.length === 1) {
+          setCurrentAccount(results[0]);
         }
       } catch {
         setError("Failed to load Drive files.");
@@ -79,7 +103,44 @@ export default function DrivePage() {
     void load();
   }, [supabase]);
 
-  const allFiles = accounts.flatMap((a) => a.files);
+  const navigateFolder = useCallback(async (accountId: string, folderId: string, folderName: string) => {
+    setLoadingFolder(true);
+    setFolderStack((prev) => [...prev, { id: folderId, name: folderName }]);
+    try {
+      const files = await fetchDriveFolder(accountId, folderId);
+      setFolderFiles(sortFiles(files));
+    } catch {
+      setFolderFiles([]);
+    }
+    setLoadingFolder(false);
+  }, []);
+
+  const navigateTo = useCallback(async (index: number) => {
+    const account = currentAccount;
+    if (!account) return;
+
+    const newStack = folderStack.slice(0, index + 1);
+    setFolderStack(newStack);
+
+    const target = newStack[newStack.length - 1];
+    if (target.id === null) {
+      setFolderFiles(null);
+    } else {
+      setLoadingFolder(true);
+      try {
+        const files = await fetchDriveFolder(account.accountId, target.id);
+        setFolderFiles(sortFiles(files));
+      } catch {
+        setFolderFiles([]);
+      }
+      setLoadingFolder(false);
+    }
+  }, [currentAccount, folderStack]);
+
+  const allFiles = currentAccount ? currentAccount.files : accounts.flatMap((a) => a.files);
+  const rootFiles = currentAccount
+    ? (folderFiles ?? sortFiles(allFiles.filter((f) => !f.parents?.length || f.parents[0] === "root")))
+    : [];
 
   if (loading) {
     return (
@@ -95,7 +156,7 @@ export default function DrivePage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Drive</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Files from your connected Google accounts
+            {currentAccount ? `Browsing ${currentAccount.accountName}` : "Files from your connected Google accounts"}
           </p>
         </div>
       </div>
@@ -120,89 +181,144 @@ export default function DrivePage() {
         </div>
       ) : (
         <>
-          {/* Search */}
-          {allFiles.length > 0 && (
-            <div className="relative mb-6">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search files..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
+          {/* Account selector (if multiple) */}
+          {!currentAccount && accounts.length > 1 && (
+            <div className="space-y-3 mb-6">
+              {accounts.map((account) => (
+                <button
+                  key={account.accountId}
+                  onClick={() => {
+                    setCurrentAccount(account);
+                    setFolderStack([{ id: null, name: "My Drive" }]);
+                    setFolderFiles(null);
+                  }}
+                  className="w-full flex items-center gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all text-left"
+                >
+                  <Avatar email={account.accountEmail} name={account.accountName} size="sm" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{account.accountName}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">{account.accountEmail} — {account.files.length} files</p>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Account sections */}
-          {accounts.map((account) => {
-            const accountFiles = search
-              ? account.files.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-              : account.files;
-            if (accountFiles.length === 0) return null;
+          {currentAccount && (
+            <>
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search files..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
 
-            return (
-              <div key={account.accountEmail} className="mb-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar email={account.accountEmail} name={account.accountName} size="sm" />
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {account.accountName}
-                    </h2>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">{account.accountEmail}</p>
+              {/* Breadcrumbs */}
+              <div className="flex items-center gap-1 mb-4 text-sm flex-wrap">
+                {folderStack.map((crumb, idx) => (
+                  <div key={idx} className="flex items-center gap-1">
+                    {idx > 0 && <ChevronRight size={14} className="text-slate-300 dark:text-slate-600" />}
+                    <button
+                      onClick={() => void navigateTo(idx)}
+                      className={`px-1.5 py-0.5 rounded transition-colors ${
+                        idx === folderStack.length - 1
+                          ? "font-semibold text-slate-900 dark:text-slate-100"
+                          : "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                      }`}
+                    >
+                      {crumb.name}
+                    </button>
                   </div>
-                </div>
+                ))}
+              </div>
 
+              {/* Back button if in a folder */}
+              {folderStack.length > 1 && (
+                <button
+                  onClick={() => void navigateTo(folderStack.length - 2)}
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium mb-3"
+                >
+                  ← Back to {folderStack[folderStack.length - 2].name}
+                </button>
+              )}
+
+              {/* File list */}
+              {loadingFolder ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
+                </div>
+              ) : (
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
                   <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {accountFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                      >
-                        <div className="flex-shrink-0">
-                          {file.iconLink ? (
-                            <img src={file.iconLink} alt="" className="w-5 h-5" />
-                          ) : (
-                            getFileIcon(file.mimeType)
+                    {(() => {
+                      const displayFiles = search
+                        ? rootFiles.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
+                        : rootFiles;
+
+                      if (displayFiles.length === 0) {
+                        return (
+                          <div className="py-12 text-center">
+                            <FolderOpen size={32} className="text-slate-200 dark:text-slate-700 mx-auto mb-2" />
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                              {search ? "No files match your search" : "This folder is empty"}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return displayFiles.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                        >
+                          <div className="flex-shrink-0">
+                            {file.iconLink ? (
+                              <img src={file.iconLink} alt="" className="w-5 h-5" />
+                            ) : (
+                              getFileIcon(file.mimeType)
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {file.mimeType.includes("folder") ? (
+                              <button
+                                onClick={() => void navigateFolder(currentAccount.accountId, file.id, file.name)}
+                                className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 truncate text-left"
+                              >
+                                {file.name}
+                              </button>
+                            ) : (
+                              <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                {file.name}
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                              {formatMime(file.mimeType)}
+                              {file.modifiedTime && ` · ${formatTime(file.modifiedTime)}`}
+                            </p>
+                          </div>
+                          {file.webViewLink && (
+                            <a
+                              href={file.webViewLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                              title="Open in Google Drive"
+                            >
+                              <ExternalLink size={14} />
+                            </a>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-slate-400 dark:text-slate-500">
-                            {formatMime(file.mimeType)}
-                            {file.modifiedTime && ` · ${formatTime(file.modifiedTime)}`}
-                          </p>
-                        </div>
-                        {file.webViewLink && (
-                          <a
-                            href={file.webViewLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                            title="Open in Google Drive"
-                          >
-                            <ExternalLink size={14} />
-                          </a>
-                        )}
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-
-          {allFiles.length === 0 && !error && (
-            <div className="text-center py-20">
-              <FolderOpen size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-1">No files found</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Your connected accounts don&apos;t have any Drive files yet.
-              </p>
-            </div>
+              )}
+            </>
           )}
         </>
       )}

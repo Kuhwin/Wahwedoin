@@ -105,15 +105,17 @@ export async function fetchAllAccountsDrive(userId: string) {
           webViewLink?: string;
           modifiedTime?: string;
           iconLink?: string;
+          parents?: string[];
         }>;
       }>(
         account,
-        `https://www.googleapis.com/drive/v3/files?pageSize=50&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink)&q=trashed%3Dfalse`
+        `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink,parents)&q=trashed%3Dfalse&orderBy=name`
       );
 
       return {
         accountEmail: account.email,
         accountName: account.display_name || account.email,
+        accountId: account.id,
         files: (data?.files || []).map((f) => ({
           ...f,
           source: account.email,
@@ -125,36 +127,92 @@ export async function fetchAllAccountsDrive(userId: string) {
   return results;
 }
 
+export async function fetchDriveFolder(accountId: string, folderId: string) {
+  const accounts = await getLinkedAccounts("");
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account) return [];
+
+  const data = await fetchGoogleAPI<{
+    files: Array<{
+      id: string;
+      name: string;
+      mimeType: string;
+      webViewLink?: string;
+      modifiedTime?: string;
+      iconLink?: string;
+      parents?: string[];
+    }>;
+  }>(
+    account,
+    `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink,parents)&q=trashed%3Dfalse+'${folderId}'+in+parents&orderBy=name`
+  );
+
+  return (data?.files || []).map((f) => ({
+    ...f,
+    source: account.email,
+  }));
+}
+
 export async function fetchAllAccountsGmail(userId: string) {
   const accounts = await getLinkedAccounts(userId);
   const gmailAccounts = accounts.filter((a) => a.scope.includes("gmail"));
 
   const results = await Promise.all(
     gmailAccounts.map(async (account) => {
-      const data = await fetchGoogleAPI<{
-        messages: Array<{
-          id: string;
-          snippet: string;
-          payload?: {
-            headers: Array<{ name: string; value: string }>;
-          };
-        }>;
+      const listData = await fetchGoogleAPI<{
+        messages: Array<{ id: string }>;
       }>(
         account,
         `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=is:unread`
       );
 
+      if (!listData?.messages?.length) {
+        return {
+          accountEmail: account.email,
+          accountName: account.display_name || account.email,
+          unreadCount: 0,
+          messages: [],
+        };
+      }
+
+      const messages = await Promise.all(
+        listData.messages.slice(0, 20).map(async (msg) => {
+          const detail = await fetchGoogleAPI<{
+            id: string;
+            snippet: string;
+            payload?: {
+              headers: Array<{ name: string; value: string }>;
+            };
+          }>(
+            account,
+            `https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`
+          );
+
+          if (!detail) return null;
+
+          return {
+            id: detail.id,
+            gmailId: msg.id,
+            snippet: detail.snippet,
+            subject: detail.payload?.headers?.find((h) => h.name === "Subject")?.value || "(no subject)",
+            from: detail.payload?.headers?.find((h) => h.name === "From")?.value || "",
+            source: account.email,
+          };
+        })
+      );
+
       return {
         accountEmail: account.email,
         accountName: account.display_name || account.email,
-        unreadCount: data?.messages?.length || 0,
-        messages: (data?.messages || []).map((m) => ({
-          id: `${account.google_user_id}:${m.id}`,
-          snippet: m.snippet,
-          subject: m.payload?.headers?.find((h) => h.name === "Subject")?.value || "",
-          from: m.payload?.headers?.find((h) => h.name === "From")?.value || "",
-          source: account.email,
-        })),
+        unreadCount: listData.messages.length,
+        messages: messages.filter(Boolean) as Array<{
+          id: string;
+          gmailId: string;
+          snippet: string;
+          subject: string;
+          from: string;
+          source: string;
+        }>,
       };
     })
   );

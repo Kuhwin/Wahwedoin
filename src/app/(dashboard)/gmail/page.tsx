@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllAccountsGmail } from "@/lib/linkedAccounts";
-import { Mail, Inbox as InboxIcon, Loader2 } from "lucide-react";
+import { Mail, Inbox as InboxIcon, Loader2, ExternalLink } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 
 interface GmailMessage {
   id: string;
+  gmailId: string;
   snippet: string;
   subject: string;
   from: string;
@@ -146,12 +147,21 @@ export default function GmailPage() {
                           <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 flex-shrink-0" />
                         </div>
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
-                          {msg.subject || "(no subject)"}
+                          {msg.subject}
                         </p>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
                           {msg.snippet}
                         </p>
                       </div>
+                      <a
+                        href={`https://mail.google.com/mail/u/0/#inbox/${msg.gmailId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                        title="Open in Gmail"
+                      >
+                        <ExternalLink size={14} />
+                      </a>
                     </div>
                   ))}
                 </div>
