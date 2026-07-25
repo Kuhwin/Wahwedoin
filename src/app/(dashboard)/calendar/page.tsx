@@ -169,9 +169,9 @@ export default function CalendarPage() {
         .select("*")
         .in("team_id", teamIds);
       if (links) {
-        setCalLinks(links);
+        setCalLinks(links as CalendarLink[]);
         await Promise.all(
-          links.map(async (link) => {
+          (links as CalendarLink[]).map(async (link) => {
             try {
               const res = await fetch("/api/calendar", {
                 method: "POST",
