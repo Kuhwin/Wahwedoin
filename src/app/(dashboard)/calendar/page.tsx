@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { type Event, type Team, type CalendarLink } from "@/lib/types";
 import { fetchAllAccountsCalendar } from "@/lib/linkedAccounts";
+import { getHolidaysForYear } from "@/lib/holidays";
 
 interface ExternalEvent {
   id: string;
@@ -83,18 +84,32 @@ export default function CalendarPage() {
         .in("team_id", teamIds);
       if (links) {
         setCalLinks(links);
-        // Fetch external events for all links
         fetchAllExternalEvents(links);
       }
     }
 
+    // Load Bajan holidays for current and next year
+    const now = new Date();
+    const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
+    const holidays: ExternalEvent[] = holidayYears.flatMap((year) =>
+      getHolidaysForYear(year).map((h) => ({
+        id: `holiday-${h.dateStr}-${h.name}`,
+        title: h.name,
+        start: `${h.dateStr}T00:00:00Z`,
+        end: `${h.dateStr}T23:59:59Z`,
+        description: "Barbados public holiday",
+        allDay: true,
+        color: "#16a34a",
+        source: "Barbados Holidays",
+      }))
+    );
+
     // Fetch Google Calendar events from linked accounts
     try {
       const googleResults = await fetchAllAccountsCalendar(user.id);
-      const googleEvents: ExternalEvent[] = [];
       for (const result of googleResults) {
         for (const event of result.events) {
-          googleEvents.push({
+          holidays.push({
             id: event.id,
             title: event.title,
             start: event.start,
@@ -106,12 +121,11 @@ export default function CalendarPage() {
           });
         }
       }
-      if (googleEvents.length > 0) {
-        setExternalEvents((prev) => [...prev, ...googleEvents]);
-      }
     } catch {
-      // Google Calendar fetch failed silently — user may not have linked accounts
+      // Google Calendar fetch failed silently
     }
+
+    setExternalEvents(holidays);
   }, [supabase, newTeamId]);
 
   useEffect(() => {
@@ -147,7 +161,11 @@ export default function CalendarPage() {
       })
     );
 
-    setExternalEvents(allEvents);
+    setExternalEvents((prev) => {
+      const holidays = prev.filter((e) => e.source === "Barbados Holidays");
+      const google = prev.filter((e) => e.source !== "Barbados Holidays" && !links.some((l) => l.color === e.color && !e.source?.includes("@")));
+      return [...holidays, ...google, ...allEvents];
+    });
     setLoadingCal(false);
   }
 
@@ -363,6 +381,18 @@ export default function CalendarPage() {
           ))}
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+          <span className="h-2 w-2 rounded-full bg-green-600" />
+          Barbados Holidays
+        </div>
+        {externalEvents.some((e) => e.color === "#4285F4") && (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+            <span className="h-2 w-2 rounded-full bg-[#4285F4]" />
+            Google Calendar
+          </div>
+        )}
+      </div>
 
       {/* Calendar Navigation */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden dark:bg-slate-900 dark:border-slate-700">
