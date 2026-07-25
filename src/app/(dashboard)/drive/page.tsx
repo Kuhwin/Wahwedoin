@@ -138,9 +138,7 @@ export default function DrivePage() {
   }, [currentAccount, folderStack]);
 
   const allFiles = currentAccount ? currentAccount.files : accounts.flatMap((a) => a.files);
-  const rootFiles = currentAccount
-    ? (folderFiles ?? sortFiles(allFiles.filter((f) => !f.parents?.length || f.parents[0] === "root")))
-    : [];
+  const rootFiles = folderFiles ?? sortFiles(allFiles);
 
   if (loading) {
     return (

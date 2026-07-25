@@ -128,11 +128,16 @@ export async function fetchAllAccountsDrive(userId: string) {
 }
 
 export async function fetchDriveFolder(accountId: string, folderId: string) {
-  const accounts = await getLinkedAccounts("");
-  const account = accounts.find((a) => a.id === accountId);
-  if (!account) return [];
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_google_accounts")
+    .select("*")
+    .eq("id", accountId)
+    .single();
+  if (!data) return [];
+  const account = data as LinkedGoogleAccount;
 
-  const data = await fetchGoogleAPI<{
+  const files = await fetchGoogleAPI<{
     files: Array<{
       id: string;
       name: string;
@@ -147,7 +152,7 @@ export async function fetchDriveFolder(accountId: string, folderId: string) {
     `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink,parents)&q=trashed%3Dfalse+'${folderId}'+in+parents&orderBy=name`
   );
 
-  return (data?.files || []).map((f) => ({
+  return (files?.files || []).map((f) => ({
     ...f,
     source: account.email,
   }));
