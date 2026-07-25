@@ -19,6 +19,10 @@ import {
   FolderKanban,
   MoreVertical,
   Trash2,
+  FolderOpen,
+  Mail,
+  Users,
+  Inbox,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -240,6 +244,10 @@ export default function Sidebar({
     { href: "/", icon: Home, label: "Home" },
     { href: "/my-tasks", icon: CheckSquare, label: "My Tasks" },
     { href: "/calendar", icon: Calendar, label: "Calendar" },
+    { href: "/drive", icon: FolderOpen, label: "Drive" },
+    { href: "/gmail", icon: Mail, label: "Gmail" },
+    { href: "/inbox", icon: Inbox, label: "Inbox" },
+    { href: "/teams", icon: Users, label: "Teams" },
   ];
 
   const sidebarContent = (

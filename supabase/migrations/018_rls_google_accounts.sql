@@ -1,5 +1,11 @@
--- Enable RLS on user_google_accounts
+-- Enable RLS on user_google_accounts (idempotent)
 ALTER TABLE user_google_accounts ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Users can view own linked accounts" ON user_google_accounts;
+DROP POLICY IF EXISTS "Users can insert own linked accounts" ON user_google_accounts;
+DROP POLICY IF EXISTS "Users can update own linked accounts" ON user_google_accounts;
+DROP POLICY IF EXISTS "Users can delete own linked accounts" ON user_google_accounts;
 
 -- Users can view their own linked accounts
 CREATE POLICY "Users can view own linked accounts"

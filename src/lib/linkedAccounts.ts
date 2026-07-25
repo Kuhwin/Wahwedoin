@@ -1,17 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
+import type { LinkedGoogleAccount } from "@/lib/types";
 
-export interface LinkedGoogleAccount {
-  id: string;
-  user_id: string;
-  google_user_id: string;
-  email: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  access_token: string;
-  refresh_token: string | null;
-  token_expires_at: string | null;
-  scope: string;
-}
+export type { LinkedGoogleAccount };
 
 export async function getLinkedAccounts(userId: string): Promise<LinkedGoogleAccount[]> {
   const supabase = createClient();

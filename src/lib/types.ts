@@ -258,3 +258,15 @@ export interface LinkedGoogleAccount {
   scope: string;
   created_at: string;
 }
+
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  task_assigned: boolean;
+  task_due_soon: boolean;
+  task_commented: boolean;
+  team_invite: boolean;
+  email_digest: "off" | "daily" | "weekly";
+  created_at: string;
+  updated_at: string;
+}

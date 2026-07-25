@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { type Event, type Team, type CalendarLink } from "@/lib/types";
+import { fetchAllAccountsCalendar } from "@/lib/linkedAccounts";
 
 interface ExternalEvent {
   id: string;
@@ -16,6 +17,7 @@ interface ExternalEvent {
   description: string;
   allDay: boolean;
   color: string;
+  source?: string;
 }
 
 const CALENDAR_COLORS = [
@@ -84,6 +86,31 @@ export default function CalendarPage() {
         // Fetch external events for all links
         fetchAllExternalEvents(links);
       }
+    }
+
+    // Fetch Google Calendar events from linked accounts
+    try {
+      const googleResults = await fetchAllAccountsCalendar(user.id);
+      const googleEvents: ExternalEvent[] = [];
+      for (const result of googleResults) {
+        for (const event of result.events) {
+          googleEvents.push({
+            id: event.id,
+            title: event.title,
+            start: event.start,
+            end: event.end,
+            description: event.description,
+            allDay: event.allDay,
+            color: "#4285F4",
+            source: result.accountEmail,
+          });
+        }
+      }
+      if (googleEvents.length > 0) {
+        setExternalEvents((prev) => [...prev, ...googleEvents]);
+      }
+    } catch {
+      // Google Calendar fetch failed silently — user may not have linked accounts
     }
   }, [supabase, newTeamId]);
 
@@ -222,6 +249,7 @@ export default function CalendarPage() {
       title: e.title,
       color: e.color,
       type: "internal" as const,
+      source: undefined,
     }));
 
     // External events
@@ -234,6 +262,7 @@ export default function CalendarPage() {
       title: e.title,
       color: e.color,
       type: "external" as const,
+      source: e.source,
     }));
 
     return [...internal, ...external];
@@ -291,8 +320,8 @@ export default function CalendarPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Calendar</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Shared calendar across all teams
             {loadingCal && (
               <span className="inline-flex items-center gap-1 ml-2 text-indigo-600">
@@ -336,21 +365,21 @@ export default function CalendarPage() {
       )}
 
       {/* Calendar Navigation */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden dark:bg-slate-900 dark:border-slate-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800">
             <ChevronLeft size={18} />
           </button>
-          <h2 className="text-lg font-semibold text-slate-900">{monthName}</h2>
-          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{monthName}</h2>
+          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800">
             <ChevronRight size={18} />
           </button>
         </div>
 
         {/* Day Headers */}
-        <div className="grid grid-cols-7 border-b border-slate-200">
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center text-xs font-medium text-slate-500 py-2">
+            <div key={day} className="text-center text-xs font-medium text-slate-500 dark:text-slate-400 py-2">
               {day}
             </div>
           ))}
@@ -364,31 +393,31 @@ export default function CalendarPage() {
             return (
               <div
                 key={idx}
-                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 p-1.5 last:border-r-0 ${
-                  day ? "cursor-pointer hover:bg-slate-50" : ""
+                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1.5 last:border-r-0 ${
+                  day ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" : ""
                 }`}
                 onClick={() => day && handleDayClick(day)}
               >
                 {day && (
                   <>
                     <div className={`text-xs font-medium mb-1 ${
-                      isToday ? "bg-indigo-600 text-white h-5 w-5 rounded-full flex items-center justify-center" : "text-slate-700"
+                      isToday ? "bg-indigo-600 text-white h-5 w-5 rounded-full flex items-center justify-center" : "text-slate-700 dark:text-slate-300"
                     }`}>
                       {day}
                     </div>
                     <div className="space-y-0.5">
                       {dayEvents.slice(0, 3).map((event) => (
-                        <div
-                          key={event.id}
-                          className="text-[10px] px-1 py-0.5 rounded truncate text-white"
-                          style={{ backgroundColor: event.color }}
-                          title={event.title}
-                        >
+            <div
+              key={event.id}
+              className="text-[10px] px-1 py-0.5 rounded truncate text-white"
+              style={{ backgroundColor: event.color }}
+              title={`${event.title}${event.source ? ` (${event.source})` : ""}`}
+            >
                           {event.title}
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-[10px] text-slate-400 px-1">
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 px-1">
                           +{dayEvents.length - 3} more
                         </div>
                       )}
@@ -412,21 +441,21 @@ export default function CalendarPage() {
             required
           />
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
             <textarea
               placeholder="Event details..."
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
               rows={2}
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Team</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Team</label>
             <select
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>
@@ -457,7 +486,7 @@ export default function CalendarPage() {
               onChange={(e) => setNewAllDay(e.target.checked)}
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             />
-            <label htmlFor="allDay" className="text-sm text-slate-700">All day event</label>
+            <label htmlFor="allDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>
@@ -473,12 +502,12 @@ export default function CalendarPage() {
       {/* Link Calendar Modal */}
       <Modal open={showLinkCal} onClose={() => { setShowLinkCal(false); setLinkError(""); }} title="Link Google Calendar">
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Paste your Google Calendar&apos;s public iCal URL to show your events alongside your team&apos;s.
           </p>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
-            <p className="font-medium text-slate-700">How to get your iCal URL:</p>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400">
+            <p className="font-medium text-slate-700 dark:text-slate-300">How to get your iCal URL:</p>
             <ol className="list-decimal list-inside space-y-0.5 text-slate-500">
               <li>Open <a href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Calendar</a></li>
               <li>Click the gear icon → Settings</li>
@@ -508,7 +537,7 @@ export default function CalendarPage() {
               onChange={(e) => setLinkLabel(e.target.value)}
             />
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">Color</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
               <div className="flex gap-2">
                 {CALENDAR_COLORS.map((color) => (
                   <button

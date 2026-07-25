@@ -234,8 +234,8 @@ export default function TeamsPage() {
         <div
           className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
             message.type === "error"
-              ? "bg-red-50 text-red-700 border border-red-200"
-              : "bg-green-50 text-green-700 border border-green-200"
+              ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
+              : "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -252,8 +252,8 @@ export default function TeamsPage() {
 
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Teams</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage your teams and members</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Teams</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your teams and members</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus size={16} />
@@ -263,9 +263,9 @@ export default function TeamsPage() {
 
       {teams.length === 0 ? (
         <div className="text-center py-16">
-          <Users size={48} className="text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No teams yet</h3>
-          <p className="text-sm text-slate-500 mb-4">Create your first team to get started</p>
+          <Users size={48} className="text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">No teams yet</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Create your first team to get started</p>
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={16} />
             Create Team
@@ -277,17 +277,17 @@ export default function TeamsPage() {
             <Link
               key={team.id}
               href={`/teams/${team.id}`}
-              className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group"
+              className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group dark:bg-slate-900 dark:border-slate-700 dark:hover:border-indigo-600"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors dark:bg-indigo-900/30 dark:group-hover:bg-indigo-900/50">
                     <Users size={20} className="text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{team.name}</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 transition-colors">{team.name}</h3>
                     {team.description && (
-                      <p className="text-sm text-slate-500">{team.description}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{team.description}</p>
                     )}
                   </div>
                 </div>
@@ -315,12 +315,12 @@ export default function TeamsPage() {
             required
           />
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
             <textarea
               placeholder="What does this team do?"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
               rows={3}
             />
           </div>
@@ -350,12 +350,12 @@ export default function TeamsPage() {
                 <p className="text-sm text-slate-500 text-center py-4">No members yet</p>
               ) : (
                 members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
                     <div className="flex items-center gap-3">
                       <Avatar email={member.user_email || member.user_id} size="sm" />
                       <div>
-                        <p className="text-sm font-medium text-slate-900">{member.user_email || member.user_id}</p>
-                        <p className="text-xs text-slate-500">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{member.user_email || member.user_id}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -384,25 +384,25 @@ export default function TeamsPage() {
               <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Pending Invites ({invites.length})</h4>
               <div className="space-y-2">
                 {invites.map((invite) => (
-                  <div key={invite.id} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div key={invite.id} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-900/20 dark:border-amber-800">
                     <div className="flex items-center gap-3">
-                      <Mail size={16} className="text-amber-600" />
+                      <Mail size={16} className="text-amber-600 dark:text-amber-400" />
                       <div>
-                        <p className="text-sm font-medium text-slate-900">{invite.email}</p>
-                        <p className="text-xs text-slate-500">Invited as {invite.role}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{invite.email}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Invited as {invite.role}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => copyInviteLink(invite.email)}
-                        className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:hover:bg-indigo-900/20"
                         title="Copy invite link"
                       >
                         {copied === invite.email ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                       </button>
                       <button
                         onClick={() => handleRevokeInvite(invite.id)}
-                        className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/20"
                         title="Revoke invite"
                       >
                         <Trash2 size={14} />
@@ -415,7 +415,7 @@ export default function TeamsPage() {
           )}
 
           {/* Invite Form */}
-          <div className="border-t border-slate-200 pt-4">
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
               <UserPlus size={12} className="inline mr-1" />
               Invite by email
@@ -427,13 +427,13 @@ export default function TeamsPage() {
                   placeholder="teammate@email.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
                   required
                 />
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>

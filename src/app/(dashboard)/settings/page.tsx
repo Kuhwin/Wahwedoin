@@ -7,21 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw } from "lucide-react";
-
-interface LinkedAccount {
-  id: string;
-  email: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  scope: string;
-  created_at: string;
-}
+import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell } from "lucide-react";
+import type { LinkedGoogleAccount } from "@/lib/types";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"profile" | "account">("profile");
+  const [tab, setTab] = useState<"profile" | "account" | "notifications">("profile");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -30,8 +22,16 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [orgMembers, setOrgMembers] = useState<{ user_id: string; display_name: string; user_email: string }[]>([]);
   const [switching, setSwitching] = useState(false);
-  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>([]);
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedGoogleAccount[]>([]);
   const [linkingLoading, setLinkingLoading] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState({
+    task_assigned: true,
+    task_due_soon: true,
+    task_commented: true,
+    team_invite: true,
+    email_digest: "off" as "off" | "daily" | "weekly",
+  });
+  const [savingNotifs, setSavingNotifs] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -89,7 +89,22 @@ export default function SettingsPage() {
         .select("id, email, display_name, avatar_url, scope, created_at")
         .eq("user_id", authUser.id)
         .order("created_at", { ascending: false });
-      if (accounts) setLinkedAccounts(accounts as LinkedAccount[]);
+      if (accounts) setLinkedAccounts(accounts as LinkedGoogleAccount[]);
+
+      const { data: prefs } = await supabase
+        .from("notification_preferences")
+        .select("*")
+        .eq("user_id", authUser.id)
+        .single();
+      if (prefs) {
+        setNotifPrefs({
+          task_assigned: prefs.task_assigned ?? true,
+          task_due_soon: prefs.task_due_soon ?? true,
+          task_commented: prefs.task_commented ?? true,
+          team_invite: prefs.team_invite ?? true,
+          email_digest: prefs.email_digest ?? "off",
+        });
+      }
 
       setLoading(false);
     }
@@ -198,6 +213,17 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSaveNotifs() {
+    if (!user) return;
+    setSavingNotifs(true);
+    const { error } = await supabase.from("notification_preferences").upsert(
+      { user_id: user.id, ...notifPrefs, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+    if (!error) setMessage("Notification preferences saved.");
+    setSavingNotifs(false);
+  }
+
   if (loading || !user) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -232,6 +258,15 @@ export default function SettingsPage() {
         >
           <Shield size={14} className="inline mr-2" />
           Account
+        </button>
+        <button
+          onClick={() => setTab("notifications")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === "notifications" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <Bell size={14} className="inline mr-2" />
+          Notifications
         </button>
       </div>
 
@@ -415,6 +450,64 @@ export default function SettingsPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Sign out of your account on this device.</p>
             <Button variant="danger" size="sm" onClick={() => void handleSignOut()}>
               Sign Out
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {tab === "notifications" && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-6">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Notification Preferences</h3>
+
+          <div className="space-y-4">
+            {[
+              { key: "task_assigned" as const, label: "Task assigned to me", desc: "When someone assigns you a task" },
+              { key: "task_due_soon" as const, label: "Task due soon", desc: "Reminders for tasks due today or tomorrow" },
+              { key: "task_commented" as const, label: "Task comments", desc: "When someone comments on a task you're involved in" },
+              { key: "team_invite" as const, label: "Team invites", desc: "When someone invites you to a team" },
+            ].map((item) => (
+              <div key={item.key} className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.label}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
+                </div>
+                <button
+                  onClick={() => setNotifPrefs({ ...notifPrefs, [item.key]: !notifPrefs[item.key] })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    notifPrefs[item.key] ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      notifPrefs[item.key] ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            ))}
+
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Email Digest</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Receive a summary of activity by email</p>
+                </div>
+                <select
+                  value={notifPrefs.email_digest}
+                  onChange={(e) => setNotifPrefs({ ...notifPrefs, email_digest: e.target.value as "off" | "daily" | "weekly" })}
+                  className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="off">Off</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => void handleSaveNotifs()} disabled={savingNotifs}>
+              {savingNotifs ? "Saving..." : "Save Preferences"}
             </Button>
           </div>
         </div>

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CheckSquare, Calendar } from "lucide-react";
+import { Home, CheckSquare, Calendar, FolderOpen, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/my-tasks", icon: CheckSquare, label: "Tasks" },
   { href: "/calendar", icon: Calendar, label: "Calendar" },
+  { href: "/drive", icon: FolderOpen, label: "Drive" },
+  { href: "/gmail", icon: Mail, label: "Gmail" },
 ];
 
 export default function MobileNav() {
