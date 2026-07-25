@@ -75,6 +75,26 @@ export default function CalendarPage() {
 
     if (eventsData) setEvents(eventsData);
 
+    const allExternal: ExternalEvent[] = [];
+
+    // Load Bajan holidays for current and next year
+    const now = new Date();
+    const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
+    for (const year of holidayYears) {
+      for (const h of getHolidaysForYear(year)) {
+        allExternal.push({
+          id: `holiday-${h.dateStr}-${h.name}`,
+          title: h.name,
+          start: `${h.dateStr}T00:00:00Z`,
+          end: `${h.dateStr}T23:59:59Z`,
+          description: "Barbados public holiday",
+          allDay: true,
+          color: "#16a34a",
+          source: "Barbados Holidays",
+        });
+      }
+    }
+
     // Load calendar links for user's teams
     const teamIds = (memberships || []).map((m: { team_id: string }) => m.team_id);
     if (teamIds.length > 0) {
@@ -84,32 +104,40 @@ export default function CalendarPage() {
         .in("team_id", teamIds);
       if (links) {
         setCalLinks(links);
-        fetchAllExternalEvents(links);
+        // Fetch iCal events
+        await Promise.all(
+          links.map(async (link) => {
+            try {
+              const res = await fetch("/api/calendar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: link.ical_url, color: link.color }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.events) {
+                  allExternal.push(
+                    ...data.events.map((e: ExternalEvent) => ({
+                      ...e,
+                      color: link.color,
+                    }))
+                  );
+                }
+              }
+            } catch {
+              // Skip failed calendars silently
+            }
+          })
+        );
       }
     }
-
-    // Load Bajan holidays for current and next year
-    const now = new Date();
-    const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
-    const holidays: ExternalEvent[] = holidayYears.flatMap((year) =>
-      getHolidaysForYear(year).map((h) => ({
-        id: `holiday-${h.dateStr}-${h.name}`,
-        title: h.name,
-        start: `${h.dateStr}T00:00:00Z`,
-        end: `${h.dateStr}T23:59:59Z`,
-        description: "Barbados public holiday",
-        allDay: true,
-        color: "#16a34a",
-        source: "Barbados Holidays",
-      }))
-    );
 
     // Fetch Google Calendar events from linked accounts
     try {
       const googleResults = await fetchAllAccountsCalendar(user.id);
       for (const result of googleResults) {
         for (const event of result.events) {
-          holidays.push({
+          allExternal.push({
             id: event.id,
             title: event.title,
             start: event.start,
@@ -125,7 +153,7 @@ export default function CalendarPage() {
       // Google Calendar fetch failed silently
     }
 
-    setExternalEvents(holidays);
+    setExternalEvents(allExternal);
   }, [supabase, newTeamId]);
 
   useEffect(() => {
