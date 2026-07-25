@@ -40,6 +40,7 @@ export default function CalendarPage() {
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [newAllDay, setNewAllDay] = useState(true);
+  const [newColor, setNewColor] = useState(CALENDAR_COLORS[0]);
   const [creating, setCreating] = useState(false);
 
   // Calendar linking state
@@ -82,11 +83,14 @@ export default function CalendarPage() {
     const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
     for (const year of holidayYears) {
       for (const h of getHolidaysForYear(year)) {
+        // Use date-only strings (no T) so end is the next day for matching
+        const nextDay = new Date(year, h.month, h.day + 1);
+        const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
         allExternal.push({
           id: `holiday-${h.dateStr}-${h.name}`,
           title: h.name,
-          start: `${h.dateStr}T00:00:00Z`,
-          end: `${h.dateStr}T23:59:59Z`,
+          start: h.dateStr,
+          end: nextDayStr,
           description: "Barbados public holiday",
           allDay: true,
           color: "#16a34a",
@@ -303,7 +307,8 @@ export default function CalendarPage() {
     const external = externalEvents.filter((event) => {
       const start = event.start.split("T")[0];
       const end = event.end.split("T")[0];
-      if (event.allDay) {
+      const isAllDay = event.allDay || (!event.start.includes("T") && !event.end.includes("T"));
+      if (isAllDay) {
         return dateStr >= start && dateStr < end;
       }
       return dateStr >= start && dateStr <= end;
@@ -351,6 +356,7 @@ export default function CalendarPage() {
         start_date: newStartDate + "T00:00:00Z",
         end_date: newEndDate + "T23:59:59Z",
         all_day: newAllDay,
+        color: newColor,
         created_by: user?.id,
       })
       .select()
@@ -361,6 +367,7 @@ export default function CalendarPage() {
       setShowCreate(false);
       setNewTitle("");
       setNewDesc("");
+      setNewColor(CALENDAR_COLORS[0]);
     }
     setCreating(false);
   }
@@ -562,6 +569,20 @@ export default function CalendarPage() {
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             />
             <label htmlFor="allDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
+            <div className="flex gap-2">
+              {CALENDAR_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setNewColor(color)}
+                  className={`h-7 w-7 rounded-lg transition-all ${newColor === color ? "ring-2 ring-offset-2 ring-indigo-500 scale-110" : "hover:scale-105"}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>
