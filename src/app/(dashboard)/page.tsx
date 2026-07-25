@@ -16,16 +16,19 @@ import {
   TrendingUp,
   ChevronRight,
   Loader2,
+  CalendarDays,
 } from "lucide-react";
-import type { Project, Task, Activity as ActivityType } from "@/lib/types";
+import type { Project, Task, Activity as ActivityType, Event } from "@/lib/types";
 import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
+import { getHolidaysForYear } from "@/lib/holidays";
 import Modal from "@/components/ui/Modal";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityType[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
@@ -43,10 +46,10 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const [projectsRes, tasksRes, actRes] = await Promise.all([
+        const [projectsRes, tasksRes, actRes, eventsRes] = await Promise.all([
           supabase
             .from("projects")
-            .select("id, name, team_id, status, created_at")
+            .select("id, name, team_id, status, color, created_at")
             .order("created_at", { ascending: false }),
           supabase
             .from("tasks")
@@ -57,6 +60,10 @@ export default function DashboardPage() {
             .select("id, user_id, action, detail, created_at")
             .order("created_at", { ascending: false })
             .limit(7),
+          supabase
+            .from("events")
+            .select("*")
+            .order("start_date", { ascending: true }),
         ]);
 
         if (projectsRes.data) setProjects(projectsRes.data as Project[]);
@@ -76,6 +83,55 @@ export default function DashboardPage() {
               setUserNames(map);
             }
           }
+        }
+
+        if (eventsRes.data) {
+          const evts = eventsRes.data as Event[];
+          const now = new Date();
+          const sevenDaysFromNow = new Date(now.getTime() + 7 * 86400000);
+          const upcoming: Event[] = [];
+
+          for (const evt of evts) {
+            if (evt.end_date && evt.end_date < now.toISOString()) continue;
+            if (evt.start_date && new Date(evt.start_date) > sevenDaysFromNow) continue;
+            upcoming.push(evt);
+
+            if (evt.recurrence && evt.recurrence !== "none") {
+              const expanded = expandRecurrence(evt, now, sevenDaysFromNow);
+              for (const ex of expanded) {
+                if (ex.id !== evt.id) upcoming.push(ex);
+              }
+            }
+          }
+
+          for (const h of getHolidaysForYear(now.getFullYear())) {
+            const hStart = new Date(h.dateStr + "T00:00:00Z").toISOString();
+            const hEnd = new Date(new Date(h.dateStr).getTime() + 86400000).toISOString().split("T")[0] + "T23:59:59Z";
+            if (new Date(hEnd) < now || new Date(hStart) > sevenDaysFromNow) continue;
+            upcoming.push({
+              id: `holiday-${h.dateStr}`,
+              title: h.name,
+              description: "Barbados Public Holiday",
+              start_date: hStart,
+              end_date: hEnd,
+              all_day: true,
+              color: "#16a34a",
+              created_by: "",
+              team_id: "",
+              project_id: null,
+              recurrence: null,
+              recurrence_end: null,
+              created_at: h.dateStr,
+            });
+          }
+
+          upcoming.sort((a, b) => {
+            const da = new Date(a.start_date || a.created_at).getTime();
+            const db = new Date(b.start_date || b.created_at).getTime();
+            return da - db;
+          });
+
+          setEvents(upcoming);
         }
 
         void checkDueDateNotifications();
@@ -193,6 +249,54 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{overdueTasks.length}</p>
         </div>
       </div>
+
+      {/* Upcoming Events */}
+      {events.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <CalendarDays size={14} />
+              Upcoming Events ({events.length})
+            </h2>
+            <Link href="/calendar" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+              View calendar
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {events.slice(0, 6).map((evt) => {
+              const evtDate = new Date(evt.start_date || evt.created_at);
+              const isToday = evtDate.toISOString().split("T")[0] === today;
+              const isTomorrow = evtDate.toISOString().split("T")[0] === new Date(Date.now() + 86400000).toISOString().split("T")[0];
+              const isHoliday = String(evt.id).startsWith("holiday-");
+              const isExternal = String(evt.id).startsWith("external-");
+              const dateLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : evtDate.toLocaleDateString("en-GB", { weekday: "short", month: "short", day: "numeric" });
+
+              return (
+                <div
+                  key={evt.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-1 rounded-full shrink-0 self-stretch"
+                      style={{ backgroundColor: evt.color || "#6366f1" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{evt.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{dateLabel}</span>
+                        {isHoliday && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Holiday</span>}
+                        {isExternal && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">External</span>}
+                        {evt.recurrence && evt.recurrence !== "none" && <span className="text-[10px]">🔁</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Overdue / Due Soon Alerts */}
@@ -451,4 +555,44 @@ function formatRelativeTime(dateStr: string) {
   if (diffHr < 24) return `${diffHr}h ago`;
   if (diffDay < 7) return `${diffDay}d ago`;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function expandRecurrence(evt: Event, rangeStart: Date, rangeEnd: Date): Event[] {
+  if (!evt.recurrence || evt.recurrence === "none" || !evt.start_date) return [];
+  const results: Event[] = [];
+  const originalStart = new Date(evt.start_date);
+  const originalEnd = evt.end_date ? new Date(evt.end_date) : null;
+  const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 0;
+  const recEnd = evt.recurrence_end ? new Date(evt.recurrence_end) : new Date(rangeEnd.getTime() + 365 * 86400000);
+
+  let current = new Date(originalStart);
+  let safety = 0;
+  const maxIterations = 500;
+
+  while (current <= rangeEnd && current <= recEnd && safety < maxIterations) {
+    safety++;
+    const next = new Date(current);
+
+    if (evt.recurrence === "daily") next.setDate(next.getDate() + 1);
+    else if (evt.recurrence === "weekly") next.setDate(next.getDate() + 7);
+    else if (evt.recurrence === "biweekly") next.setDate(next.getDate() + 14);
+    else if (evt.recurrence === "monthly") next.setMonth(next.getMonth() + 1);
+    else if (evt.recurrence === "yearly") next.setFullYear(next.getFullYear() + 1);
+
+    if (next > rangeEnd || next > recEnd) break;
+
+    const evtEnd = duration > 0 ? new Date(next.getTime() + duration) : null;
+    if (next >= rangeStart) {
+      results.push({
+        ...evt,
+        id: `${evt.id}-r-${next.getTime()}`,
+        start_date: next.toISOString(),
+        end_date: evtEnd ? evtEnd.toISOString() : next.toISOString(),
+      });
+    }
+
+    current = next;
+  }
+
+  return results;
 }

@@ -723,6 +723,14 @@ export default function TaskDetailModal({
           </div>
         </div>
 
+        {/* Linked Event */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Calendar size={12} /> Linked Event
+          </label>
+          <EventLinker taskId={task.id} eventId={task.event_id || null} onUpdate={onUpdate} supabase={supabase} />
+        </div>
+
         {/* Subtasks */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -1103,5 +1111,124 @@ export default function TaskDetailModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function EventLinker({
+  taskId,
+  eventId,
+  onUpdate,
+  supabase,
+}: {
+  taskId: string;
+  eventId: string | null;
+  onUpdate: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const [events, setEvents] = useState<{ id: string; title: string; start_date: string; color: string | null }[]>([]);
+  const [linkedEvent, setLinkedEvent] = useState<{ id: string; title: string; start_date: string; color: string | null } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (eventId) {
+      setLoading(true);
+      supabase
+        .from("events")
+        .select("id, title, start_date, color")
+        .eq("id", eventId)
+        .single()
+        .then(({ data }: { data: { id: string; title: string; start_date: string; color: string | null } | null }) => {
+          setLinkedEvent(data);
+          setLoading(false);
+        });
+    } else {
+      setLinkedEvent(null);
+    }
+  }, [eventId, supabase]);
+
+  async function loadEvents() {
+    const { data } = await supabase
+      .from("events")
+      .select("id, title, start_date, color")
+      .order("start_date", { ascending: true });
+    if (data) setEvents(data);
+  }
+
+  function handleOpen() {
+    setOpen(true);
+    void loadEvents();
+  }
+
+  async function handleLink(eventId: string | null) {
+    await onUpdate(taskId, { event_id: eventId } as Partial<Task>);
+    setOpen(false);
+  }
+
+  if (loading) {
+    return <div className="text-xs text-slate-400 dark:text-slate-500">Loading...</div>;
+  }
+
+  if (linkedEvent && !open) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: linkedEvent.color || "#6366f1" }} />
+          <span className="truncate text-slate-700 dark:text-slate-300">{linkedEvent.title}</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">
+            {new Date(linkedEvent.start_date).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+          </span>
+        </div>
+        <button
+          onClick={() => void handleLink(null)}
+          className="p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
+          title="Unlink event"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {!open ? (
+        <button
+          onClick={handleOpen}
+          className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 text-left text-slate-400 dark:text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors"
+        >
+          Link to event...
+        </button>
+      ) : (
+        <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 max-h-48 overflow-y-auto space-y-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Select event</span>
+            <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <X size={12} />
+            </button>
+          </div>
+          {events.length === 0 ? (
+            <p className="text-xs text-slate-400 dark:text-slate-500 py-2">No events found</p>
+          ) : (
+            events.map((evt) => (
+              <button
+                key={evt.id}
+                onClick={() => void handleLink(evt.id)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-sm hover:bg-white dark:hover:bg-slate-700 transition-colors",
+                  eventId === evt.id && "bg-indigo-50 dark:bg-indigo-900/20"
+                )}
+              >
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: evt.color || "#6366f1" }} />
+                <span className="truncate text-slate-700 dark:text-slate-300">{evt.title}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0 ml-auto">
+                  {new Date(evt.start_date).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }

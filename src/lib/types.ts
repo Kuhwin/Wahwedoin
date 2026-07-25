@@ -61,6 +61,7 @@ export interface Task {
   due_date: string | null;
   position: number;
   parent_id: string | null;
+  event_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -105,6 +106,8 @@ export interface Event {
   color: string;
   created_by: string | null;
   created_at: string;
+  recurrence: string | null;
+  recurrence_end: string | null;
 }
 
 export interface Activity {
