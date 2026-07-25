@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { type Event, type Team, type CalendarLink } from "@/lib/types";
+import { type Event, type Team, type Project, type CalendarLink } from "@/lib/types";
 import { fetchAllAccountsCalendar } from "@/lib/linkedAccounts";
 import { getHolidaysForYear } from "@/lib/holidays";
 
@@ -26,24 +26,77 @@ const CALENDAR_COLORS = [
   "#f97316", "#eab308", "#22c55e", "#06b6d4",
 ];
 
+function MultiSelectCheckbox<T extends { id: string; name: string; color?: string }>({
+  label,
+  items,
+  selected,
+  onToggle,
+  renderIcon,
+}: {
+  label: string;
+  items: T[];
+  selected: string[];
+  onToggle: (id: string) => void;
+  renderIcon?: (item: T) => React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</label>
+      <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-600 divide-y divide-slate-200 dark:divide-slate-700">
+        {items.map((item) => {
+          const checked = selected.includes(item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onToggle(item.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${
+                checked
+                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300"
+                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+              }`}
+            >
+              <div className={`flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                checked
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "border-slate-300 dark:border-slate-600"
+              }`}>
+                {checked && <Check size={10} strokeWidth={3} />}
+              </div>
+              {renderIcon ? renderIcon(item) : item.color && (
+                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+              )}
+              <span className="truncate">{item.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <p className="text-xs text-slate-400 dark:text-slate-500">{selected.length} selected</p>
+      )}
+    </div>
+  );
+}
+
 export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
   const [showLinkCal, setShowLinkCal] = useState(false);
   const [, setSelectedDate] = useState<string>("");
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [newTeamId, setNewTeamId] = useState("");
+  const [newTeamIds, setNewTeamIds] = useState<string[]>([]);
+  const [newProjectIds, setNewProjectIds] = useState<string[]>([]);
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [newAllDay, setNewAllDay] = useState(true);
   const [newColor, setNewColor] = useState(CALENDAR_COLORS[0]);
   const [creating, setCreating] = useState(false);
 
-  // Calendar linking state
   const [calLinks, setCalLinks] = useState<CalendarLink[]>([]);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
@@ -63,10 +116,23 @@ export default function CalendarPage() {
       .select("team_id, teams(*)")
       .eq("user_id", user.id);
 
+    let teamList: Team[] = [];
     if (memberships) {
-      const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
+      teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
       setTeams(teamList);
-      if (teamList.length > 0 && !newTeamId) setNewTeamId(teamList[0].id);
+    }
+
+    const teamIds = (memberships || []).map((m: { team_id: string }) => m.team_id);
+
+    if (teamIds.length > 0) {
+      const { data: projectsData } = await supabase
+        .from("projects")
+        .select("*")
+        .in("team_id", teamIds)
+        .eq("status", "active")
+        .order("name");
+
+      if (projectsData) setProjects(projectsData);
     }
 
     const { data: eventsData } = await supabase
@@ -78,12 +144,10 @@ export default function CalendarPage() {
 
     const allExternal: ExternalEvent[] = [];
 
-    // Load Bajan holidays for current and next year
     const now = new Date();
     const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
     for (const year of holidayYears) {
       for (const h of getHolidaysForYear(year)) {
-        // Use date-only strings (no T) so end is the next day for matching
         const nextDay = new Date(year, h.month, h.day + 1);
         const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
         allExternal.push({
@@ -99,8 +163,6 @@ export default function CalendarPage() {
       }
     }
 
-    // Load calendar links for user's teams
-    const teamIds = (memberships || []).map((m: { team_id: string }) => m.team_id);
     if (teamIds.length > 0) {
       const { data: links } = await supabase
         .from("calendar_links")
@@ -108,7 +170,6 @@ export default function CalendarPage() {
         .in("team_id", teamIds);
       if (links) {
         setCalLinks(links);
-        // Fetch iCal events
         await Promise.all(
           links.map(async (link) => {
             try {
@@ -136,7 +197,6 @@ export default function CalendarPage() {
       }
     }
 
-    // Fetch Google Calendar events from linked accounts
     try {
       const googleResults = await fetchAllAccountsCalendar(user.id);
       for (const result of googleResults) {
@@ -158,7 +218,11 @@ export default function CalendarPage() {
     }
 
     setExternalEvents(allExternal);
-  }, [supabase, newTeamId]);
+
+    if (teamList.length > 0) {
+      setNewTeamIds((prev) => prev.length > 0 ? prev : [teamList[0].id]);
+    }
+  }, [supabase]);
 
   useEffect(() => {
     void loadData();
@@ -210,15 +274,13 @@ export default function CalendarPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Pick first team if none selected
-    const teamId = newTeamId || teams[0]?.id;
+    const teamId = newTeamIds[0] || teams[0]?.id;
     if (!teamId) {
       setLinkError("You need to be in a team first.");
       setLinking(false);
       return;
     }
 
-    // Test the URL first
     try {
       const testRes = await fetch("/api/calendar", {
         method: "POST",
@@ -260,7 +322,6 @@ export default function CalendarPage() {
       setLinkLabel("");
       setShowLinkCal(false);
       setLinkError("");
-      // Re-fetch all external events
       fetchAllExternalEvents([...calLinks, link]);
     }
     setLinking(false);
@@ -289,7 +350,6 @@ export default function CalendarPage() {
   function getEventsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    // Internal events (include both start and end day)
     const internal = events.filter((event) => {
       const start = event.start_date.split("T")[0];
       const end = event.end_date.split("T")[0];
@@ -303,7 +363,6 @@ export default function CalendarPage() {
       allDay: false,
     }));
 
-    // External events — all-day events use exclusive end (Google Calendar convention)
     const external = externalEvents.filter((event) => {
       const start = event.start.split("T")[0];
       const end = event.end.split("T")[0];
@@ -340,9 +399,21 @@ export default function CalendarPage() {
     setShowCreate(true);
   }
 
+  function toggleTeamId(id: string) {
+    setNewTeamIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
+  function toggleProjectId(id: string) {
+    setNewProjectIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!newTitle.trim() || !newTeamId) return;
+    if (!newTitle.trim() || newTeamIds.length === 0) return;
     setCreating(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -352,7 +423,7 @@ export default function CalendarPage() {
       .insert({
         title: newTitle.trim(),
         description: newDesc.trim() || null,
-        team_id: newTeamId,
+        team_id: newTeamIds[0],
         start_date: newStartDate + "T00:00:00Z",
         end_date: newEndDate + "T23:59:59Z",
         all_day: newAllDay,
@@ -363,11 +434,40 @@ export default function CalendarPage() {
       .single();
 
     if (data && !error) {
+      const teamInserts = newTeamIds.map((tid) => ({
+        event_id: data.id,
+        team_id: tid,
+      }));
+
+      const { error: teamErr } = await supabase
+        .from("event_teams")
+        .insert(teamInserts);
+
+      if (teamErr) {
+        console.error("Failed to insert event_teams:", teamErr);
+      }
+
+      if (newProjectIds.length > 0) {
+        const projectInserts = newProjectIds.map((pid) => ({
+          event_id: data.id,
+          project_id: pid,
+        }));
+
+        const { error: projErr } = await supabase
+          .from("event_projects")
+          .insert(projectInserts);
+
+        if (projErr) {
+          console.error("Failed to insert event_projects:", projErr);
+        }
+      }
+
       setEvents([...events, data]);
       setShowCreate(false);
       setNewTitle("");
       setNewDesc("");
       setNewColor(CALENDAR_COLORS[0]);
+      setNewProjectIds([]);
     }
     setCreating(false);
   }
@@ -387,7 +487,7 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Shared calendar across all teams
+            Shared calendar across all teams and departments
             {loadingCal && (
               <span className="inline-flex items-center gap-1 ml-2 text-indigo-600">
                 <Loader2 size={12} className="animate-spin" /> Loading calendars...
@@ -407,7 +507,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Linked Calendars */}
       {calLinks.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-xs font-medium text-slate-500">Linked:</span>
@@ -441,7 +540,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Calendar Navigation */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden dark:bg-slate-900 dark:border-slate-700">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800">
@@ -453,7 +551,6 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* Day Headers */}
         <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div key={day} className="text-center text-xs font-medium text-slate-500 dark:text-slate-400 py-2">
@@ -462,7 +559,6 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* Calendar Grid */}
         <div className="grid grid-cols-7">
           {calendarDays.map((day, idx) => {
             const dayEvents = day ? getEventsForDay(day) : [];
@@ -484,17 +580,17 @@ export default function CalendarPage() {
                     </div>
                     <div className="space-y-0.5">
                       {dayEvents.slice(0, 3).map((event) => (
-            <div
-              key={event.id}
-              className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white"
-              style={{ backgroundColor: event.color }}
-              title={`${event.title}${event.source ? ` (${event.source})` : ""}`}
-            >
-              {event.type === "external" && (
-                <span className="flex-shrink-0 text-[8px] font-bold opacity-80 bg-black/20 rounded px-0.5">
-                  {sourceLabel(event.source)}
-                </span>
-              )}
+                        <div
+                          key={event.id}
+                          className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white"
+                          style={{ backgroundColor: event.color }}
+                          title={`${event.title}${event.source ? ` (${event.source})` : ""}`}
+                        >
+                          {event.type === "external" && (
+                            <span className="flex-shrink-0 text-[8px] font-bold opacity-80 bg-black/20 rounded px-0.5">
+                              {sourceLabel(event.source)}
+                            </span>
+                          )}
                           {event.title}
                         </div>
                       ))}
@@ -512,7 +608,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Create Event Modal */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create Event">
         <form onSubmit={handleCreate} className="space-y-4">
           <Input
@@ -532,18 +627,23 @@ export default function CalendarPage() {
               rows={2}
             />
           </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Team</label>
-            <select
-              value={newTeamId}
-              onChange={(e) => setNewTeamId(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
-          </div>
+
+          <MultiSelectCheckbox
+            label="Teams"
+            items={teams}
+            selected={newTeamIds}
+            onToggle={toggleTeamId}
+          />
+
+          {projects.length > 0 && (
+            <MultiSelectCheckbox
+              label="Departments (Projects)"
+              items={projects}
+              selected={newProjectIds}
+              onToggle={toggleProjectId}
+            />
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Start Date"
@@ -584,19 +684,21 @@ export default function CalendarPage() {
               ))}
             </div>
           </div>
+          {newTeamIds.length === 0 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">Select at least one team</p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={creating}>
+            <Button type="submit" disabled={creating || newTeamIds.length === 0}>
               {creating ? "Creating..." : "Create Event"}
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Link Calendar Modal */}
-      <Modal open={showLinkCal} onClose={() => { setShowLinkCal(false); setLinkError(""); }} title="Link Google Calendar">
+      <Modal open={showLinkCal} onClose={() => { setShowLinkCal(false); setLinkError(""); }} title="Link Calendar">
         <div className="space-y-4">
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Paste your Google Calendar&apos;s public iCal URL to show your events alongside your team&apos;s.
