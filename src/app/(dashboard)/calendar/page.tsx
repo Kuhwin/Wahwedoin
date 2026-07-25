@@ -571,7 +571,7 @@ export default function CalendarPage() {
             <label htmlFor="allDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
             <div className="flex gap-2">
               {CALENDAR_COLORS.map((color) => (
                 <button
@@ -633,7 +633,7 @@ export default function CalendarPage() {
               onChange={(e) => setLinkLabel(e.target.value)}
             />
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
               <div className="flex gap-2">
                 {CALENDAR_COLORS.map((color) => (
                   <button

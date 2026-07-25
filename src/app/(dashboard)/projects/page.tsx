@@ -272,7 +272,7 @@ export default function ProjectsPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
             <div className="flex gap-2">
               {PROJECT_COLORS.map((color) => (
                 <button
