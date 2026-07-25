@@ -30,8 +30,8 @@ export default function TermsOfService() {
               <p className="text-slate-700 dark:text-slate-300">
                 By accessing or using Wah We Doin (the &quot;Service&quot;), you agree to be bound by these
                 Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, do not use the
-                Service. These Terms constitute a legally binding agreement between you and Possibilities
-                Agency (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;).
+                Service. These Terms constitute a legally binding agreement between you and Lathan-Quinn Hoyte
+                (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;).
               </p>
             </section>
 
@@ -130,8 +130,8 @@ export default function TermsOfService() {
                 7. Intellectual Property
               </h2>
               <p className="text-slate-700 dark:text-slate-300">
-                The Service, including its design, code, features, and branding, is owned by Possibilities
-                Agency and protected by copyright, trademark, and other intellectual property laws. You may
+                The Service, including its design, code, features, and branding, is owned by Lathan-Quinn Hoyte
+                and protected by copyright, trademark, and other intellectual property laws. You may
                 not copy, modify, distribute, sell, or lease any part of the Service without our written
                 consent.
               </p>
@@ -184,9 +184,9 @@ export default function TermsOfService() {
                 11. Governing Law
               </h2>
               <p className="text-slate-700 dark:text-slate-300">
-                These Terms are governed by the laws of the jurisdiction in which Possibilities Agency
-                operates, without regard to its conflict of law provisions. Any disputes arising under
-                these Terms shall be resolved in the competent courts of that jurisdiction.
+                These Terms are governed by the laws of Barbados, without regard to its conflict of law
+                provisions. Any disputes arising under these Terms shall be resolved in the competent courts
+                of Barbados.
               </p>
             </section>
 
@@ -197,10 +197,10 @@ export default function TermsOfService() {
               <p className="text-slate-700 dark:text-slate-300">
                 If you have any questions about these Terms, please contact us at{" "}
                 <a
-                  href="mailto:legal@possibilitiesagency.com"
+                  href="mailto:lathanquinnh@gmail.com"
                   className="text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  legal@possibilitiesagency.com
+                  lathanquinnh@gmail.com
                 </a>
               </p>
             </section>

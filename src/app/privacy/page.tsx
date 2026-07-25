@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
               </h2>
               <p className="text-slate-700 dark:text-slate-300">
                 Wah We Doin (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is a project management platform
-                operated by Possibilities Agency. This Privacy Policy explains how we collect, use, disclose,
+                operated by Lathan-Quinn Hoyte. This Privacy Policy explains how we collect, use, disclose,
                 and safeguard your information when you use our web application and related services
                 (collectively, the &quot;Service&quot;).
               </p>
@@ -207,10 +207,10 @@ export default function PrivacyPolicy() {
               <p className="text-slate-700 dark:text-slate-300">
                 If you have any questions about this Privacy Policy, please contact us at{" "}
                 <a
-                  href="mailto:privacy@possibilitiesagency.com"
+                  href="mailto:lathanquinnh@gmail.com"
                   className="text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  privacy@possibilitiesagency.com
+                  lathanquinnh@gmail.com
                 </a>
               </p>
             </section>
