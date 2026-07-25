@@ -248,18 +248,14 @@ export default function Sidebar({
       <div className="px-4 py-4 flex items-center justify-between">
         {expanded ? (
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-md bg-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xs">WD</span>
-            </div>
+            <img src="/logo.png" alt="Wah We Doin" className="h-7 w-7 rounded-md object-cover" />
             <span className="font-bold text-slate-900 text-sm tracking-tight dark:text-slate-100">
               Wah We Doin
             </span>
           </Link>
         ) : (
           <Link href="/" className="mx-auto">
-            <div className="h-7 w-7 rounded-md bg-indigo-600 flex items-center justify-center">
-              <span className="text-white font-bold text-xs">WD</span>
-            </div>
+            <img src="/logo.png" alt="Wah We Doin" className="h-7 w-7 rounded-md object-cover" />
           </Link>
         )}
       </div>

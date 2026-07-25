@@ -74,9 +74,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="h-12 w-12 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-lg">WD</span>
-          </div>
+          <img src="/logo.png" alt="Wah We Doin" className="h-12 w-12 rounded-xl object-cover mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome back</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sign in to Wah We Doin</p>
         </div>
