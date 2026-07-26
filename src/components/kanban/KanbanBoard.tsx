@@ -494,6 +494,7 @@ export default function KanbanBoard({
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate flex items-center gap-1">
                                       {task.title}
+                                      {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
                                       {task.recurrence && <span title={`Repeats ${task.recurrence}`}>🔁</span>}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2">
@@ -536,7 +537,16 @@ export default function KanbanBoard({
                                             <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5">+{task.assignee_ids.length - 3}</span>
                                           )}
                                         </div>
-                                      )}
+                                       )}
+                                       {task.projects && task.projects.length > 0 && (
+                                        <div className="flex items-center gap-1">
+                                          {task.projects.map((p) => (
+                                            <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
+                                              {p.name.length > 8 ? p.name.slice(0, 8) + "…" : p.name}
+                                            </span>
+                                          ))}
+                                        </div>
+                                       )}
                                     </div>
                                   </div>
                                 </div>

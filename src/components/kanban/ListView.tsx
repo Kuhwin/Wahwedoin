@@ -265,7 +265,17 @@ export default function ListView({
                               task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
                             )}>
                               {task.title}
+                              {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
                               {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
+                              {task.projects && task.projects.length > 0 && (
+                                <span className="ml-2 inline-flex items-center gap-1">
+                                  {task.projects.map((p) => (
+                                    <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
+                                      {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
                             </span>
                           </div>
                           <div className="px-4 py-3 shrink-0">

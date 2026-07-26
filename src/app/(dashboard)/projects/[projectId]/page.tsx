@@ -3,18 +3,20 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import ListView from "@/components/kanban/ListView";
 import TaskDetailModal from "@/components/tasks/TaskDetailModal";
 import CustomFieldsPanel from "@/components/CustomFieldsPanel";
+import ProjectAnalytics from "@/components/ProjectAnalytics";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/Toast";
-import { type Project, type Task, type Section, type TeamMember, type Tag } from "@/lib/types";
+import { type Project, type Task, type Section, type TeamMember, type Tag, type ProjectSummary } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 
 const DEFAULT_SECTIONS = [
@@ -41,6 +43,7 @@ export default function ProjectPage() {
   const [newTaskSection, setNewTaskSection] = useState("");
   const [newTaskRecurrence, setNewTaskRecurrence] = useState("");
   const [newTaskRecurrenceEnd, setNewTaskRecurrenceEnd] = useState("");
+  const [newTaskMilestone, setNewTaskMilestone] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { addToast } = useToast();
 
@@ -56,6 +59,7 @@ export default function ProjectPage() {
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("position");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const supabase = createClient();
   const projectId = params.projectId as string;
 
@@ -75,10 +79,10 @@ export default function ProjectPage() {
     }
     setProject(projectData);
 
-    const [tasksRes, sectionsRes, membersRes, tagsRes] = await Promise.all([
+    const [tasksRes, sectionsRes, membersRes, tagsRes, multiHomedRes, allProjectsRes] = await Promise.all([
       supabase
         .from("tasks")
-        .select("id, project_id, title, description, status, priority, section_id, assignee_id, due_date, position, created_by, created_at, updated_at")
+        .select("*, task_projects!task_id(project_id)")
         .eq("project_id", projectId)
         .order("position", { ascending: true }),
       supabase
@@ -101,9 +105,51 @@ export default function ProjectPage() {
             .from("tags")
             .select("id, team_id, user_id, name, color, created_at")
             .eq("user_id", user?.id || ""),
+      supabase
+        .from("task_projects")
+        .select("task_id, project_id")
+        .eq("project_id", projectId),
+      projectData.team_id
+        ? supabase
+            .from("projects")
+            .select("id, name, color, team_id")
+            .eq("team_id", projectData.team_id)
+        : Promise.resolve({ data: [] }),
     ]);
 
-    if (tasksRes.data) setTasks(tasksRes.data);
+    const allTasks: Task[] = [...(tasksRes.data || [])];
+
+    if (multiHomedRes.data && multiHomedRes.data.length > 0) {
+      const multiHomedIds = multiHomedRes.data
+        .map((tp: { task_id: string }) => tp.task_id)
+        .filter((id: string) => !allTasks.some((t) => t.id === id));
+
+      if (multiHomedIds.length > 0) {
+        const { data: extraTasks } = await supabase
+          .from("tasks")
+          .select("*, task_projects!task_id(project_id)")
+          .in("id", multiHomedIds)
+          .order("position", { ascending: true });
+
+        if (extraTasks) allTasks.push(...extraTasks);
+      }
+    }
+
+    if (allTasks.length > 0) {
+      const projectMap = new Map<string, ProjectSummary>();
+      (allProjectsRes.data || []).forEach((p: ProjectSummary) => projectMap.set(p.id, p));
+      allTasks.forEach((t) => {
+        if (!t.projects) t.projects = [];
+        const extraIds = (t.task_projects || [])
+          .map((tp: { project_id: string }) => tp.project_id)
+          .filter((pid: string) => pid !== projectId);
+        t.projects = extraIds
+          .map((pid: string) => projectMap.get(pid))
+          .filter((p): p is ProjectSummary => !!p);
+      });
+    }
+
+    if (allTasks.length > 0) setTasks(allTasks);
 
     if (sectionsRes.data && sectionsRes.data.length > 0) {
       setSections(sectionsRes.data);
@@ -185,6 +231,7 @@ export default function ProjectPage() {
         created_by: user?.id,
         recurrence: newTaskRecurrence || null,
         recurrence_end: newTaskRecurrenceEnd || null,
+        is_milestone: newTaskMilestone,
       })
       .select()
       .single();
@@ -198,6 +245,7 @@ export default function ProjectPage() {
       setNewTaskSection("");
       setNewTaskRecurrence("");
       setNewTaskRecurrenceEnd("");
+      setNewTaskMilestone(false);
       setShowAddTask(false);
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
@@ -209,9 +257,11 @@ export default function ProjectPage() {
     const task = tasks.find((t) => t.id === taskId);
     const oldSectionId = task?.section_id ?? null;
     const oldStatus = task?.status ?? "todo";
+
+    const { projects: _projects, ...dbUpdates } = updates;
     const { error } = await supabase
       .from("tasks")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...dbUpdates, updated_at: new Date().toISOString() })
       .eq("id", taskId);
 
     if (!error) {
@@ -510,6 +560,11 @@ export default function ProjectPage() {
               style={{ backgroundColor: project.color }}
             />
             <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{project.name}</h1>
+            {tasks.some((t) => t.is_milestone) && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full font-medium">
+                ◆ {tasks.filter((t) => t.is_milestone && t.status === "done").length}/{tasks.filter((t) => t.is_milestone).length} milestones
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -545,6 +600,17 @@ export default function ProjectPage() {
               <List size={16} />
             </button>
           </div>
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className={cn(
+              "p-1.5 rounded-lg transition-colors",
+              showAnalytics
+                ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            )}
+          >
+            <BarChart3 size={16} />
+          </button>
           <Button onClick={() => setShowAddTask(true)} size="sm">
             <Plus size={14} />
             Add Task
@@ -666,6 +732,9 @@ export default function ProjectPage() {
         <CustomFieldsPanel projectId={projectId} />
       </div>
 
+      {/* Analytics */}
+      {showAnalytics && <ProjectAnalytics tasks={tasks} />}
+
       {/* Board / List */}
       {view === "board" ? (
         <KanbanBoard
@@ -783,6 +852,16 @@ export default function ProjectPage() {
               onChange={(e) => setNewTaskRecurrenceEnd(e.target.value)}
             />
           )}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={newTaskMilestone}
+              onChange={(e) => setNewTaskMilestone(e.target.checked)}
+              className="rounded border-slate-300"
+            />
+            <span className="text-sm text-slate-700 dark:text-slate-300">Milestone</span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">— key deliverable</span>
+          </label>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowAddTask(false)}>
               Cancel

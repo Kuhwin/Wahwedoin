@@ -24,6 +24,8 @@ import {
   Users,
   Inbox,
   Palette,
+  Briefcase,
+  Upload,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -249,6 +251,8 @@ export default function Sidebar({
     { href: "/gmail", icon: Mail, label: "Gmail" },
     { href: "/inbox", icon: Inbox, label: "Inbox" },
     { href: "/teams", icon: Users, label: "Teams" },
+    { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
+    { href: "/import", icon: Upload, label: "Import" },
     { href: "/settings", icon: Settings, label: "Settings" },
     { href: "/appearance", icon: Palette, label: "Appearance" },
   ];

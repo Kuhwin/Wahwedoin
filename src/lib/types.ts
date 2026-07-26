@@ -40,6 +40,12 @@ export interface Project {
   completed_count?: number;
 }
 
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Section {
   id: string;
   project_id: string;
@@ -68,9 +74,12 @@ export interface Task {
   recurrence: string | null;
   recurrence_end: string | null;
   recurring_parent_id: string | null;
+  is_milestone: boolean;
   assignee_email?: string;
   assignee_name?: string;
   assignee_ids?: string[];
+  projects?: ProjectSummary[];
+  task_projects?: { project_id: string }[];
 }
 
 export interface TaskAssignee {
@@ -288,4 +297,16 @@ export interface SavedView {
   sort_by: string;
   sort_order: string;
   created_at: string;
+}
+
+export interface Portfolio {
+  id: string;
+  name: string;
+  description: string | null;
+  team_id: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  project_count?: number;
+  completed_projects?: number;
 }

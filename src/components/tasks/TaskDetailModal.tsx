@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import MultiProjectSelector from "@/components/MultiProjectSelector";
 import {
   MessageSquare,
   Check,
@@ -694,6 +695,22 @@ export default function TaskDetailModal({
             </div>
           )}
 
+          {/* Milestone */}
+          <div className="col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={task.is_milestone || false}
+                onChange={(e) =>
+                  onUpdate(task.id, { is_milestone: e.target.checked } as Partial<Task>)
+                }
+                className="rounded border-slate-300"
+              />
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400">◆ Milestone</span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500">— mark as key deliverable</span>
+            </label>
+          </div>
+
           {/* Section */}
           {sections.length > 0 && (
             <div className="space-y-1">
@@ -799,6 +816,16 @@ export default function TaskDetailModal({
             <Calendar size={12} /> Linked Event
           </label>
           <EventLinker taskId={task.id} eventId={task.event_id || null} onUpdate={onUpdate} supabase={supabase} />
+        </div>
+
+        {/* Multi-homing Projects */}
+        <div className="space-y-1">
+          <MultiProjectSelector
+            taskId={task.id}
+            primaryProjectId={task.project_id}
+            currentProjects={task.projects || []}
+            onUpdate={onUpdate}
+          />
         </div>
 
         {/* Subtasks */}
