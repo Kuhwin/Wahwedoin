@@ -541,13 +541,22 @@ export default function CalendarPage() {
     const newStartDate = newStart.toISOString().split("T")[0];
     const newEndDate = newEnd.toISOString().split("T")[0];
 
-    await supabase.from("events").update({
-      start_date: newStartDate + "T00:00:00Z",
-      end_date: newEndDate + "T23:59:59Z",
+    const newStartISO = newStartDate + "T00:00:00Z";
+    const newEndISO = newEndDate + "T23:59:59Z";
+
+    setEvents((prev) => prev.map((evt) =>
+      evt.id === ev.id ? { ...evt, start_date: newStartISO, end_date: newEndISO } : evt
+    ));
+    setDraggedEvent(null);
+
+    const { error } = await supabase.from("events").update({
+      start_date: newStartISO,
+      end_date: newEndISO,
     }).eq("id", ev.id);
 
-    setDraggedEvent(null);
-    void loadData();
+    if (error) {
+      void loadData();
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
