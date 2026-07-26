@@ -682,6 +682,9 @@ export default function ProjectPage() {
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onTaskClick={setSelectedTask}
+          onBulkDelete={handleBulkDelete}
+          onBulkMove={handleBulkMove}
+          onBulkAssign={handleBulkAssign}
         />
       )}
 

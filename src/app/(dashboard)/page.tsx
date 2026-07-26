@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Loader2,
   CalendarDays,
+  Check,
 } from "lucide-react";
 import type { Project, Task, Activity as ActivityType, Event } from "@/lib/types";
 import { PRIORITY_CONFIG } from "@/lib/types";
@@ -37,6 +38,8 @@ export default function DashboardPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesPage, setActivitiesPage] = useState(0);
   const [hasMoreActivities, setHasMoreActivities] = useState(true);
+  const [activityFilterAction, setActivityFilterAction] = useState("");
+  const [activityFilterProject, setActivityFilterProject] = useState("");
   const supabase = createClient();
   const ACTIVITIES_PER_PAGE = 20;
 
@@ -181,6 +184,11 @@ export default function DashboardPage() {
     void loadAllActivities(0, true);
   }
 
+  async function handleQuickComplete(taskId: string) {
+    await supabase.from("tasks").update({ status: "done" }).eq("id", taskId);
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "done" as const } : t));
+  }
+
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === "done").length;
   const activeTasks = tasks.filter((t) => t.status === "in_progress").length;
@@ -192,6 +200,13 @@ export default function DashboardPage() {
     if (!t.due_date || t.status === "done") return false;
     const diff = new Date(t.due_date).getTime() - new Date(today).getTime();
     return diff > 0 && diff <= 3 * 86400000;
+  });
+
+  const uniqueActions = [...new Set(allActivities.map((a) => a.action))].sort();
+  const filteredActivities = allActivities.filter((a) => {
+    if (activityFilterAction && a.action !== activityFilterAction) return false;
+    if (activityFilterProject && a.project_id !== activityFilterProject) return false;
+    return true;
   });
 
   if (loading) {
@@ -309,8 +324,15 @@ export default function DashboardPage() {
               </h3>
               <div className="space-y-1.5">
                 {overdueTasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg">
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => void handleQuickComplete(task.id)}
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Mark as done"
+                      >
+                        <Check size={10} className="text-transparent group-hover:text-green-400" />
+                      </button>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
@@ -336,8 +358,15 @@ export default function DashboardPage() {
               </h3>
               <div className="space-y-1.5">
                 {dueToday.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg">
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => void handleQuickComplete(task.id)}
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Mark as done"
+                      >
+                        <Check size={10} className="text-transparent group-hover:text-green-400" />
+                      </button>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
@@ -357,8 +386,15 @@ export default function DashboardPage() {
               </h3>
               <div className="space-y-1.5">
                 {dueSoon.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg">
+                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => void handleQuickComplete(task.id)}
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Mark as done"
+                      >
+                        <Check size={10} className="text-transparent group-hover:text-green-400" />
+                      </button>
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
@@ -458,7 +494,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Full Activity Modal */}
-      <Modal open={showAllActivities} onClose={() => setShowAllActivities(false)} title="All Activity">
+      <Modal open={showAllActivities} onClose={() => { setShowAllActivities(false); setActivityFilterAction(""); setActivityFilterProject(""); }} title="All Activity">
         <div className="max-h-[60vh] overflow-y-auto">
           {allActivities.length === 0 && activitiesLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -467,8 +503,41 @@ export default function DashboardPage() {
           ) : allActivities.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">No activity yet</p>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {allActivities.map((act) => (
+            <>
+              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                <select
+                  value={activityFilterAction}
+                  onChange={(e) => setActivityFilterAction(e.target.value)}
+                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">All actions</option>
+                  {uniqueActions.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+                <select
+                  value={activityFilterProject}
+                  onChange={(e) => setActivityFilterProject(e.target.value)}
+                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">All projects</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {(activityFilterAction || activityFilterProject) && (
+                  <button
+                    onClick={() => { setActivityFilterAction(""); setActivityFilterProject(""); }}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {filteredActivities.length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">No matching activity</p>
+                ) : filteredActivities.map((act) => (
                 <div key={act.id} className="py-3 first:pt-0 last:pb-0">
                   <p className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-medium">{allUserNames[act.user_id] || userNames[act.user_id] || "Someone"}</span>
@@ -489,7 +558,8 @@ export default function DashboardPage() {
                   {activitiesLoading ? <Loader2 size={14} className="animate-spin" /> : "Load more"}
                 </button>
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </Modal>

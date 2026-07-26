@@ -200,6 +200,8 @@ export default function CalendarPage() {
   const [editEndDate, setEditEndDate] = useState("");
   const [editAllDay, setEditAllDay] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   const [filterTeamIds, setFilterTeamIds] = useState<string[]>([]);
   const [filterProjectIds, setFilterProjectIds] = useState<string[]>([]);
@@ -504,6 +506,50 @@ export default function CalendarPage() {
     void loadData();
   }
 
+  function handleDragStart(e: React.DragEvent, event: CalendarEvent) {
+    if (!event.originalEvent) return;
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", event.id);
+  }
+
+  function handleDragEnd() {
+    setDraggedEvent(null);
+    setDragOverDay(null);
+  }
+
+  function handleDayDragOver(e: React.DragEvent, day: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(day);
+  }
+
+  function handleDayDragLeave() {
+    setDragOverDay(null);
+  }
+
+  async function handleDayDrop(e: React.DragEvent, day: number) {
+    e.preventDefault();
+    setDragOverDay(null);
+    if (!draggedEvent?.originalEvent) return;
+
+    const ev = draggedEvent.originalEvent;
+    const duration = new Date(ev.end_date).getTime() - new Date(ev.start_date).getTime();
+    const newStart = new Date(year, month, day);
+    const newEnd = new Date(newStart.getTime() + Math.max(duration, 0));
+
+    const newStartDate = newStart.toISOString().split("T")[0];
+    const newEndDate = newEnd.toISOString().split("T")[0];
+
+    await supabase.from("events").update({
+      start_date: newStartDate + "T00:00:00Z",
+      end_date: newEndDate + "T23:59:59Z",
+    }).eq("id", ev.id);
+
+    setDraggedEvent(null);
+    void loadData();
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!newTitle.trim() || newTeamIds.length === 0) return;
@@ -658,10 +704,13 @@ export default function CalendarPage() {
             return (
               <div
                 key={idx}
-                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1.5 last:border-r-0 ${
+                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1.5 last:border-r-0 transition-colors ${
                   day ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" : ""
-                }`}
+                } ${dragOverDay === day && draggedEvent ? "bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-inset ring-indigo-300 dark:ring-indigo-600" : ""}`}
                 onClick={() => day && handleDayClick(day)}
+                onDragOver={(e) => day && handleDayDragOver(e, day)}
+                onDragLeave={handleDayDragLeave}
+                onDrop={(e) => day && handleDayDrop(e, day)}
               >
                 {day && (
                   <>
@@ -672,10 +721,13 @@ export default function CalendarPage() {
                       {dayEvents.slice(0, 3).map((event) => (
                         <div
                           key={event.id}
-                          className="flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white cursor-pointer hover:opacity-80"
+                          draggable={"originalEvent" in event && !!event.originalEvent}
+                          onDragStart={(e) => handleDragStart(e, event as CalendarEvent)}
+                          onDragEnd={handleDragEnd}
+                          className={`flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white cursor-grab active:cursor-grabbing hover:opacity-80 ${draggedEvent?.id === event.id ? "opacity-40" : ""}`}
                           style={{ backgroundColor: event.color }}
-                          title={`${event.title}${event.source ? ` (${event.source})` : ""}`}
-                          onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
+                          title={`${event.title}${"originalEvent" in event && event.originalEvent ? " (drag to move)" : ""}${event.source ? ` (${event.source})` : ""}`}
+                          onClick={(e) => { e.stopPropagation(); handleEventClick(event as CalendarEvent); }}
                         >
                           {event.type === "recurring" && <Repeat size={8} className="flex-shrink-0" />}
                           {event.type === "external" && (

@@ -93,6 +93,9 @@ export default function TaskDetailModal({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [taskAssignees, setTaskAssignees] = useState<string[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!task) return;
@@ -268,10 +271,30 @@ export default function TaskDetailModal({
 
     if (data && !error) {
       setComments([...comments, data]);
-      setNewComment("");
       if (user?.id) {
         logActivity({ project_id: task!.project_id, user_id: user.id, action: "commented on", detail: task!.title });
       }
+
+      const mentionRegex = /@(\S+)/g;
+      let match;
+      while ((match = mentionRegex.exec(newComment)) !== null) {
+        const mentionedName = match[1].toLowerCase();
+        const mentioned = memberProfiles.find(
+          (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
+        );
+        if (mentioned && mentioned.user_id !== user?.id) {
+          await supabase.from("notifications").insert({
+            user_id: mentioned.user_id,
+            type: "task_commented",
+            title: `You were mentioned in a comment on "${task!.title}"`,
+            detail: `${getMemberName(user?.id || "")}: ${newComment.trim()}`,
+            link: `/projects/${task!.project_id}`,
+          });
+        }
+      }
+
+      setNewComment("");
+      setMentionOpen(false);
     }
   }
 
@@ -1081,14 +1104,74 @@ export default function TaskDetailModal({
             </div>
           )}
 
-          <form onSubmit={(e) => void handleAddComment(e)} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Write a comment..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="flex-1 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+          <form onSubmit={(e) => void handleAddComment(e)} className="flex gap-2 relative">
+            <div className="flex-1 relative">
+              <input
+                ref={commentInputRef}
+                type="text"
+                placeholder="Write a comment... (type @ to mention)"
+                value={newComment}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewComment(val);
+                  const lastAt = val.lastIndexOf("@");
+                  if (lastAt >= 0 && (lastAt === 0 || val[lastAt - 1] === " ")) {
+                    const filter = val.slice(lastAt + 1);
+                    if (!filter.includes(" ")) {
+                      setMentionOpen(true);
+                      setMentionFilter(filter.toLowerCase());
+                    } else {
+                      setMentionOpen(false);
+                    }
+                  } else {
+                    setMentionOpen(false);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setMentionOpen(false);
+                }}
+                className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              {mentionOpen && memberProfiles.length > 0 && (
+                <div className="absolute z-50 bottom-full mb-1 left-0 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 max-h-48 overflow-y-auto">
+                  {memberProfiles
+                    .filter((mp) => {
+                      const name = (mp.display_name || "").toLowerCase();
+                      const email = (mp.user_email || "").toLowerCase();
+                      return name.includes(mentionFilter) || email.includes(mentionFilter);
+                    })
+                    .slice(0, 8)
+                    .map((mp) => (
+                      <button
+                        key={mp.user_id}
+                        type="button"
+                        onClick={() => {
+                          const lastAt = newComment.lastIndexOf("@");
+                          const before = newComment.slice(0, lastAt);
+                          const name = mp.display_name || mp.user_email || "";
+                          setNewComment(`${before}@${name} `);
+                          setMentionOpen(false);
+                          commentInputRef.current?.focus();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <Avatar name={mp.display_name} email={mp.user_id} size="xs" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{mp.display_name || "Unknown"}</p>
+                          {mp.user_email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{mp.user_email}</p>}
+                        </div>
+                      </button>
+                    ))}
+                  {memberProfiles.filter((mp) => {
+                    const name = (mp.display_name || "").toLowerCase();
+                    const email = (mp.user_email || "").toLowerCase();
+                    return name.includes(mentionFilter) || email.includes(mentionFilter);
+                  }).length === 0 && (
+                    <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500">No members found</p>
+                  )}
+                </div>
+              )}
+            </div>
             <Button type="submit" size="sm" disabled={!newComment.trim()}>
               <Plus size={14} />
             </Button>
