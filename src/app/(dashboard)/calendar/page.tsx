@@ -534,9 +534,14 @@ export default function CalendarPage() {
     if (!draggedEvent?.originalEvent) return;
 
     const ev = draggedEvent.originalEvent;
-    const duration = new Date(ev.end_date).getTime() - new Date(ev.start_date).getTime();
-    const dayCount = Math.round(duration / 86400000);
     const pad = (n: number) => String(n).padStart(2, "0");
+
+    const origStartParts = ev.start_date.split("T")[0].split("-").map(Number);
+    const origEndParts = ev.end_date.split("T")[0].split("-").map(Number);
+    const dayCount = Math.round(
+      (new Date(origEndParts[0], origEndParts[1] - 1, origEndParts[2]).getTime() -
+       new Date(origStartParts[0], origStartParts[1] - 1, origStartParts[2]).getTime()) / 86400000
+    );
 
     const newStartDate = `${year}-${pad(month + 1)}-${pad(day)}`;
     const endDate = new Date(year, month, day + dayCount);
