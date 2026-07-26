@@ -82,20 +82,27 @@ export default function Sidebar({
         .map((m) => m.teams)
         .filter(Boolean);
 
-      const teamsWithProjects: TeamWithProjects[] = await Promise.all(
-        teamList.map(async (team) => {
-          const { data: projects } = await supabase
-            .from("projects")
-            .select("id, name, team_id, status, created_at")
-            .eq("team_id", team.id)
-            .order("name");
+      const teamIds = teamList.map((t) => t.id);
+      let allProjects: Project[] = [];
+      if (teamIds.length > 0) {
+        const { data: projectsData } = await supabase
+          .from("projects")
+          .select("id, name, team_id, status, created_at")
+          .in("team_id", teamIds)
+          .order("name");
+        if (projectsData) allProjects = projectsData as Project[];
+      }
 
-          return {
-            ...team,
-            projects: (projects as Project[]) || [],
-          };
-        })
-      );
+      const projectsByTeam = new Map<string, Project[]>();
+      allProjects.forEach((p) => {
+        if (!projectsByTeam.has(p.team_id)) projectsByTeam.set(p.team_id, []);
+        projectsByTeam.get(p.team_id)!.push(p);
+      });
+
+      const teamsWithProjects: TeamWithProjects[] = teamList.map((team) => ({
+        ...team,
+        projects: projectsByTeam.get(team.id) || [],
+      }));
 
       setTeams(teamsWithProjects);
     } catch {

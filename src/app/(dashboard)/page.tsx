@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -190,18 +190,48 @@ export default function DashboardPage() {
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "done" as const } : t));
   }
 
-  const totalTasks = tasks.length;
-  const doneTasks = tasks.filter((t) => t.status === "done").length;
-  const activeTasks = tasks.filter((t) => t.status === "in_progress").length;
-  const todoTasks = tasks.filter((t) => t.status === "todo").length;
   const today = new Date().toISOString().split("T")[0];
-  const overdueTasks = tasks.filter((t) => t.due_date && t.due_date < today && t.status !== "done");
-  const dueToday = tasks.filter((t) => t.due_date === today && t.status !== "done");
-  const dueSoon = tasks.filter((t) => {
-    if (!t.due_date || t.status === "done") return false;
-    const diff = new Date(t.due_date).getTime() - new Date(today).getTime();
-    return diff > 0 && diff <= 3 * 86400000;
-  });
+
+  const taskStats = useMemo(() => {
+    const result = {
+      total: tasks.length,
+      done: 0,
+      inProgress: 0,
+      todo: 0,
+      overdue: [] as Task[],
+      dueToday: [] as Task[],
+      dueSoon: [] as Task[],
+    };
+
+    for (const t of tasks) {
+      if (t.status === "done") result.done++;
+      else if (t.status === "in_progress") result.inProgress++;
+      else result.todo++;
+
+      if (t.status !== "done" && t.due_date) {
+        if (t.due_date < today) result.overdue.push(t);
+        else if (t.due_date === today) result.dueToday.push(t);
+        else {
+          const due = new Date(t.due_date);
+          const now = new Date();
+          const diff = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          if (diff <= 3) result.dueSoon.push(t);
+        }
+      }
+    }
+    return result;
+  }, [tasks, today]);
+
+  const projectTaskCounts = useMemo(() => {
+    const counts = new Map<string, { total: number; done: number }>();
+    for (const t of tasks) {
+      if (!counts.has(t.project_id)) counts.set(t.project_id, { total: 0, done: 0 });
+      const c = counts.get(t.project_id)!;
+      c.total++;
+      if (t.status === "done") c.done++;
+    }
+    return counts;
+  }, [tasks]);
 
   const uniqueActions = [...new Set(allActivities.map((a) => a.action))].sort();
   const filteredActivities = allActivities.filter((a) => {
@@ -266,7 +296,7 @@ export default function DashboardPage() {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Done</span>
           </div>
           <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {doneTasks}<span className="text-sm text-slate-400 dark:text-slate-500 font-normal">/{totalTasks}</span>
+            {taskStats.done}<span className="text-sm text-slate-400 dark:text-slate-500 font-normal">/{taskStats.total}</span>
           </p>
         </div>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
@@ -274,21 +304,21 @@ export default function DashboardPage() {
             <Clock size={16} className="text-blue-600 dark:text-blue-400" />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">In Progress</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{activeTasks}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{taskStats.inProgress}</p>
         </div>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Flag size={16} className="text-slate-500 dark:text-slate-400" />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">To Do</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{todoTasks}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{taskStats.todo}</p>
         </div>
-        <div className={`bg-white dark:bg-slate-900 border rounded-xl p-4 ${overdueTasks.length > 0 ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-slate-200 dark:border-slate-700"}`}>
+        <div className={`bg-white dark:bg-slate-900 border rounded-xl p-4 ${taskStats.overdue.length > 0 ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-slate-200 dark:border-slate-700"}`}>
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={16} className="text-red-600 dark:text-red-400" />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{overdueTasks.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{taskStats.overdue.length}</p>
         </div>
       </div>
 
@@ -343,14 +373,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Overdue / Due Soon Alerts */}
         <div className="lg:col-span-2 space-y-4">
-          {overdueTasks.length > 0 && (
+          {taskStats.overdue.length > 0 && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-5">
               <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
                 <AlertCircle size={14} />
-                Overdue Tasks ({overdueTasks.length})
+                Overdue Tasks ({taskStats.overdue.length})
               </h3>
               <div className="space-y-1.5">
-                {overdueTasks.slice(0, 5).map((task) => (
+                {taskStats.overdue.slice(0, 5).map((task) => (
                   <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
                       <button
@@ -368,23 +398,23 @@ export default function DashboardPage() {
                     <span className="text-xs text-red-500 dark:text-red-400 shrink-0 ml-2">{task.due_date}</span>
                   </div>
                 ))}
-                {overdueTasks.length > 5 && (
+                {taskStats.overdue.length > 5 && (
                   <Link href="/my-tasks" className="block text-center text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1">
-                    +{overdueTasks.length - 5} more
+                    +{taskStats.overdue.length - 5} more
                   </Link>
                 )}
               </div>
             </div>
           )}
 
-          {dueToday.length > 0 && (
+          {taskStats.dueToday.length > 0 && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5">
               <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
                 <Clock size={14} />
-                Due Today ({dueToday.length})
+                Due Today ({taskStats.dueToday.length})
               </h3>
               <div className="space-y-1.5">
-                {dueToday.map((task) => (
+                {taskStats.dueToday.map((task) => (
                   <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
                       <button
@@ -405,14 +435,14 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {dueSoon.length > 0 && overdueTasks.length === 0 && dueToday.length === 0 && (
+          {taskStats.dueSoon.length > 0 && taskStats.overdue.length === 0 && taskStats.dueToday.length === 0 && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-5">
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
                 <Clock size={14} />
-                Due Soon ({dueSoon.length})
+                Due Soon ({taskStats.dueSoon.length})
               </h3>
               <div className="space-y-1.5">
-                {dueSoon.slice(0, 5).map((task) => (
+                {taskStats.dueSoon.slice(0, 5).map((task) => (
                   <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2 min-w-0">
                       <button
@@ -452,9 +482,9 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {projects.slice(0, 6).map((project) => {
-                  const projectTasks = tasks.filter((t) => t.project_id === project.id);
-                  const completed = projectTasks.filter((t) => t.status === "done").length;
-                  const total = projectTasks.length;
+                  const counts = projectTaskCounts.get(project.id) || { total: 0, done: 0 };
+                  const total = counts.total;
+                  const completed = counts.done;
                   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
                   return (
@@ -618,7 +648,7 @@ export default function DashboardPage() {
             <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
           </div>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">My Tasks</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{tasks.filter((t) => t.status !== "done").length} active tasks</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{taskStats.inProgress + taskStats.todo} active tasks</p>
         </Link>
 
         <Link

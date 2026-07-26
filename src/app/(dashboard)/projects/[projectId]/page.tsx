@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown, BarChart3 } from "lucide-react";
 import Link from "next/link";
-import KanbanBoard from "@/components/kanban/KanbanBoard";
-import ListView from "@/components/kanban/ListView";
-import TaskDetailModal from "@/components/tasks/TaskDetailModal";
+import dynamic from "next/dynamic";
 import CustomFieldsPanel from "@/components/CustomFieldsPanel";
 import ProjectAnalytics from "@/components/ProjectAnalytics";
 import Button from "@/components/ui/Button";
@@ -19,6 +17,10 @@ import { type Project, type Task, type Section, type TeamMember, type Tag, type 
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import Skeleton from "@/components/ui/Skeleton";
+
+const KanbanBoard = dynamic(() => import("@/components/kanban/KanbanBoard"), { ssr: false });
+const ListView = dynamic(() => import("@/components/kanban/ListView"), { ssr: false });
+const TaskDetailModal = dynamic(() => import("@/components/tasks/TaskDetailModal"), { ssr: false });
 
 const DEFAULT_SECTIONS = [
   { name: "To Do", color: "#64748b", position: 0 },
@@ -65,14 +67,16 @@ export default function ProjectPage() {
   const projectId = params.projectId as string;
 
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) setCurrentUser(user.id);
+    const [{ data: { user } }, { data: projectData }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase
+        .from("projects")
+        .select("id, name, team_id, status, created_at, description")
+        .eq("id", projectId)
+        .single(),
+    ]);
 
-    const { data: projectData } = await supabase
-      .from("projects")
-      .select("id, name, team_id, status, created_at, description")
-      .eq("id", projectId)
-      .single();
+    if (user) setCurrentUser(user.id);
 
     if (!projectData) {
       router.push("/projects");
@@ -120,21 +124,29 @@ export default function ProjectPage() {
 
     const allTasks: Task[] = [...(tasksRes.data || [])];
 
-    if (multiHomedRes.data && multiHomedRes.data.length > 0) {
-      const multiHomedIds = multiHomedRes.data
-        .map((tp: { task_id: string }) => tp.task_id)
-        .filter((id: string) => !allTasks.some((t) => t.id === id));
+    const multiHomedIds = (multiHomedRes.data || [])
+      .map((tp: { task_id: string }) => tp.task_id)
+      .filter((id: string) => !allTasks.some((t) => t.id === id));
 
-      if (multiHomedIds.length > 0) {
-        const { data: extraTasks } = await supabase
-          .from("tasks")
-          .select("*, task_projects!task_id(project_id)")
-          .in("id", multiHomedIds)
-          .order("position", { ascending: true });
+    const userIds = (membersRes.data || []).map((m: TeamMember) => m.user_id);
 
-        if (extraTasks) allTasks.push(...extraTasks);
-      }
-    }
+    const [extraTasksResult, profilesResult] = await Promise.all([
+      multiHomedIds.length > 0
+        ? supabase
+            .from("tasks")
+            .select("*, task_projects!task_id(project_id)")
+            .in("id", multiHomedIds)
+            .order("position", { ascending: true })
+        : Promise.resolve({ data: [] }),
+      userIds.length > 0
+        ? supabase
+            .from("user_profiles")
+            .select("user_id, display_name")
+            .in("user_id", userIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    if (extraTasksResult.data) allTasks.push(...extraTasksResult.data);
 
     if (allTasks.length > 0) {
       const projectMap = new Map<string, ProjectSummary>();
@@ -164,18 +176,12 @@ export default function ProjectPage() {
 
     if (membersRes.data) {
       setMembers(membersRes.data);
-      const userIds = membersRes.data.map((m: TeamMember) => m.user_id);
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("user_profiles")
-          .select("user_id, display_name")
-          .in("user_id", userIds);
-        if (profiles) {
-          const map: Record<string, string> = {};
-          profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
-          setMemberProfiles(map);
-        }
-      }
+    }
+
+    if (profilesResult.data) {
+      const map: Record<string, string> = {};
+      profilesResult.data.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
+      setMemberProfiles(map);
     }
 
     if (tagsRes.data) setTags(tagsRes.data);
@@ -186,6 +192,52 @@ export default function ProjectPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
+    const task = tasks.find((t) => t.id === taskId);
+    const oldSectionId = task?.section_id ?? null;
+    const oldStatus = task?.status ?? "todo";
+
+    const { projects: _projects, ...dbUpdates } = updates;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ ...dbUpdates, updated_at: new Date().toISOString() })
+      .eq("id", taskId);
+
+    if (!error) {
+      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+      setSelectedTask((prev) =>
+        prev && prev.id === taskId ? { ...prev, ...updates } : prev
+      );
+      if ("section_id" in updates && updates.section_id !== oldSectionId) {
+        addToast(
+          `Moved "${task?.title || "task"}"`,
+          "success",
+          async () => {
+            await supabase.from("tasks").update({ section_id: oldSectionId, status: oldStatus, updated_at: new Date().toISOString() }).eq("id", taskId);
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, section_id: oldSectionId, status: oldStatus } : t)));
+          },
+        );
+      }
+      if (currentUser) {
+        const taskTitle = task?.title || "task";
+        if ("status" in updates) {
+          const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
+        } else if ("assignee_id" in updates) {
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "changed assignee on", detail: taskTitle });
+        } else if ("priority" in updates) {
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `set priority ${updates.priority} on`, detail: taskTitle });
+        } else if ("due_date" in updates) {
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
+        } else if ("title" in updates || "description" in updates) {
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "edited", detail: taskTitle });
+        } else if ("section_id" in updates) {
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "moved", detail: taskTitle });
+        }
+      }
+    }
+  }, [supabase, tasks, currentUser, projectId, addToast]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -255,53 +307,8 @@ export default function ProjectPage() {
     }
   }
 
-  async function handleUpdateTask(taskId: string, updates: Partial<Task>) {
-    const task = tasks.find((t) => t.id === taskId);
-    const oldSectionId = task?.section_id ?? null;
-    const oldStatus = task?.status ?? "todo";
 
-    const { projects: _projects, ...dbUpdates } = updates;
-    const { error } = await supabase
-      .from("tasks")
-      .update({ ...dbUpdates, updated_at: new Date().toISOString() })
-      .eq("id", taskId);
-
-    if (!error) {
-      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
-      setSelectedTask((prev) =>
-        prev && prev.id === taskId ? { ...prev, ...updates } : prev
-      );
-      if ("section_id" in updates && updates.section_id !== oldSectionId) {
-        addToast(
-          `Moved "${task?.title || "task"}"`,
-          "success",
-          async () => {
-            await supabase.from("tasks").update({ section_id: oldSectionId, status: oldStatus, updated_at: new Date().toISOString() }).eq("id", taskId);
-            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, section_id: oldSectionId, status: oldStatus } : t)));
-          },
-        );
-      }
-      if (currentUser) {
-        const taskTitle = task?.title || "task";
-        if ("status" in updates) {
-          const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
-        } else if ("assignee_id" in updates) {
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "changed assignee on", detail: taskTitle });
-        } else if ("priority" in updates) {
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `set priority ${updates.priority} on`, detail: taskTitle });
-        } else if ("due_date" in updates) {
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
-        } else if ("title" in updates || "description" in updates) {
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "edited", detail: taskTitle });
-        } else if ("section_id" in updates) {
-          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "moved", detail: taskTitle });
-        }
-      }
-    }
-  }
-
-  async function handleDeleteTask(taskId: string) {
+  const handleDeleteTask = useCallback(async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!window.confirm(`Delete "${task?.title || "this task"}"? You can undo this.`)) return;
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
@@ -320,7 +327,7 @@ export default function ProjectPage() {
         },
       );
     }
-  }
+  }, [supabase, tasks, currentUser, projectId, addToast]);
 
   async function handleAddSection(name: string) {
     const maxPos = sections.length > 0 ? Math.max(...sections.map((s) => s.position)) + 1 : 0;
@@ -417,7 +424,7 @@ export default function ProjectPage() {
     }
   }
 
-  async function handleBulkDelete(taskIds: string[]) {
+  const handleBulkDelete = useCallback(async (taskIds: string[]) => {
     const deletedTasks = tasks.filter((t) => taskIds.includes(t.id));
     const { error } = await supabase.from("tasks").delete().in("id", taskIds);
     if (!error) {
@@ -437,9 +444,9 @@ export default function ProjectPage() {
         },
       );
     }
-  }
+  }, [supabase, tasks, currentUser, projectId, addToast]);
 
-  async function handleBulkMove(taskIds: string[], sectionId: string) {
+  const handleBulkMove = useCallback(async (taskIds: string[], sectionId: string) => {
     const movedTasks = tasks.filter((t) => taskIds.includes(t.id)).map((t) => ({ id: t.id, section_id: t.section_id, status: t.status }));
     const status = getStatusForSection(sectionId);
     const { error } = await supabase
@@ -472,9 +479,9 @@ export default function ProjectPage() {
         },
       );
     }
-  }
+  }, [supabase, tasks, currentUser, sections, projectId, addToast]);
 
-  async function handleBulkAssign(taskIds: string[], userId: string) {
+  const handleBulkAssign = useCallback(async (taskIds: string[], userId: string) => {
     for (const taskId of taskIds) {
       await supabase.from("task_assignees").upsert({ task_id: taskId, user_id: userId }, { onConflict: "task_id,user_id" });
     }
@@ -489,7 +496,7 @@ export default function ProjectPage() {
       const assigneeName = memberProfiles[userId] || userId;
       logActivity({ project_id: projectId, user_id: currentUser, action: `assigned ${assigneeName} to`, detail: `${taskIds.length} tasks` });
     }
-  }
+  }, [supabase, currentUser, memberProfiles, projectId]);
 
   function getStatusForSection(sectionId: string): Task["status"] {
     const sorted = [...sections].sort((a, b) => a.position - b.position);
