@@ -19,6 +19,7 @@ interface ListViewProps {
   onBulkDelete?: (taskIds: string[]) => Promise<void>;
   onBulkMove?: (taskIds: string[], sectionId: string) => Promise<void>;
   onBulkAssign?: (taskIds: string[], userId: string) => Promise<void>;
+  subtaskCounts?: Record<string, { total: number; done: number }>;
 }
 
 export default function ListView({
@@ -29,6 +30,7 @@ export default function ListView({
   onBulkDelete,
   onBulkMove,
   onBulkAssign,
+  subtaskCounts = {},
 }: ListViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkStatus, setShowBulkStatus] = useState(false);
@@ -274,6 +276,19 @@ export default function ListView({
                                       {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
                                     </span>
                                   ))}
+                                </span>
+                              )}
+                              {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
+                                <span className="ml-2 flex items-center gap-1.5">
+                                  <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-green-500"
+                                      style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                    {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
+                                  </span>
                                 </span>
                               )}
                             </span>

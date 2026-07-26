@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft, Palette } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationsBell from "@/components/NotificationsBell";
@@ -23,6 +24,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const { activeProfile, activeUserId, authUserId, orgMembers, isImpersonating, switchUser } = useActiveUser();
   const supabase = createClient();
   const router = useRouter();
+  const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +57,51 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   const otherMembers = orgMembers.filter((m) => m.user_id !== activeUserId);
 
+  const routeMap: Record<string, string> = {
+    calendar: "Calendar",
+    "my-tasks": "My Tasks",
+    drive: "Drive",
+    gmail: "Gmail",
+    inbox: "Inbox",
+    teams: "Teams",
+    projects: "Projects",
+    settings: "Settings",
+    portfolios: "Portfolios",
+    import: "Import",
+    appearance: "Appearance",
+    privacy: "Privacy",
+    terms: "Terms",
+  };
+
+  const isUUID = (s: string) => /^[0-9a-f]{8}-/i.test(s);
+
+  const breadcrumbs: { label: string; href: string | null }[] = (() => {
+    if (pathname === "/") return [];
+    const segments = pathname.split("/").filter(Boolean);
+    const crumbs: { label: string; href: string | null }[] = [];
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const isLast = i === segments.length - 1;
+      const path = "/" + segments.slice(0, i + 1).join("/");
+
+      if (isUUID(seg)) {
+        const parent = segments[i - 1];
+        const label = parent === "teams" ? "Team" : parent === "projects" ? "Project" : seg;
+        crumbs.push({ label, href: isLast ? null : path });
+      } else if (seg === "import" && segments[i - 1] === "settings") {
+        crumbs.push({ label: "Import", href: isLast ? null : path });
+      } else if (seg === "appearance" && segments[i - 1] === "settings") {
+        crumbs.push({ label: "Appearance", href: isLast ? null : path });
+      } else {
+        const label = routeMap[seg] || seg.charAt(0).toUpperCase() + seg.slice(1);
+        crumbs.push({ label, href: isLast ? null : path });
+      }
+    }
+
+    return crumbs;
+  })();
+
   return (
     <>
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700">
@@ -75,6 +122,20 @@ export default function Header({ onMenuClick }: HeaderProps) {
             >
               <Menu size={20} />
             </button>
+            {breadcrumbs.length > 0 && (
+              <div className="hidden md:flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+                {breadcrumbs.map((crumb, i) => (
+                  <span key={i} className="flex items-center gap-1.5">
+                    {i > 0 && <span className="text-slate-300 dark:text-slate-600">/</span>}
+                    {crumb.href ? (
+                      <Link href={crumb.href} className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">{crumb.label}</Link>
+                    ) : (
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{crumb.label}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

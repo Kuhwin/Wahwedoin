@@ -379,6 +379,7 @@ export default function CalendarPage() {
   }
 
   async function handleRemoveLink(linkId: string) {
+    if (!window.confirm("Remove this linked calendar? Events from it will be hidden.")) return;
     await supabase.from("calendar_links").delete().eq("id", linkId);
     const remaining = calLinks.filter((l) => l.id !== linkId);
     setCalLinks(remaining);
@@ -497,6 +498,7 @@ export default function CalendarPage() {
   }
 
   async function handleDeleteEvent(event: CalendarEvent) {
+    if (!window.confirm("Delete this event?")) return;
     const ev = event.originalEvent;
     if (ev) {
       await supabase.from("events").delete().eq("id", ev.id);

@@ -204,6 +204,7 @@ export default function TeamsPage() {
   }
 
   async function handleRevokeInvite(inviteId: string) {
+    if (!window.confirm("Revoke this invite?")) return;
     await supabase.from("team_invites").delete().eq("id", inviteId);
     setInvites(invites.filter((i) => i.id !== inviteId));
   }
@@ -216,6 +217,7 @@ export default function TeamsPage() {
   }
 
   async function handleRemoveMember(memberId: string) {
+    if (!window.confirm("Remove this team member?")) return;
     await supabase.from("team_members").delete().eq("id", memberId);
     setMembers(members.filter((m) => m.id !== memberId));
   }

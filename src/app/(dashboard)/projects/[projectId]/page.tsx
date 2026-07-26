@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 import { type Project, type Task, type Section, type TeamMember, type Tag, type ProjectSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
+import Skeleton from "@/components/ui/Skeleton";
 
 const DEFAULT_SECTIONS = [
   { name: "To Do", color: "#64748b", position: 0 },
@@ -247,6 +248,7 @@ export default function ProjectPage() {
       setNewTaskRecurrenceEnd("");
       setNewTaskMilestone(false);
       setShowAddTask(false);
+      addToast(`Created "${data.title}"`, "success");
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
@@ -301,6 +303,7 @@ export default function ProjectPage() {
 
   async function handleDeleteTask(taskId: string) {
     const task = tasks.find((t) => t.id === taskId);
+    if (!window.confirm(`Delete "${task?.title || "this task"}"? You can undo this.`)) return;
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (!error) {
       setTasks(tasks.filter((t) => t.id !== taskId));
@@ -357,6 +360,7 @@ export default function ProjectPage() {
 
   async function handleDeleteSection(sectionId: string) {
     const section = sections.find((s) => s.id === sectionId);
+    if (!window.confirm(`Delete section "${section?.name || ""}"? Tasks in this section won't be deleted.`)) return;
     const { error } = await supabase.from("sections").delete().eq("id", sectionId);
     if (!error) {
       setSections(sections.filter((s) => s.id !== sectionId));
@@ -396,9 +400,13 @@ export default function ProjectPage() {
 
   async function handleArchiveProject() {
     if (!project) return;
-    await supabase.from("projects").update({ status: project.status === "archived" ? "active" : "archived" }).eq("id", projectId);
-    setProject({ ...project, status: project.status === "archived" ? "active" : "archived" });
+    const newStatus = project.status === "archived" ? "active" : "archived";
+    const action = newStatus === "archived" ? "Archive" : "Restore";
+    if (!window.confirm(`${action} "${project.name}"?`)) return;
+    await supabase.from("projects").update({ status: newStatus }).eq("id", projectId);
+    setProject({ ...project, status: newStatus });
     setProjectMenuOpen(false);
+    addToast(newStatus === "archived" ? `Archived "${project.name}"` : `Restored "${project.name}"`, "success");
   }
 
   async function handleDeleteProject() {
@@ -537,8 +545,28 @@ export default function ProjectPage() {
 
   if (loading || !project) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-6 w-48" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <Skeleton className="h-9 w-24 rounded-lg" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="h-6 w-24 rounded-lg" />
+              <Skeleton className="h-32 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-16 rounded-xl" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -763,6 +791,7 @@ export default function ProjectPage() {
           onBulkDelete={handleBulkDelete}
           onBulkMove={handleBulkMove}
           onBulkAssign={handleBulkAssign}
+          subtaskCounts={subtaskCounts}
         />
       )}
 

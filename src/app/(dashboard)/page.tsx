@@ -24,6 +24,7 @@ import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 import { getHolidaysForYear } from "@/lib/holidays";
 import Modal from "@/components/ui/Modal";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -211,8 +212,34 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8">
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <div className="mb-8">
+          <Skeleton className="h-4 w-40 mb-3" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2">
+            <Skeleton className="h-4 w-36 mb-3" />
+            <Skeleton className="h-48 rounded-2xl" />
+          </div>
+          <div>
+            <Skeleton className="h-4 w-32 mb-3" />
+            <Skeleton className="h-48 rounded-2xl" />
+          </div>
+        </div>
       </div>
     );
   }

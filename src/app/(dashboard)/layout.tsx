@@ -10,6 +10,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { ActiveUserProvider } from "@/components/ActiveUserProvider";
 import { AccentColourProvider } from "@/components/AccentColourProvider";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import type { User } from "@supabase/supabase-js";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -108,6 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       />
       <div className={`transition-all duration-200 ${expanded ? "md:ml-64" : "md:ml-16"}`}>
         <Header onMenuClick={() => setMobileOpen(true)} />
+        <KeyboardShortcuts />
         <main className="p-4 md:p-6 pb-20 md:pb-6">{children}</main>
       </div>
       <MobileNav />

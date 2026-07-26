@@ -516,12 +516,19 @@ export default function KanbanBoard({
                                           })}
                                         </span>
                                       )}
-                                      {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
-                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-0.5">
-                                          <Check size={8} />
-                                          {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
+                                       {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
+                                        <span className="flex items-center gap-1.5">
+                                          <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full bg-green-500"
+                                              style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                            {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
+                                          </span>
                                         </span>
-                                      )}
+                                       )}
                                        {task.assignee_ids && task.assignee_ids.length > 0 && (
                                         <div className="flex items-center -space-x-1 mt-1">
                                           {task.assignee_ids.slice(0, 3).map((uid: string) => (
