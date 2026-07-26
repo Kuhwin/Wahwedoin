@@ -23,6 +23,7 @@ import {
   Mail,
   Users,
   Inbox,
+  Palette,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -123,7 +124,7 @@ export default function Sidebar({
     setQuickAddLoading(true);
 
     try {
-      const { error } = await supabase.from("tasks").insert({
+      const { data: newTask, error } = await supabase.from("tasks").insert({
         title: quickAddTitle.trim(),
         project_id: quickAddProjectId,
         assignee_id: user.id,
@@ -131,13 +132,13 @@ export default function Sidebar({
         status: "todo",
         priority: "medium",
         position: 0,
-      });
+      }).select("id").single();
 
       if (!error) {
         setQuickAddTitle("");
         setQuickAddProjectId("");
         setShowQuickAdd(false);
-        logActivity({ user_id: user.id, project_id: quickAddProjectId, action: "created task via quick add", detail: quickAddTitle.trim() });
+        logActivity({ user_id: user.id, project_id: quickAddProjectId, task_id: newTask?.id, action: "created task via quick add", detail: quickAddTitle.trim() });
       }
     } catch {
       // Silently fail
@@ -248,6 +249,8 @@ export default function Sidebar({
     { href: "/gmail", icon: Mail, label: "Gmail" },
     { href: "/inbox", icon: Inbox, label: "Inbox" },
     { href: "/teams", icon: Users, label: "Teams" },
+    { href: "/settings", icon: Settings, label: "Settings" },
+    { href: "/appearance", icon: Palette, label: "Appearance" },
   ];
 
   const sidebarContent = (
@@ -357,14 +360,15 @@ export default function Sidebar({
               className={cn(
                 "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-indigo-50 text-indigo-700"
+                  ? "text-white"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
               )}
+              style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
             >
               <item.icon
                 size={18}
                 className={cn(
-                  isActive ? "text-indigo-600" : "text-slate-400 dark:text-slate-500"
+                  isActive ? "text-white" : "text-slate-400 dark:text-slate-500"
                 )}
               />
               {expanded && <span className="flex-1">{item.label}</span>}

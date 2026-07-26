@@ -492,8 +492,9 @@ export default function KanbanBoard({
                                     {isSelected && <Check size={10} />}
                                   </button>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate flex items-center gap-1">
                                       {task.title}
+                                      {task.recurrence && <span title={`Repeats ${task.recurrence}`}>🔁</span>}
                                     </p>
                                     <div className="flex items-center gap-2 mt-2">
                                       <span

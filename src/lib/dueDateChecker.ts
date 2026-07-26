@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/client";
+import { checkRecurringTasks } from "@/lib/recurringTaskChecker";
 
 export async function checkDueDateNotifications() {
   try {
+    void checkRecurringTasks();
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;

@@ -18,6 +18,8 @@ import {
   Upload,
   File,
   ChevronRight,
+  Repeat,
+  Reply,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -67,6 +69,7 @@ export default function TaskDetailModal({
 
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [replyTo, setReplyTo] = useState<TaskComment | null>(null);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -79,6 +82,7 @@ export default function TaskDetailModal({
   const [creatingTag, setCreatingTag] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
+  const [isPersonalTag, setIsPersonalTag] = useState(false);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activityUserNames, setActivityUserNames] = useState<Record<string, string>>({});
@@ -115,7 +119,7 @@ export default function TaskDetailModal({
       const [commentsRes, subtasksRes, tagLinksRes, activityRes, attachRes, assigneeRes] = await Promise.all([
         supabase
           .from("task_comments")
-          .select("id, task_id, user_id, content, created_at")
+          .select("id, task_id, user_id, body, parent_id, created_at")
           .eq("task_id", task!.id)
           .order("created_at", { ascending: true }),
         supabase
@@ -130,7 +134,7 @@ export default function TaskDetailModal({
         supabase
           .from("activities")
           .select("id, user_id, action, detail, created_at")
-          .eq("project_id", task!.project_id)
+          .eq("task_id", task!.id)
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
@@ -231,7 +235,7 @@ export default function TaskDetailModal({
     const { data } = await supabase
       .from("activities")
       .select("id, user_id, action, detail, created_at")
-      .eq("project_id", task!.project_id)
+      .eq("task_id", task!.id)
       .order("created_at", { ascending: false });
     if (data) {
       setAllActivities(data);
@@ -265,14 +269,16 @@ export default function TaskDetailModal({
         task_id: task!.id,
         user_id: user?.id,
         body: newComment.trim(),
+        parent_id: replyTo?.id || null,
       })
       .select()
       .single();
 
     if (data && !error) {
       setComments([...comments, data]);
+      setReplyTo(null);
       if (user?.id) {
-        logActivity({ project_id: task!.project_id, user_id: user.id, action: "commented on", detail: task!.title });
+        logActivity({ project_id: task!.project_id, task_id: task!.id, user_id: user.id, action: "commented on", detail: task!.title });
       }
 
       const mentionRegex = /@(\S+)/g;
@@ -338,7 +344,7 @@ export default function TaskDetailModal({
     if (data && !error) {
       setAttachments([data, ...attachments]);
       if (currentUserId) {
-        logActivity({ project_id: task.project_id, user_id: currentUserId, action: "attached file to", detail: task.title });
+        logActivity({ project_id: task.project_id, task_id: task.id, user_id: currentUserId, action: "attached file to", detail: task.title });
       }
     }
     setUploading(false);
@@ -399,7 +405,7 @@ export default function TaskDetailModal({
       setNewSubtask("");
       subtaskInputRef.current?.focus();
       if (currentUserId) {
-        logActivity({ project_id: task!.project_id, user_id: currentUserId, action: "added subtask to", detail: task!.title });
+        logActivity({ project_id: task!.project_id, task_id: task!.id, user_id: currentUserId, action: "added subtask to", detail: task!.title });
       }
     }
   }
@@ -457,21 +463,27 @@ export default function TaskDetailModal({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: teamMember } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .single();
-    if (!teamMember) return;
+    let tagData: { team_id?: string; user_id?: string; name: string; color: string } = {
+      name: newTagName.trim(),
+      color: newTagColor,
+    };
+
+    if (isPersonalTag) {
+      tagData.user_id = user.id;
+    } else {
+      const { data: teamMember } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+      if (!teamMember) return;
+      tagData.team_id = teamMember.team_id;
+    }
 
     const { data: tag, error } = await supabase
       .from("tags")
-      .insert({
-        team_id: teamMember.team_id,
-        name: newTagName.trim(),
-        color: newTagColor,
-      })
+      .insert(tagData)
       .select()
       .single();
 
@@ -480,6 +492,7 @@ export default function TaskDetailModal({
       setTaskTags([...taskTags, tag]);
       setNewTagName("");
       setCreatingTag(false);
+      setIsPersonalTag(false);
     }
   }
 
@@ -646,6 +659,40 @@ export default function TaskDetailModal({
               className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
+
+          {/* Recurrence */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Repeat size={12} /> Repeat
+            </label>
+            <select
+              value={task.recurrence || ""}
+              onChange={(e) =>
+                onUpdate(task.id, { recurrence: e.target.value || null } as Partial<Task>)
+              }
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">Does not repeat</option>
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Every month</option>
+              <option value="yearly">Every year</option>
+            </select>
+          </div>
+          {(task.recurrence && task.recurrence !== "") && (
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Repeat Until</label>
+              <input
+                type="date"
+                value={task.recurrence_end || ""}
+                onChange={(e) =>
+                  onUpdate(task.id, { recurrence_end: e.target.value || null } as Partial<Task>)
+                }
+                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          )}
 
           {/* Section */}
           {sections.length > 0 && (
@@ -951,6 +998,15 @@ export default function TaskDetailModal({
                           onChange={(e) => setNewTagColor(e.target.value)}
                           className="w-6 h-6 rounded cursor-pointer border-0 p-0"
                         />
+                        <label className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isPersonalTag}
+                            onChange={(e) => setIsPersonalTag(e.target.checked)}
+                            className="rounded border-slate-300"
+                          />
+                          Personal
+                        </label>
                         <div className="flex-1 flex gap-1">
                           <Button
                             size="sm"
@@ -986,6 +1042,9 @@ export default function TaskDetailModal({
                               style={{ backgroundColor: tag.color }}
                             />
                             {tag.name}
+                            {"user_id" in tag && (tag as { user_id?: string }).user_id && (
+                              <span className="text-[9px] text-slate-400 dark:text-slate-500 ml-auto">Mine</span>
+                            )}
                           </button>
                         ))}
                       {availableTags.filter((t) => !taskTags.some((tt) => tt.id === t.id))
@@ -1073,38 +1132,77 @@ export default function TaskDetailModal({
             </h3>
           </div>
 
-          {comments.length > 0 && (
-            <div className="space-y-3 mb-4">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3 group">
-                  <Avatar name={comment.user_name} email={comment.user_email || comment.user_id} size="sm" />
-                  <div className="flex-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        {comment.user_name || comment.user_email || "Unknown"}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                          {formatRelativeTime(comment.created_at)}
+          {comments.length > 0 && (() => {
+            const topLevel = comments.filter((c) => !c.parent_id);
+            const repliesMap = new Map<string, TaskComment[]>();
+            comments.forEach((c) => {
+              if (c.parent_id) {
+                const existing = repliesMap.get(c.parent_id) || [];
+                existing.push(c);
+                repliesMap.set(c.parent_id, existing);
+              }
+            });
+
+            function renderComment(comment: TaskComment, depth: number = 0) {
+              const replies = repliesMap.get(comment.id) || [];
+              const isOwn = comment.user_id === currentUserId;
+              return (
+                <div key={comment.id} className={cn("flex gap-3 group", depth > 0 && "ml-8 mt-2")}>
+                  <Avatar name={comment.user_name} email={comment.user_email || comment.user_id} size={depth > 0 ? "xs" : "sm"} />
+                  <div className="flex-1">
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                          {isOwn ? "You" : (comment.user_name || comment.user_email || "Unknown")}
                         </span>
-                        <button
-                          onClick={() => void handleDeleteComment(comment.id)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity"
-                        >
-                          <Trash2 size={10} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                            {formatRelativeTime(comment.created_at)}
+                          </span>
+                          <button
+                            onClick={() => setReplyTo(comment)}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-500 transition-opacity"
+                            title="Reply"
+                          >
+                            <Reply size={10} />
+                          </button>
+                          {(isOwn || currentUserId === comment.user_id) && (
+                            <button
+                              onClick={() => void handleDeleteComment(comment.id)}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 transition-opacity"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          )}
+                        </div>
                       </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 whitespace-pre-wrap">
+                        {comment.body}
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 whitespace-pre-wrap">
-                      {comment.body}
-                    </p>
+                    {replies.map((reply) => renderComment(reply, depth + 1))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            }
+
+            return (
+              <div className="space-y-3 mb-4">
+                {topLevel.map((comment) => renderComment(comment))}
+              </div>
+            );
+          })()}
 
           <form onSubmit={(e) => void handleAddComment(e)} className="flex gap-2 relative">
+            {replyTo && (
+              <div className="w-full flex items-center gap-2 mb-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-300">
+                <Reply size={12} />
+                <span className="flex-1 truncate">Replying to <strong>{replyTo.user_name || replyTo.user_email || "someone"}</strong>: &ldquo;{replyTo.body}&rdquo;</span>
+                <button type="button" onClick={() => setReplyTo(null)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
+                  <X size={12} />
+                </button>
+              </div>
+            )}
             <div className="flex-1 relative">
               <input
                 ref={commentInputRef}

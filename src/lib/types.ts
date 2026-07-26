@@ -65,6 +65,9 @@ export interface Task {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  recurrence: string | null;
+  recurrence_end: string | null;
+  recurring_parent_id: string | null;
   assignee_email?: string;
   assignee_name?: string;
   assignee_ids?: string[];
@@ -89,9 +92,11 @@ export interface TaskComment {
   task_id: string;
   user_id: string;
   body: string;
+  parent_id: string | null;
   created_at: string;
   user_email?: string;
   user_name?: string;
+  replies?: TaskComment[];
 }
 
 export interface Event {
@@ -114,6 +119,7 @@ export interface Activity {
   id: string;
   team_id: string | null;
   project_id: string | null;
+  task_id: string | null;
   user_id: string;
   action: string;
   detail: string | null;
@@ -272,4 +278,14 @@ export interface NotificationPreferences {
   email_digest: "off" | "daily" | "weekly";
   created_at: string;
   updated_at: string;
+}
+
+export interface SavedView {
+  id: string;
+  user_id: string;
+  name: string;
+  filters: Record<string, string>;
+  sort_by: string;
+  sort_order: string;
+  created_at: string;
 }

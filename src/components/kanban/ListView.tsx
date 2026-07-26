@@ -265,6 +265,7 @@ export default function ListView({
                               task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
                             )}>
                               {task.title}
+                              {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
                             </span>
                           </div>
                           <div className="px-4 py-3 shrink-0">

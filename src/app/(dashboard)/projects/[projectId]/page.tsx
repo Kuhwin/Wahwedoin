@@ -39,6 +39,8 @@ export default function ProjectPage() {
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskSection, setNewTaskSection] = useState("");
+  const [newTaskRecurrence, setNewTaskRecurrence] = useState("");
+  const [newTaskRecurrenceEnd, setNewTaskRecurrenceEnd] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { addToast } = useToast();
 
@@ -93,9 +95,12 @@ export default function ProjectPage() {
       projectData.team_id
         ? supabase
             .from("tags")
-            .select("id, team_id, name, color, created_at")
-            .eq("team_id", projectData.team_id)
-        : Promise.resolve({ data: [] }),
+            .select("id, team_id, user_id, name, color, created_at")
+            .or(`team_id.eq.${projectData.team_id},user_id.eq.${user?.id}`)
+        : supabase
+            .from("tags")
+            .select("id, team_id, user_id, name, color, created_at")
+            .eq("user_id", user?.id || ""),
     ]);
 
     if (tasksRes.data) setTasks(tasksRes.data);
@@ -178,6 +183,8 @@ export default function ProjectPage() {
         section_id: newTaskSection || null,
         position: maxPos,
         created_by: user?.id,
+        recurrence: newTaskRecurrence || null,
+        recurrence_end: newTaskRecurrenceEnd || null,
       })
       .select()
       .single();
@@ -189,9 +196,11 @@ export default function ProjectPage() {
       setNewTaskAssignee("");
       setNewTaskDueDate("");
       setNewTaskSection("");
+      setNewTaskRecurrence("");
+      setNewTaskRecurrenceEnd("");
       setShowAddTask(false);
       if (user?.id) {
-        logActivity({ project_id: projectId, user_id: user.id, action: "created task", detail: data.title });
+        logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
     }
   }
@@ -224,17 +233,17 @@ export default function ProjectPage() {
         const taskTitle = task?.title || "task";
         if ("status" in updates) {
           const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
-          logActivity({ project_id: projectId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
         } else if ("assignee_id" in updates) {
-          logActivity({ project_id: projectId, user_id: currentUser, action: "changed assignee on", detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "changed assignee on", detail: taskTitle });
         } else if ("priority" in updates) {
-          logActivity({ project_id: projectId, user_id: currentUser, action: `set priority ${updates.priority} on`, detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `set priority ${updates.priority} on`, detail: taskTitle });
         } else if ("due_date" in updates) {
-          logActivity({ project_id: projectId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
         } else if ("title" in updates || "description" in updates) {
-          logActivity({ project_id: projectId, user_id: currentUser, action: "edited", detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "edited", detail: taskTitle });
         } else if ("section_id" in updates) {
-          logActivity({ project_id: projectId, user_id: currentUser, action: "moved", detail: taskTitle });
+          logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "moved", detail: taskTitle });
         }
       }
     }
@@ -247,7 +256,7 @@ export default function ProjectPage() {
       setTasks(tasks.filter((t) => t.id !== taskId));
       setSelectedTask(null);
       if (currentUser) {
-        logActivity({ project_id: projectId, user_id: currentUser, action: "deleted task", detail: task?.title });
+        logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "deleted task", detail: task?.title });
       }
       addToast(
         `Deleted "${task?.title || "task"}"`,
@@ -330,7 +339,7 @@ export default function ProjectPage() {
     if (data && !error) {
       setTasks([...tasks, data]);
       if (user?.id) {
-        logActivity({ project_id: projectId, user_id: user.id, action: "created task", detail: data.title });
+        logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
     }
   }
@@ -751,6 +760,29 @@ export default function ProjectPage() {
             value={newTaskDueDate}
             onChange={(e) => setNewTaskDueDate(e.target.value)}
           />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Repeat</label>
+            <select
+              value={newTaskRecurrence}
+              onChange={(e) => setNewTaskRecurrence(e.target.value)}
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">Does not repeat</option>
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Every month</option>
+              <option value="yearly">Every year</option>
+            </select>
+          </div>
+          {newTaskRecurrence && (
+            <Input
+              label="Repeat Until (optional)"
+              type="date"
+              value={newTaskRecurrenceEnd}
+              onChange={(e) => setNewTaskRecurrenceEnd(e.target.value)}
+            />
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowAddTask(false)}>
               Cancel

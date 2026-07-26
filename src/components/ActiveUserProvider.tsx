@@ -7,6 +7,7 @@ interface ActiveUserProfile {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  accent_colour: string | null;
   user_email: string;
 }
 
@@ -42,7 +43,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
   const loadProfiles = useCallback(async (authId: string) => {
     const { data: authProfile } = await supabase
       .from("user_profiles")
-      .select("user_id, display_name, avatar_url")
+      .select("user_id, display_name, avatar_url, accent_colour")
       .eq("user_id", authId)
       .single();
 
@@ -55,6 +56,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
         user_id: authId,
         display_name: authProfile?.display_name || null,
         avatar_url: authProfile?.avatar_url || null,
+        accent_colour: authProfile?.accent_colour || null,
         user_email: "",
       };
       setActiveProfile(profile);
@@ -65,7 +67,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
     const uniqueIds = [...new Set(teamData.map((m: { user_id: string }) => m.user_id))] as string[];
     const { data: profiles } = await supabase
       .from("user_profiles")
-      .select("user_id, display_name, avatar_url")
+      .select("user_id, display_name, avatar_url, accent_colour")
       .in("user_id", uniqueIds);
 
     const { data: authData } = await supabase.auth.getUser();
@@ -77,6 +79,7 @@ export function ActiveUserProvider({ children }: { children: ReactNode }) {
         user_id: uid,
         display_name: prof?.display_name || null,
         avatar_url: prof?.avatar_url || null,
+        accent_colour: prof?.accent_colour || null,
         user_email: uid === authId ? userEmail : "",
       };
     });

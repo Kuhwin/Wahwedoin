@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft } from "lucide-react";
+import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft, Palette } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationsBell from "@/components/NotificationsBell";
 import SearchModal from "@/components/SearchModal";
 import { useTheme } from "@/components/ui/ThemeProvider";
+import { useAccentColour } from "@/components/AccentColourProvider";
 import { useActiveUser } from "@/components/ActiveUserProvider";
 
 interface HeaderProps {
@@ -18,6 +19,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { accent, setAccent, presets } = useAccentColour();
   const { activeProfile, activeUserId, authUserId, orgMembers, isImpersonating, switchUser } = useActiveUser();
   const supabase = createClient();
   const router = useRouter();
@@ -139,6 +141,23 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       )}
                       {theme === "dark" ? "Light mode" : "Dark mode"}
                     </button>
+
+                    <div className="px-3 py-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Palette size={15} className="text-slate-400 dark:text-slate-500" />
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Accent</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {presets.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setAccent(c)}
+                            className={`w-5 h-5 rounded-full border-2 transition-all ${accent === c ? "border-slate-900 dark:border-white scale-110" : "border-transparent hover:scale-110"}`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
 
                     {otherMembers.length > 0 && (
                       <>
