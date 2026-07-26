@@ -507,7 +507,7 @@ export default function CalendarPage() {
   }
 
   function handleDragStart(e: React.DragEvent, event: CalendarEvent) {
-    if (!event.originalEvent) return;
+    if (event.type !== "internal" || !event.originalEvent) return;
     setDraggedEvent(event);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", event.id);
@@ -730,19 +730,28 @@ export default function CalendarPage() {
                       {dayEvents.slice(0, 3).map((event) => (
                         <div
                           key={event.id}
-                          draggable={"originalEvent" in event && !!event.originalEvent}
+                          draggable={event.type === "internal" && !!event.originalEvent}
                           onDragStart={(e) => handleDragStart(e, event as CalendarEvent)}
                           onDragEnd={handleDragEnd}
-                          className={`flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white cursor-grab active:cursor-grabbing hover:opacity-80 ${draggedEvent?.id === event.id ? "opacity-40" : ""}`}
+                          className={`group/chip flex items-center gap-0.5 text-[10px] px-1 py-0.5 rounded truncate text-white ${event.type === "internal" && event.originalEvent ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} hover:opacity-80 ${draggedEvent?.id === event.id ? "opacity-40" : ""}`}
                           style={{ backgroundColor: event.color }}
-                          title={`${event.title}${"originalEvent" in event && event.originalEvent ? " (drag to move)" : ""}${event.source ? ` (${event.source})` : ""}`}
+                          title={`${event.title}${event.type === "internal" ? " (drag to move)" : ""}${event.source ? ` (${event.source})` : ""}`}
                           onClick={(e) => { e.stopPropagation(); handleEventClick(event as CalendarEvent); }}
                         >
                           {event.type === "recurring" && <Repeat size={8} className="flex-shrink-0" />}
                           {event.type === "external" && (
                             <span className="flex-shrink-0 text-[8px] font-bold opacity-80 bg-black/20 rounded px-0.5">{sourceLabel(event.source)}</span>
                           )}
-                          {event.title}
+                          <span className="truncate">{event.title}</span>
+                          {event.type === "internal" && event.originalEvent && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleDeleteEvent(event as CalendarEvent); }}
+                              className="flex-shrink-0 opacity-0 group-hover/chip:opacity-100 ml-0.5 hover:bg-black/20 rounded px-0.5 transition-opacity"
+                              title="Delete event"
+                            >
+                              <X size={8} />
+                            </button>
+                          )}
                         </div>
                       ))}
                       {dayEvents.length > 3 && (
@@ -789,7 +798,7 @@ export default function CalendarPage() {
               {selectedEvent.originalEvent && (
                 <>
                   <Button variant="danger" onClick={() => void handleDeleteEvent(selectedEvent)}>
-                    <Trash2 size={14} /> Delete
+                    <Trash2 size={14} /> {selectedEvent.type === "recurring" ? "Delete All Recurrences" : "Delete"}
                   </Button>
                   <Button onClick={() => handleEditEvent(selectedEvent)}>
                     <Edit3 size={14} /> Edit
