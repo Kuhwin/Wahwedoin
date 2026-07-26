@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CheckSquare, Calendar, Bookmark, BookmarkCheck, X, ChevronDown, ArrowUpDown } from "lucide-react";
+import { CheckSquare, Calendar, Bookmark, BookmarkCheck, X, ChevronDown, ArrowUpDown, Layers } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import { PRIORITY_CONFIG, type Task, type SavedView } from "@/lib/types";
@@ -27,6 +27,8 @@ export default function MyTasksPage() {
   const [viewName, setViewName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [groupBy, setGroupBy] = useState<"none" | "project">("none");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const supabase = createClient();
 
   const loadTasks = useCallback(async () => {
@@ -246,6 +248,25 @@ export default function MyTasksPage() {
           </button>
         </div>
 
+        <button
+          onClick={() => {
+            const next = groupBy === "none" ? "project" : "none";
+            setGroupBy(next);
+            if (next === "project") {
+              const allGroups = new Set(filteredTasks.map((t) => (t as { projects?: { name: string } }).projects?.name ?? "No Project"));
+              setExpandedGroups(allGroups);
+            }
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            groupBy === "project"
+              ? "border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <Layers size={12} />
+          {groupBy === "project" ? "By Project" : "Flat"}
+        </button>
+
         {hasActiveFilters && (
           <button
             onClick={() => { setFilters(EMPTY_FILTERS); setActiveView(null); }}
@@ -295,6 +316,97 @@ export default function MyTasksPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {hasActiveFilters ? "Try adjusting your filters" : "Ask your team to assign you some tasks"}
           </p>
+        </div>
+      ) : groupBy === "project" ? (
+        <div className="space-y-4">
+          {(() => {
+            const groups = new Map<string, { colour: string | null; tasks: typeof filteredTasks }>();
+            for (const task of filteredTasks) {
+              const proj = (task as { projects?: { name: string; colour?: string } }).projects;
+              const key = proj?.name ?? "No Project";
+              const colour = proj?.colour ?? null;
+              const existing = groups.get(key);
+              if (existing) {
+                existing.tasks.push(task);
+              } else {
+                groups.set(key, { colour, tasks: [task] });
+              }
+            }
+            const toggle = (key: string) => {
+              setExpandedGroups((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+            };
+            return Array.from(groups.entries()).map(([name, { colour, tasks: groupTasks }]) => {
+              const isExpanded = expandedGroups.has(name);
+              return (
+                <div key={name}>
+                  <button
+                    onClick={() => toggle(name)}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mb-2"
+                  >
+                    <ChevronDown
+                      size={14}
+                      className={`text-slate-400 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
+                    />
+                    {colour ? (
+                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: colour }} />
+                    ) : (
+                      <span className="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                    )}
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{name}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{groupTasks.length}</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="space-y-2 ml-2">
+                      {groupTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-500 transition-all"
+                        >
+                          <div
+                            className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                              task.status === "done"
+                                ? "bg-green-500 border-green-500"
+                                : "border-slate-300 dark:border-slate-600"
+                            }`}
+                          >
+                            {task.status === "done" && (
+                              <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium text-sm ${task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"}`}>
+                              {task.title}
+                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                              {task.due_date && (
+                                <div className="flex items-center gap-1">
+                                  <Calendar size={12} className="text-slate-400 dark:text-slate-500" />
+                                  <span className="text-xs text-slate-400 dark:text-slate-500">{task.due_date}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant={
+                            task.priority === "urgent" ? "danger" :
+                            task.priority === "high" ? "warning" : "default"
+                          }>
+                            {PRIORITY_CONFIG[task.priority].label}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       ) : (
         <div className="space-y-2">

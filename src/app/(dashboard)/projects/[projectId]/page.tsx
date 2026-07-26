@@ -511,6 +511,16 @@ export default function ProjectPage() {
     }
   });
 
+  const sectionCounts: Record<string, { total: number; done: number }> = {};
+  sections.forEach((s) => { sectionCounts[s.id] = { total: 0, done: 0 }; });
+  tasks.forEach((t) => {
+    if (t.section_id && sectionCounts[t.section_id]) {
+      sectionCounts[t.section_id].total++;
+      if (t.status === "done") sectionCounts[t.section_id].done++;
+    }
+  });
+  const unsectioned = tasks.filter((t) => !t.section_id && t.status !== "done").length;
+
   const parentTasks = tasks.filter((t) => !t.parent_id);
 
   const filteredTasks = parentTasks.filter((t) => {
@@ -591,6 +601,22 @@ export default function ProjectPage() {
             {tasks.some((t) => t.is_milestone) && (
               <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full font-medium">
                 ◆ {tasks.filter((t) => t.is_milestone && t.status === "done").length}/{tasks.filter((t) => t.is_milestone).length} milestones
+              </span>
+            )}
+            {sections.length > 0 && (
+              <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                {sections.map((s) => (
+                  <span key={s.id} className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                    {sectionCounts[s.id]?.total || 0}
+                  </span>
+                ))}
+                {unsectioned > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    {unsectioned}
+                  </span>
+                )}
               </span>
             )}
           </div>

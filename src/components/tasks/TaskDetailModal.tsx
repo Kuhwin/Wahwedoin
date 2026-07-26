@@ -98,6 +98,7 @@ export default function TaskDetailModal({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [taskAssignees, setTaskAssignees] = useState<string[]>([]);
+  const [parentTask, setParentTask] = useState<Task | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const commentInputRef = useRef<HTMLInputElement>(null);
@@ -178,6 +179,17 @@ export default function TaskDetailModal({
         if (tagsData) setTaskTags(tagsData);
       } else {
         setTaskTags([]);
+      }
+
+      if (task!.parent_id) {
+        const { data: parentData } = await supabase
+          .from("tasks")
+          .select("id, title")
+          .eq("id", task!.parent_id)
+          .single();
+        setParentTask(parentData as Task | null);
+      } else {
+        setParentTask(null);
       }
     }
 
@@ -585,6 +597,12 @@ export default function TaskDetailModal({
           </div>
         ) : (
           <div>
+            {parentTask && (
+              <div className="text-xs text-slate-400 dark:text-slate-500 mb-1 flex items-center gap-1">
+                <span className="truncate max-w-[250px] opacity-70">{parentTask.title}</span>
+                <span>/</span>
+              </div>
+            )}
             <h2
               className="text-lg font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-indigo-600 transition-colors"
               onClick={() => setEditing(true)}
@@ -608,6 +626,10 @@ export default function TaskDetailModal({
             )}
           </div>
         )}
+
+        <div className="text-[11px] text-slate-400 dark:text-slate-500 -mt-1">
+          Updated {new Date(task.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+        </div>
 
         {/* Meta row */}
         <div className="grid grid-cols-2 gap-3">
