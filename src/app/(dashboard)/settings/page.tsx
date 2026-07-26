@@ -7,13 +7,17 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell } from "lucide-react";
+import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload } from "lucide-react";
 import type { LinkedGoogleAccount } from "@/lib/types";
+import ImportWizard from "@/components/ImportWizard";
+import { useTheme } from "@/components/ui/ThemeProvider";
+import { useAccentColour } from "@/components/AccentColourProvider";
+import { Sun, Moon } from "lucide-react";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"profile" | "account" | "notifications">("profile");
+  const [tab, setTab] = useState<"profile" | "account" | "notifications" | "appearance" | "import">("profile");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -268,6 +272,24 @@ export default function SettingsPage() {
           <Bell size={14} className="inline mr-2" />
           Notifications
         </button>
+        <button
+          onClick={() => setTab("appearance")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === "appearance" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <Palette size={14} className="inline mr-2" />
+          Appearance
+        </button>
+        <button
+          onClick={() => setTab("import")}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            tab === "import" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <Upload size={14} className="inline mr-2" />
+          Import
+        </button>
       </div>
 
       {message && (
@@ -512,6 +534,84 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {tab === "appearance" && (
+        <AppearanceTab />
+      )}
+
+      {tab === "import" && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+          <ImportWizard />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AppearanceTab() {
+  const { theme, toggleTheme } = useTheme();
+  const { accent, setAccent, presets } = useAccentColour();
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          {theme === "dark" ? <Moon size={20} className="text-indigo-500" /> : <Sun size={20} className="text-amber-500" />}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Theme</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Switch between light and dark mode</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => { if (theme === "dark") toggleTheme(); }}
+            className={`flex-1 p-4 rounded-xl border-2 transition-all ${
+              theme === "light"
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+            }`}
+          >
+            <Sun size={24} className="mx-auto mb-2 text-amber-500" />
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Light</p>
+          </button>
+          <button
+            onClick={() => { if (theme === "light") toggleTheme(); }}
+            className={`flex-1 p-4 rounded-xl border-2 transition-all ${
+              theme === "dark"
+                ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+            }`}
+          >
+            <Moon size={24} className="mx-auto mb-2 text-indigo-400" />
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Dark</p>
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Palette size={20} style={{ color: accent }} />
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Accent Colour</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Your personal colour — shows on buttons, nav, and avatars</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {presets.map((c) => (
+            <button
+              key={c}
+              onClick={() => setAccent(c)}
+              className={`w-10 h-10 rounded-full border-3 transition-all ${
+                accent === c ? "border-slate-900 dark:border-white scale-110 ring-2 ring-offset-2 ring-slate-300 dark:ring-offset-slate-800" : "border-transparent hover:scale-110"
+              }`}
+              style={{ backgroundColor: c, borderWidth: "3px" }}
+            />
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">
+          This colour is personal to you — teammates won&apos;t see it
+        </p>
+      </div>
     </div>
   );
 }
