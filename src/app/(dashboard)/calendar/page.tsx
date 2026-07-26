@@ -535,11 +535,12 @@ export default function CalendarPage() {
 
     const ev = draggedEvent.originalEvent;
     const duration = new Date(ev.end_date).getTime() - new Date(ev.start_date).getTime();
-    const newStart = new Date(year, month, day);
-    const newEnd = new Date(newStart.getTime() + Math.max(duration, 0));
+    const dayCount = Math.round(duration / 86400000);
+    const pad = (n: number) => String(n).padStart(2, "0");
 
-    const newStartDate = newStart.toISOString().split("T")[0];
-    const newEndDate = newEnd.toISOString().split("T")[0];
+    const newStartDate = `${year}-${pad(month + 1)}-${pad(day)}`;
+    const endDate = new Date(year, month, day + dayCount);
+    const newEndDate = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`;
 
     const newStartISO = newStartDate + "T00:00:00Z";
     const newEndISO = newEndDate + "T23:59:59Z";
