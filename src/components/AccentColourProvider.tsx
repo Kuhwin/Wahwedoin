@@ -23,6 +23,8 @@ const ACCENT_PRESETS = [
   "#64748b",
 ];
 
+const STORAGE_KEY = "wahwedoin-accent";
+
 interface AccentColourContextType {
   accent: string;
   setAccent: (colour: string) => void;
@@ -39,10 +41,27 @@ export function useAccentColour() {
   return useContext(AccentColourContext);
 }
 
+function applyAccent(colour: string) {
+  document.documentElement.style.setProperty("--accent", colour);
+  const r = parseInt(colour.slice(1, 3), 16);
+  const g = parseInt(colour.slice(3, 5), 16);
+  const b = parseInt(colour.slice(5, 7), 16);
+  document.documentElement.style.setProperty("--accent-rgb", `${r},${g},${b}`);
+}
+
 export function AccentColourProvider({ children }: { children: ReactNode }) {
-  const [accent, setAccentState] = useState("#6366f1");
+  const [accent, setAccentState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(STORAGE_KEY) || "#6366f1";
+    }
+    return "#6366f1";
+  });
   const { activeUserId } = useActiveUser();
   const supabase = createClient();
+
+  useEffect(() => {
+    applyAccent(accent);
+  }, [accent]);
 
   useEffect(() => {
     if (!activeUserId) return;
@@ -52,27 +71,28 @@ export function AccentColourProvider({ children }: { children: ReactNode }) {
       .select("accent_colour")
       .eq("user_id", activeUserId)
       .single()
-      .then(({ data }: { data: { accent_colour?: string | null } | null }) => {
-        if (!cancelled && data?.accent_colour) setAccentState(data.accent_colour);
-      });
+      .then(({ data, error }: { data: { accent_colour?: string | null } | null; error: unknown }) => {
+        if (cancelled) return;
+        if (error) return;
+        if (data?.accent_colour) {
+          setAccentState(data.accent_colour);
+          localStorage.setItem(STORAGE_KEY, data.accent_colour);
+        }
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [activeUserId, supabase]);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty("--accent", accent);
-    const r = parseInt(accent.slice(1, 3), 16);
-    const g = parseInt(accent.slice(3, 5), 16);
-    const b = parseInt(accent.slice(5, 7), 16);
-    document.documentElement.style.setProperty("--accent-rgb", `${r},${g},${b}`);
-  }, [accent]);
-
   const setAccent = useCallback((colour: string) => {
     setAccentState(colour);
+    localStorage.setItem(STORAGE_KEY, colour);
     if (activeUserId) {
       supabase
         .from("user_profiles")
         .update({ accent_colour: colour, updated_at: new Date().toISOString() })
-        .eq("user_id", activeUserId);
+        .eq("user_id", activeUserId)
+        .then(() => {})
+        .catch(() => {});
     }
   }, [activeUserId, supabase]);
 
