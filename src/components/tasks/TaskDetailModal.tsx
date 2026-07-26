@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Repeat,
   Reply,
+  Video,
+  Users,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -1356,7 +1358,7 @@ function EventLinker({
   supabase: ReturnType<typeof createClient>;
 }) {
   const [events, setEvents] = useState<{ id: string; title: string; start_date: string; color: string | null }[]>([]);
-  const [linkedEvent, setLinkedEvent] = useState<{ id: string; title: string; start_date: string; color: string | null } | null>(null);
+  const [linkedEvent, setLinkedEvent] = useState<{ id: string; title: string; start_date: string; color: string | null; meet_link: string | null; attendees: { email: string; name: string }[] | null } | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -1365,10 +1367,10 @@ function EventLinker({
       setLoading(true);
       supabase
         .from("events")
-        .select("id, title, start_date, color")
+        .select("id, title, start_date, color, meet_link, attendees")
         .eq("id", eventId)
         .single()
-        .then(({ data }: { data: { id: string; title: string; start_date: string; color: string | null } | null }) => {
+        .then(({ data }: { data: { id: string; title: string; start_date: string; color: string | null; meet_link: string | null; attendees: { email: string; name: string }[] | null } | null }) => {
           setLinkedEvent(data);
           setLoading(false);
         });
@@ -1401,21 +1403,43 @@ function EventLinker({
 
   if (linkedEvent && !open) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: linkedEvent.color || "#6366f1" }} />
-          <span className="truncate text-slate-700 dark:text-slate-300">{linkedEvent.title}</span>
-          <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">
-            {new Date(linkedEvent.start_date).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
-          </span>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: linkedEvent.color || "#6366f1" }} />
+            <span className="truncate text-slate-700 dark:text-slate-300">{linkedEvent.title}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">
+              {new Date(linkedEvent.start_date).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+            </span>
+          </div>
+          <button
+            onClick={() => void handleLink(null)}
+            className="p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
+            title="Unlink event"
+          >
+            <X size={14} />
+          </button>
         </div>
-        <button
-          onClick={() => void handleLink(null)}
-          className="p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-colors"
-          title="Unlink event"
-        >
-          <X size={14} />
-        </button>
+        {(linkedEvent.meet_link || (linkedEvent.attendees && linkedEvent.attendees.length > 0)) && (
+          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+            {linkedEvent.meet_link && (
+              <a
+                href={linkedEvent.meet_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+              >
+                <Video size={10} /> Join Meeting
+              </a>
+            )}
+            {linkedEvent.attendees && linkedEvent.attendees.length > 0 && (
+              <span className="flex items-center gap-1">
+                <Users size={10} />
+                {linkedEvent.attendees.length} attendee{linkedEvent.attendees.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     );
   }

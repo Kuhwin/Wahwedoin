@@ -65,6 +65,8 @@ export async function fetchAllAccountsCalendar(userId: string) {
           start: { date?: string; dateTime?: string };
           end: { date?: string; dateTime?: string };
           htmlLink: string;
+          hangoutLink?: string;
+          attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
         }>;
       }>(
         account,
@@ -83,6 +85,12 @@ export async function fetchAllAccountsCalendar(userId: string) {
           allDay: !!e.start.date,
           source: account.email,
           color: account.id.slice(0, 7),
+          meetLink: e.hangoutLink || null,
+          attendees: (e.attendees || []).map((a) => ({
+            email: a.email,
+            name: a.displayName || a.email,
+            status: a.responseStatus || "needsAction",
+          })),
         })),
       };
     })

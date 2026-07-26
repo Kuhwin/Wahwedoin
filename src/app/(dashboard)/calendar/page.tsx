@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check, X, Edit3, Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check, X, Edit3, Repeat, Video, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -19,6 +19,8 @@ interface ExternalEvent {
   allDay: boolean;
   color: string;
   source?: string;
+  meetLink?: string | null;
+  attendees?: { email: string; name: string; status: string }[];
 }
 
 interface CalendarEvent {
@@ -32,6 +34,8 @@ interface CalendarEvent {
   type: "internal" | "external" | "recurring";
   source?: string;
   originalEvent?: Event;
+  meetLink?: string | null;
+  attendees?: { email: string; name: string; status: string }[];
 }
 
 const CALENDAR_COLORS = [
@@ -424,6 +428,8 @@ export default function CalendarPage() {
       description: e.description,
       allDay: e.allDay,
       originalEvent: e.originalEvent,
+      meetLink: e.meetLink || null,
+      attendees: e.attendees || [],
     }));
 
     const external = externalEvents.filter((event) => {
@@ -442,6 +448,8 @@ export default function CalendarPage() {
       end: e.end,
       description: e.description,
       allDay: e.allDay,
+      meetLink: e.meetLink || null,
+      attendees: e.attendees || [],
     }));
 
     return [...internal, ...external];
@@ -801,6 +809,17 @@ export default function CalendarPage() {
               {selectedEvent.type === "recurring" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"><Repeat size={10} /> Recurring</span>}
               {selectedEvent.type === "external" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{sourceLabel(selectedEvent.source)}</span>}
               {selectedEvent.allDay && <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">All day</span>}
+              {selectedEvent.meetLink && (
+                <a href={selectedEvent.meetLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+                  <Video size={10} /> Join Meeting
+                </a>
+              )}
+              {selectedEvent.attendees && selectedEvent.attendees.length > 0 && (
+                <span className="flex items-center gap-1">
+                  <Users size={10} />
+                  {selectedEvent.attendees.length} attendee{selectedEvent.attendees.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
               {selectedEvent.originalEvent && (
