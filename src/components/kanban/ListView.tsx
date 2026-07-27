@@ -40,7 +40,6 @@ function ListViewInner({
   const allSelected = tasks.length > 0 && tasks.every((t) => selectedIds.has(t.id));
   const hasSelection = selectedIds.size > 0;
 
-  // Group tasks: parents with their subtasks nested
   const { displayTasks, taskDepth } = useMemo(() => {
     const parents: Task[] = [];
     const subtasksByParent = new Map<string, Task[]>();
@@ -62,9 +61,7 @@ function ListViewInner({
       display.push(parent);
       if (!collapsedParents.has(parent.id)) {
         const subs = subtasksByParent.get(parent.id) || [];
-        for (const sub of subs) {
-          display.push(sub);
-        }
+        for (const sub of subs) display.push(sub);
       }
     }
 
@@ -99,7 +96,6 @@ function ListViewInner({
   }
 
   async function handleBulkStatus(status: Task["status"]) {
-    if (!onBulkDelete && selectedIds.size === 0) return;
     const updates = Array.from(selectedIds).map((id) => onUpdateTask(id, { status }));
     await Promise.all(updates);
     setSelectedIds(new Set());
@@ -138,178 +134,7 @@ function ListViewInner({
     void Promise.all(updates);
   }
 
-  function renderTaskRow(task: Task, index: number) {
-    const isSelected = selectedIds.has(task.id);
-    const depth = taskDepth.get(task.id) || 0;
-    const isSubtask = depth > 0;
-    const hasSubtasks = subtaskCounts[task.id] && subtaskCounts[task.id].total > 0;
-    const isCollapsed = collapsedParents.has(task.id);
-
-    return (
-      <Draggable key={task.id} draggableId={task.id} index={index}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            {...provided.dragHandleProps}
-            className={cn(
-              "grid items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
-              isSubtask && "bg-slate-50/50 dark:bg-slate-800/30",
-              snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
-              isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
-            )}
-            style={{
-              ...provided.draggableProps.style,
-              gridTemplateColumns: "40px 1fr 130px 110px 140px 50px",
-            }}
-          >
-            {/* Checkbox */}
-            <div className="flex items-center justify-center px-2 py-3">
-              <button
-                onClick={(e) => toggleSelect(task.id, e)}
-                className={cn(
-                  "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                  isSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white"
-                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
-                )}
-              >
-                {isSelected && <Check size={10} />}
-              </button>
-            </div>
-
-            {/* Task name + controls */}
-            <div
-              className="flex items-center gap-2 px-2 py-3 cursor-pointer min-w-0"
-              onClick={() => onTaskClick?.(task)}
-            >
-              {isSubtask && (
-                <span className="text-slate-300 dark:text-slate-600 text-xs shrink-0">└</span>
-              )}
-              {!isSubtask && hasSubtasks && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCollapse(task.id);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
-                >
-                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                </button>
-              )}
-              {!isSubtask && !hasSubtasks && <span className="w-3.5 shrink-0" />}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUpdateTask(task.id, {
-                    status: task.status === "done" ? "todo" : "done",
-                  });
-                }}
-                className={cn(
-                  "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
-                  task.status === "done"
-                    ? "bg-green-500 border-green-500"
-                    : "border-slate-300 dark:border-slate-600"
-                )}
-              >
-                {task.status === "done" && (
-                  <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-              <span className={cn(
-                "text-sm font-medium truncate",
-                isSubtask && "text-sm",
-                task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
-              )}>
-                {task.title}
-                {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
-                {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
-                {!isSubtask && task.projects && task.projects.length > 0 && (
-                  <span className="ml-2 inline-flex items-center gap-1">
-                    {task.projects.map((p) => (
-                      <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
-                        {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
-                      </span>
-                    ))}
-                  </span>
-                )}
-                {!isSubtask && subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
-                  <span className="ml-2 flex items-center gap-1.5">
-                    <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-green-500"
-                        style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                      {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
-                    </span>
-                  </span>
-                )}
-              </span>
-            </div>
-
-            {/* Status */}
-            <div className="px-2 py-3">
-              <select
-                value={task.status}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
-                className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-              >
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
-
-            {/* Priority */}
-            <div className="px-2 py-3">
-              <select
-                value={task.priority}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
-                className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-
-            {/* Due Date */}
-            <div className="px-2 py-3">
-              <input
-                type="date"
-                value={task.due_date || ""}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
-                className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="px-2 py-3 text-right">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteTask(task.id);
-                }}
-                className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-      </Draggable>
-    );
-  }
-
-  const gridCols = "grid-cols-[40px_1fr_130px_110px_140px_50px]";
+  const GRID = "grid-cols-[40px_1fr_130px_110px_140px_60px]";
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -323,11 +148,7 @@ function ListViewInner({
             {showBulkStatus ? (
               <div className="flex items-center gap-2">
                 {(["todo", "in_progress", "done"] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => void handleBulkStatus(s)}
-                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
-                  >
+                  <button key={s} onClick={() => void handleBulkStatus(s)} className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
                     {s === "todo" ? "To Do" : s === "in_progress" ? "In Progress" : "Done"}
                   </button>
                 ))}
@@ -336,11 +157,7 @@ function ListViewInner({
             ) : showBulkPriority ? (
               <div className="flex items-center gap-2">
                 {(["low", "medium", "high", "urgent"] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => void handleBulkPriority(p)}
-                    className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors capitalize"
-                  >
+                  <button key={p} onClick={() => void handleBulkPriority(p)} className="text-xs font-medium px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors capitalize">
                     {p}
                   </button>
                 ))}
@@ -348,35 +165,20 @@ function ListViewInner({
               </div>
             ) : (
               <>
-                <button
-                  onClick={() => setShowBulkStatus(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <CheckSquare size={12} />
-                  Set Status...
+                <button onClick={() => setShowBulkStatus(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
+                  <CheckSquare size={12} /> Set Status...
                 </button>
-                <button
-                  onClick={() => setShowBulkPriority(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
-                >
+                <button onClick={() => setShowBulkPriority(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
                   Priority...
                 </button>
                 {onBulkDelete && (
-                  <button
-                    onClick={() => void handleBulkDeleteAction()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white dark:bg-slate-900 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    <Trash2 size={12} />
-                    Delete
+                  <button onClick={() => void handleBulkDeleteAction()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white dark:bg-slate-900 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={12} /> Delete
                   </button>
                 )}
               </>
             )}
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-              title="Clear selection"
-            >
+            <button onClick={() => setSelectedIds(new Set())} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Clear selection">
               <X size={14} />
             </button>
           </div>
@@ -384,35 +186,23 @@ function ListViewInner({
       )}
 
       {/* Header */}
-      <div className={cn("grid items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800", gridCols)}>
+      <div className={cn("grid items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800", GRID)}>
         <div className="flex items-center justify-center px-2 py-3">
           <button
             onClick={toggleSelectAll}
             className={cn(
               "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
-              allSelected
-                ? "bg-indigo-600 border-indigo-600 text-white"
-                : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+              allSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
             )}
           >
             {allSelected && <Check size={10} />}
           </button>
         </div>
-        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
-          Task
-        </div>
-        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
-          Status
-        </div>
-        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
-          Priority
-        </div>
-        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
-          Due Date
-        </div>
-        <div className="text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
-          Actions
-        </div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">Task</div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">Status</div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">Priority</div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">Due Date</div>
+        <div className="text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">Actions</div>
       </div>
 
       {/* Rows */}
@@ -425,7 +215,222 @@ function ListViewInner({
                   No tasks yet. Add one to get started.
                 </div>
               ) : (
-                displayTasks.map((task, index) => renderTaskRow(task, index))
+                displayTasks.map((task, index) => {
+                  const isSelected = selectedIds.has(task.id);
+                  const depth = taskDepth.get(task.id) || 0;
+                  const isSubtask = depth > 0;
+                  const hasSubtasks = subtaskCounts[task.id] && subtaskCounts[task.id].total > 0;
+                  const isCollapsed = collapsedParents.has(task.id);
+
+                  if (isSubtask) {
+                    return (
+                      <Draggable key={task.id} draggableId={task.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={cn(
+                              "flex items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-grab active:cursor-grabbing",
+                              "bg-slate-50/60 dark:bg-slate-800/20",
+                              snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
+                              isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
+                            )}
+                          >
+                            {/* Checkbox */}
+                            <div className="flex items-center justify-center px-2 py-2 w-[40px] shrink-0">
+                              <button
+                                onClick={(e) => toggleSelect(task.id, e)}
+                                className={cn(
+                                  "h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
+                                  isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                                )}
+                              >
+                                {isSelected && <Check size={8} />}
+                              </button>
+                            </div>
+                            {/* Task name — indented */}
+                            <div
+                              className="flex items-center gap-2 px-2 py-2 cursor-pointer min-w-0 flex-1"
+                              onClick={() => onTaskClick?.(task)}
+                            >
+                              <span className="text-slate-300 dark:text-slate-600 text-[10px] shrink-0 font-mono">└─</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onUpdateTask(task.id, { status: task.status === "done" ? "todo" : "done" });
+                                }}
+                                className={cn(
+                                  "h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0",
+                                  task.status === "done" ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600"
+                                )}
+                              >
+                                {task.status === "done" && (
+                                  <svg className="h-2 w-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                              <span className={cn(
+                                "text-sm truncate",
+                                task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-600 dark:text-slate-300"
+                              )}>
+                                {task.title}
+                              </span>
+                            </div>
+                            {/* Spacer — fills remaining columns */}
+                            <div className="flex-1" />
+                            {/* Delete only */}
+                            <div className="px-2 py-2 shrink-0">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+                                className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    );
+                  }
+
+                  // Parent task — full grid row
+                  return (
+                    <Draggable key={task.id} draggableId={task.id} index={index}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={cn(
+                            "grid items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-grab active:cursor-grabbing",
+                            snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
+                            isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
+                          )}
+                          style={{ ...provided.draggableProps.style, gridTemplateColumns: "40px 1fr 130px 110px 140px 60px" }}
+                        >
+                          {/* Checkbox */}
+                          <div className="flex items-center justify-center px-2 py-3">
+                            <button
+                              onClick={(e) => toggleSelect(task.id, e)}
+                              className={cn(
+                                "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                              )}
+                            >
+                              {isSelected && <Check size={10} />}
+                            </button>
+                          </div>
+
+                          {/* Task name */}
+                          <div className="flex items-center gap-2 px-2 py-3 cursor-pointer min-w-0" onClick={() => onTaskClick?.(task)}>
+                            {hasSubtasks ? (
+                              <button onClick={(e) => { e.stopPropagation(); toggleCollapse(task.id); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0">
+                                {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                            ) : (
+                              <span className="w-3.5 shrink-0" />
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onUpdateTask(task.id, { status: task.status === "done" ? "todo" : "done" });
+                              }}
+                              className={cn(
+                                "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
+                                task.status === "done" ? "bg-green-500 border-green-500" : "border-slate-300 dark:border-slate-600"
+                              )}
+                            >
+                              {task.status === "done" && (
+                                <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                            <span className={cn(
+                              "text-sm font-medium truncate",
+                              task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
+                            )}>
+                              {task.title}
+                              {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
+                              {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
+                              {task.projects && task.projects.length > 0 && (
+                                <span className="ml-2 inline-flex items-center gap-1">
+                                  {task.projects.map((p) => (
+                                    <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
+                                      {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                              {hasSubtasks && (
+                                <span className="ml-2 flex items-center gap-1.5">
+                                  <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                    {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
+                                  </span>
+                                </span>
+                              )}
+                            </span>
+                          </div>
+
+                          {/* Status */}
+                          <div className="px-2 py-3">
+                            <select
+                              value={task.status}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
+                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                            >
+                              <option value="todo">To Do</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="done">Done</option>
+                            </select>
+                          </div>
+
+                          {/* Priority */}
+                          <div className="px-2 py-3">
+                            <select
+                              value={task.priority}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
+                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                            >
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                              <option value="urgent">Urgent</option>
+                            </select>
+                          </div>
+
+                          {/* Due Date */}
+                          <div className="px-2 py-3">
+                            <input
+                              type="date"
+                              value={task.due_date || ""}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
+                              className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                            />
+                          </div>
+
+                          {/* Actions */}
+                          <div className="px-2 py-3 text-right">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
+                              className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })
               )}
               {provided.placeholder}
             </div>

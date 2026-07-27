@@ -195,9 +195,20 @@ export default function ProjectPage() {
   }, [loadData]);
 
   const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
-    const task = tasks.find((t) => t.id === taskId);
-    const oldSectionId = task?.section_id ?? null;
-    const oldStatus = task?.status ?? "todo";
+    let oldSectionId: string | null = null;
+    let oldStatus: Task["status"] = "todo";
+    let taskTitle = "task";
+
+    setTasks((prev) => {
+      const task = prev.find((t) => t.id === taskId);
+      oldSectionId = task?.section_id ?? null;
+      oldStatus = task?.status ?? "todo";
+      taskTitle = task?.title || "task";
+      return prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
+    });
+    setSelectedTask((prev) =>
+      prev && prev.id === taskId ? { ...prev, ...updates } : prev
+    );
 
     const { projects: _projects, ...dbUpdates } = updates;
     const { error } = await supabase
@@ -205,14 +216,12 @@ export default function ProjectPage() {
       .update({ ...dbUpdates, updated_at: new Date().toISOString() })
       .eq("id", taskId);
 
-    if (!error) {
-      setTasks(tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
-      setSelectedTask((prev) =>
-        prev && prev.id === taskId ? { ...prev, ...updates } : prev
-      );
+    if (error) {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+    } else {
       if ("section_id" in updates && updates.section_id !== oldSectionId) {
         addToast(
-          `Moved "${task?.title || "task"}"`,
+          `Moved "${taskTitle}"`,
           "success",
           async () => {
             await supabase.from("tasks").update({ section_id: oldSectionId, status: oldStatus, updated_at: new Date().toISOString() }).eq("id", taskId);
@@ -221,7 +230,6 @@ export default function ProjectPage() {
         );
       }
       if (currentUser) {
-        const taskTitle = task?.title || "task";
         if ("status" in updates) {
           const statusLabel = updates.status === "done" ? "completed" : updates.status === "in_progress" ? "started" : "reopened";
           logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: `${statusLabel} task`, detail: taskTitle });
@@ -238,7 +246,7 @@ export default function ProjectPage() {
         }
       }
     }
-  }, [supabase, tasks, currentUser, projectId, addToast]);
+  }, [supabase, currentUser, projectId, addToast]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
