@@ -1,23 +1,38 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getServiceClient, hmacVerify } from "@/lib/security";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const userId = searchParams.get("state");
+  const state = searchParams.get("state");
   const error = searchParams.get("error");
 
   if (error) {
-    return NextResponse.redirect(new URL(`/settings?tab=account&error=${error}`, request.url));
+    return NextResponse.redirect(new URL("/settings?tab=account&error=auth_failed", request.url));
   }
 
-  if (!code || !userId) {
+  if (!code || !state || !state.includes(".")) {
     return NextResponse.redirect(new URL("/settings?tab=account&error=missing_params", request.url));
+  }
+
+  let userId: string;
+  try {
+    const [payloadB64, signature] = state.split(".");
+    const payload = Buffer.from(payloadB64, "base64url").toString();
+    const valid = await hmacVerify(payload, signature);
+    if (!valid) {
+      return NextResponse.redirect(new URL("/settings?tab=account&error=invalid_state", request.url));
+    }
+    const parsed = JSON.parse(payload);
+    if (Date.now() - parsed.ts > 10 * 60 * 1000) {
+      return NextResponse.redirect(new URL("/settings?tab=account&error=state_expired", request.url));
+    }
+    userId = parsed.uid;
+  } catch {
+    return NextResponse.redirect(new URL("/settings?tab=account&error=invalid_state", request.url));
   }
 
   try {
@@ -35,7 +50,7 @@ export async function GET(request: Request) {
 
     const tokens = await tokenRes.json();
     if (tokens.error) {
-      return NextResponse.redirect(new URL(`/settings?tab=account&error=${tokens.error_description || tokens.error}`, request.url));
+      return NextResponse.redirect(new URL("/settings?tab=account&error=token_failed", request.url));
     }
 
     const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -43,7 +58,7 @@ export async function GET(request: Request) {
     });
     const userInfo = await userInfoRes.json();
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const supabase = getServiceClient();
 
     const expiresAt = tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
@@ -66,13 +81,11 @@ export async function GET(request: Request) {
     );
 
     if (dbError) {
-      console.error("DB error saving linked account:", dbError);
-      return NextResponse.redirect(new URL(`/settings?tab=account&error=${encodeURIComponent(dbError.message || dbError.code || "db_error")}`, request.url));
+      return NextResponse.redirect(new URL("/settings?tab=account&error=save_failed", request.url));
     }
 
     return NextResponse.redirect(new URL("/settings?tab=account&linked=success", request.url));
-  } catch (err) {
-    console.error("Google link callback error:", err);
+  } catch {
     return NextResponse.redirect(new URL("/settings?tab=account&error=server_error", request.url));
   }
 }

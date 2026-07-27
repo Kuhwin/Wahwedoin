@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth, isSafeUrl } from "@/lib/security";
 
 interface CalEvent {
   id: string;
@@ -18,7 +19,6 @@ function parseICal(text: string, color: string): CalEvent[] {
     const block = blocks[i].split("END:VEVENT")[0];
 
     const get = (key: string) => {
-      // Handle folded lines (continuation lines start with space/tab)
       const unfolded = block.replace(/\r?\n[ \t]/g, "");
       const match = unfolded.match(new RegExp(`^${key}[;:](.*)$`, "m"));
       return match ? match[1].trim() : "";
@@ -32,15 +32,12 @@ function parseICal(text: string, color: string): CalEvent[] {
 
     if (!rawStart) continue;
 
-    // Parse date: handle both DATE (YYYYMMDD) and DATETIME (YYYYMMDDTHHMMSSZ)
     function parseDate(val: string): string {
       const clean = val.replace(/[^0-9T]/g, "");
       if (clean.length === 8) {
-        // All-day: YYYYMMDD
         return `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}`;
       }
       if (clean.length >= 15) {
-        // YYYYMMDDTHHMMSS
         const y = clean.slice(0, 4);
         const m = clean.slice(4, 6);
         const d = clean.slice(6, 8);
@@ -53,7 +50,6 @@ function parseICal(text: string, color: string): CalEvent[] {
 
     const isAllDay = rawStart.length === 8 || rawStart.endsWith("VALUE=DATE");
 
-    // Clean title (remove escaped characters)
     const title = rawSummary
       .replace(/\\,/g, ",")
       .replace(/\\;/g, ";")
@@ -61,7 +57,6 @@ function parseICal(text: string, color: string): CalEvent[] {
       .replace(/\\"/g, '"')
       || "Untitled Event";
 
-    // Clean description
     const description = rawDesc
       .replace(/\\,/g, ",")
       .replace(/\\;/g, ";")
@@ -87,6 +82,9 @@ function parseICal(text: string, color: string): CalEvent[] {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+
   try {
     const { url, color } = await request.json();
 
@@ -94,7 +92,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Validate URL
+    if (!isSafeUrl(url)) {
+      return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+    }
+
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: `Failed to fetch calendar (HTTP ${response.status})` },
+        { error: "Failed to fetch calendar" },
         { status: 502 }
       );
     }
@@ -118,8 +119,7 @@ export async function POST(request: Request) {
     const events = parseICal(text, color || "#6366f1");
 
     return NextResponse.json({ events });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Failed to process calendar" }, { status: 500 });
   }
 }

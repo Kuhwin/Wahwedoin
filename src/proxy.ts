@@ -25,17 +25,26 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
-  const isApiOrStatic = request.nextUrl.pathname.startsWith("/api") ||
-    request.nextUrl.pathname.startsWith("/_next");
+  const pathname = request.nextUrl.pathname;
+  const isStatic = pathname.startsWith("/_next") || pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js)$/);
+  const isAuthRoute = pathname.startsWith("/auth");
 
-  if (isApiOrStatic) {
+  if (isStatic) {
     return supabaseResponse;
   }
+
+  const isApiRoute = pathname.startsWith("/api");
+  const isPublicApi = pathname === "/api/seed";
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (isApiRoute && !isPublicApi && !user) {
+    const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    res.headers.set("X-Content-Type-Options", "nosniff");
+    return res;
+  }
 
   if (isAuthRoute && user) {
     const url = request.nextUrl.clone();
@@ -43,11 +52,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const isPublicRoute = request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname === "/auth/login" ||
-    request.nextUrl.pathname === "/auth/signup";
+  const isPublicRoute = pathname === "/" ||
+    pathname === "/auth/login" ||
+    pathname === "/auth/signup" ||
+    pathname === "/privacy" ||
+    pathname === "/terms";
 
-  if (!isPublicRoute && !isAuthRoute && !user) {
+  if (!isPublicRoute && !isAuthRoute && !user && !isApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
@@ -58,6 +69,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon\\.png$).*)",
   ],
 };

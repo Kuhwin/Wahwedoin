@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth, hmacSign } from "@/lib/security";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 
@@ -11,15 +12,15 @@ const SCOPES = [
 ].join(" ");
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("user_id");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing user_id" }, { status: 400 });
-  }
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
 
   const origin = new URL(request.url).origin;
   const redirectUri = `${origin}/api/auth/google/link/callback`;
+
+  const statePayload = JSON.stringify({ uid: auth.user!.id, ts: Date.now() });
+  const signature = await hmacSign(statePayload);
+  const state = `${Buffer.from(statePayload).toString("base64url")}.${signature}`;
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     scope: SCOPES,
     access_type: "offline",
     prompt: "consent",
-    state: userId,
+    state,
   });
 
   return NextResponse.redirect(
