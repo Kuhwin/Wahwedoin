@@ -17,6 +17,7 @@ import { type Project, type Task, type Section, type TeamMember, type Tag, type 
 import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import Skeleton from "@/components/ui/Skeleton";
+import ExportButton from "@/components/ExportButton";
 
 const KanbanBoard = dynamic(() => import("@/components/kanban/KanbanBoard"), { ssr: false });
 const ListView = dynamic(() => import("@/components/kanban/ListView"), { ssr: false });
@@ -507,56 +508,63 @@ export default function ProjectPage() {
     return "in_progress";
   }
 
-  const subtaskCounts: Record<string, { total: number; done: number }> = {};
-  tasks.forEach((t) => {
-    if (t.parent_id) {
-      if (!subtaskCounts[t.parent_id]) {
-        subtaskCounts[t.parent_id] = { total: 0, done: 0 };
+  const subtaskCounts = useMemo(() => {
+    const counts: Record<string, { total: number; done: number }> = {};
+    tasks.forEach((t) => {
+      if (t.parent_id) {
+        if (!counts[t.parent_id]) counts[t.parent_id] = { total: 0, done: 0 };
+        counts[t.parent_id].total++;
+        if (t.status === "done") counts[t.parent_id].done++;
       }
-      subtaskCounts[t.parent_id].total++;
-      if (t.status === "done") subtaskCounts[t.parent_id].done++;
-    }
-  });
+    });
+    return counts;
+  }, [tasks]);
 
-  const sectionCounts: Record<string, { total: number; done: number }> = {};
-  sections.forEach((s) => { sectionCounts[s.id] = { total: 0, done: 0 }; });
-  tasks.forEach((t) => {
-    if (t.section_id && sectionCounts[t.section_id]) {
-      sectionCounts[t.section_id].total++;
-      if (t.status === "done") sectionCounts[t.section_id].done++;
-    }
-  });
-  const unsectioned = tasks.filter((t) => !t.section_id && t.status !== "done").length;
+  const { sectionCounts, unsectioned } = useMemo(() => {
+    const counts: Record<string, { total: number; done: number }> = {};
+    sections.forEach((s) => { counts[s.id] = { total: 0, done: 0 }; });
+    let unsectioned = 0;
+    tasks.forEach((t) => {
+      if (t.section_id && counts[t.section_id]) {
+        counts[t.section_id].total++;
+        if (t.status === "done") counts[t.section_id].done++;
+      }
+      if (!t.section_id && t.status !== "done") unsectioned++;
+    });
+    return { sectionCounts: counts, unsectioned };
+  }, [tasks, sections]);
 
-  const parentTasks = tasks.filter((t) => !t.parent_id);
-
-  const filteredTasks = parentTasks.filter((t) => {
-    if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
-    if (filterStatus !== "all" && t.status !== filterStatus) return false;
-    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-    if (filterAssignee !== "all" && t.assignee_id !== filterAssignee) return false;
-    return true;
-  }).sort((a, b) => {
-    let cmp = 0;
-    if (sortBy === "title") cmp = a.title.localeCompare(b.title);
-    else if (sortBy === "priority") {
-      const order = { urgent: 0, high: 1, medium: 2, low: 3 };
-      cmp = order[a.priority] - order[b.priority];
-    }
-    else if (sortBy === "due_date") {
-      if (!a.due_date && !b.due_date) cmp = 0;
-      else if (!a.due_date) cmp = 1;
-      else if (!b.due_date) cmp = -1;
-      else cmp = a.due_date.localeCompare(b.due_date);
-    }
-    else if (sortBy === "status") {
-      const order = { todo: 0, in_progress: 1, done: 2 };
-      cmp = order[a.status] - order[b.status];
-    }
-    else if (sortBy === "created_at") cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    else cmp = a.position - b.position;
-    return sortDir === "asc" ? cmp : -cmp;
-  });
+  const { filteredTasks, totalParentTasks } = useMemo(() => {
+    const parentTasks = tasks.filter((t) => !t.parent_id);
+    const filtered = parentTasks.filter((t) => {
+      if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+      if (filterStatus !== "all" && t.status !== filterStatus) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterAssignee !== "all" && t.assignee_id !== filterAssignee) return false;
+      return true;
+    }).sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "title") cmp = a.title.localeCompare(b.title);
+      else if (sortBy === "priority") {
+        const order = { urgent: 0, high: 1, medium: 2, low: 3 };
+        cmp = order[a.priority] - order[b.priority];
+      }
+      else if (sortBy === "due_date") {
+        if (!a.due_date && !b.due_date) cmp = 0;
+        else if (!a.due_date) cmp = 1;
+        else if (!b.due_date) cmp = -1;
+        else cmp = a.due_date.localeCompare(b.due_date);
+      }
+      else if (sortBy === "status") {
+        const order = { todo: 0, in_progress: 1, done: 2 };
+        cmp = order[a.status] - order[b.status];
+      }
+      else if (sortBy === "created_at") cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      else cmp = a.position - b.position;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return { filteredTasks: filtered, totalParentTasks: parentTasks.length };
+  }, [tasks, filterSearch, filterStatus, filterPriority, filterAssignee, sortBy, sortDir]);
 
   const hasActiveFilters = filterSearch || filterStatus !== "all" || filterPriority !== "all" || filterAssignee !== "all";
 
@@ -661,6 +669,18 @@ export default function ProjectPage() {
               <List size={16} />
             </button>
           </div>
+          <ExportButton
+            data={filteredTasks.map(task => ({
+              title: task.title,
+              status: task.status,
+              priority: task.priority,
+              due_date: task.due_date || "",
+              section: sections.find(s => s.id === task.section_id)?.name || "",
+              assignee: task.assignee_id ? (memberProfiles[task.assignee_id] || task.assignee_id) : "",
+              created_at: task.created_at,
+            }))}
+            filename={`${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_tasks.csv`}
+          />
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className={cn(
@@ -783,7 +803,7 @@ export default function ProjectPage() {
         )}
         {hasActiveFilters && (
           <span className="text-xs text-slate-400 dark:text-slate-500">
-            {filteredTasks.length} of {parentTasks.length} tasks
+            {filteredTasks.length} of {totalParentTasks} tasks
           </span>
         )}
       </div>

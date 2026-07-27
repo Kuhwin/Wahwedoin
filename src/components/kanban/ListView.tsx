@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -22,7 +22,7 @@ interface ListViewProps {
   subtaskCounts?: Record<string, { total: number; done: number }>;
 }
 
-export default function ListView({
+function ListViewInner({
   tasks,
   onUpdateTask,
   onDeleteTask,
@@ -352,3 +352,5 @@ export default function ListView({
     </div>
   );
 }
+
+export default memo(ListViewInner);

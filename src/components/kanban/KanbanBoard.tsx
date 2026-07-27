@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -64,7 +64,7 @@ function getStatusForSection(
   return mapPositionToStatus(idx, sorted.length);
 }
 
-export default function KanbanBoard({
+function KanbanBoardInner({
   tasks,
   sections,
   subtaskCounts = {},
@@ -703,3 +703,5 @@ export default function KanbanBoard({
     </DragDropContext>
   );
 }
+
+export default memo(KanbanBoardInner);

@@ -23,16 +23,15 @@ import type { Project, Task, Activity as ActivityType, Event } from "@/lib/types
 import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 import { getHolidaysForYear } from "@/lib/holidays";
+import { useDashboardData } from "@/lib/hooks";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading } = useDashboardData();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityType[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<ActivityType[]>([]);
   const [allUserNames, setAllUserNames] = useState<Record<string, string>>({});
@@ -45,107 +44,11 @@ export default function DashboardPage() {
   const ACTIVITIES_PER_PAGE = 20;
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const [projectsRes, tasksRes, actRes, eventsRes] = await Promise.all([
-          supabase
-            .from("projects")
-            .select("id, name, team_id, status, color, created_at")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("tasks")
-            .select("id, project_id, title, status, priority, due_date, position, created_at")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("activities")
-            .select("id, user_id, action, detail, created_at")
-            .order("created_at", { ascending: false })
-            .limit(7),
-          supabase
-            .from("events")
-            .select("*")
-            .order("start_date", { ascending: true }),
-        ]);
-
-        if (projectsRes.data) setProjects(projectsRes.data as Project[]);
-        if (tasksRes.data) setTasks(tasksRes.data as Task[]);
-
-        if (actRes.data) {
-          setActivities(actRes.data as ActivityType[]);
-          const userIds = [...new Set(actRes.data.map((a: ActivityType) => a.user_id).filter(Boolean))];
-          if (userIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from("user_profiles")
-              .select("user_id, display_name")
-              .in("user_id", userIds);
-            if (profiles) {
-              const map: Record<string, string> = {};
-              profiles.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
-              setUserNames(map);
-            }
-          }
-        }
-
-        if (eventsRes.data) {
-          const evts = eventsRes.data as Event[];
-          const now = new Date();
-          const sevenDaysFromNow = new Date(now.getTime() + 7 * 86400000);
-          const upcoming: Event[] = [];
-
-          for (const evt of evts) {
-            if (evt.end_date && evt.end_date < now.toISOString()) continue;
-            if (evt.start_date && new Date(evt.start_date) > sevenDaysFromNow) continue;
-            upcoming.push(evt);
-
-            if (evt.recurrence && evt.recurrence !== "none") {
-              const expanded = expandRecurrence(evt, now, sevenDaysFromNow);
-              for (const ex of expanded) {
-                if (ex.id !== evt.id) upcoming.push(ex);
-              }
-            }
-          }
-
-          for (const h of getHolidaysForYear(now.getFullYear())) {
-            const hStart = new Date(h.dateStr + "T00:00:00Z").toISOString();
-            const hEnd = new Date(new Date(h.dateStr).getTime() + 86400000).toISOString().split("T")[0] + "T23:59:59Z";
-            if (new Date(hEnd) < now || new Date(hStart) > sevenDaysFromNow) continue;
-            upcoming.push({
-              id: `holiday-${h.dateStr}`,
-              title: h.name,
-              description: "Barbados Public Holiday",
-              start_date: hStart,
-              end_date: hEnd,
-              all_day: true,
-              color: "#16a34a",
-              created_by: "",
-              team_id: "",
-              project_id: null,
-              recurrence: null,
-              recurrence_end: null,
-              created_at: h.dateStr,
-            });
-          }
-
-          upcoming.sort((a, b) => {
-            const da = new Date(a.start_date || a.created_at).getTime();
-            const db = new Date(b.start_date || b.created_at).getTime();
-            return da - db;
-          });
-
-          setEvents(upcoming);
-        }
-
-        void checkDueDateNotifications();
-      } catch {
-        // Tables might not exist yet
-      }
-      setLoading(false);
-    }
-    void load();
-  }, [supabase]);
+    setTasks(swrTasks);
+    setActivities(swrActivities);
+    setUserNames(swrUserNames);
+    void checkDueDateNotifications();
+  }, [swrTasks, swrActivities, swrUserNames]);
 
   const loadAllActivities = useCallback(async (page: number, reset: boolean) => {
     setActivitiesLoading(true);
