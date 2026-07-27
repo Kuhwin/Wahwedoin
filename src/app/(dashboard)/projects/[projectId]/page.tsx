@@ -199,18 +199,25 @@ export default function ProjectPage() {
     let oldStatus: Task["status"] = "todo";
     let taskTitle = "task";
 
+    const finalUpdates: Partial<Task> = { ...updates };
+    if ("status" in updates && updates.status && sections.length > 0 && !("section_id" in updates)) {
+      const sorted = [...sections].sort((a, b) => a.position - b.position);
+      const idx = updates.status === "done" ? sorted.length - 1 : updates.status === "todo" ? 0 : Math.min(1, sorted.length - 1);
+      finalUpdates.section_id = sorted[idx]?.id || null;
+    }
+
     setTasks((prev) => {
       const task = prev.find((t) => t.id === taskId);
       oldSectionId = task?.section_id ?? null;
       oldStatus = task?.status ?? "todo";
       taskTitle = task?.title || "task";
-      return prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
+      return prev.map((t) => (t.id === taskId ? { ...t, ...finalUpdates } : t));
     });
     setSelectedTask((prev) =>
-      prev && prev.id === taskId ? { ...prev, ...updates } : prev
+      prev && prev.id === taskId ? { ...prev, ...finalUpdates } : prev
     );
 
-    const { projects: _projects, ...dbUpdates } = updates;
+    const { projects: _projects, ...dbUpdates } = finalUpdates;
     const { error } = await supabase
       .from("tasks")
       .update({ ...dbUpdates, updated_at: new Date().toISOString() })
@@ -219,7 +226,7 @@ export default function ProjectPage() {
     if (error) {
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
     } else {
-      if ("section_id" in updates && updates.section_id !== oldSectionId) {
+      if ("section_id" in finalUpdates && finalUpdates.section_id !== oldSectionId) {
         addToast(
           `Moved "${taskTitle}"`,
           "success",
@@ -241,12 +248,12 @@ export default function ProjectPage() {
           logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "updated due date on", detail: taskTitle });
         } else if ("title" in updates || "description" in updates) {
           logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "edited", detail: taskTitle });
-        } else if ("section_id" in updates) {
+        } else if ("section_id" in finalUpdates) {
           logActivity({ project_id: projectId, task_id: taskId, user_id: currentUser, action: "moved", detail: taskTitle });
         }
       }
     }
-  }, [supabase, currentUser, projectId, addToast]);
+  }, [supabase, currentUser, projectId, addToast, sections]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
