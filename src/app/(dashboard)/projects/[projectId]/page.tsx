@@ -534,8 +534,10 @@ export default function ProjectPage() {
     return { sectionCounts: counts, unsectioned };
   }, [tasks, sections]);
 
-  const { filteredTasks, totalParentTasks } = useMemo(() => {
+  const { filteredTasks, allFilteredTasks, totalParentTasks } = useMemo(() => {
     const parentTasks = tasks.filter((t) => !t.parent_id);
+    const parentIds = new Set(parentTasks.map((t) => t.id));
+
     const filtered = parentTasks.filter((t) => {
       if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
       if (filterStatus !== "all" && t.status !== filterStatus) return false;
@@ -563,7 +565,12 @@ export default function ProjectPage() {
       else cmp = a.position - b.position;
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return { filteredTasks: filtered, totalParentTasks: parentTasks.length };
+
+    const filteredParentIds = new Set(filtered.map((t) => t.id));
+    const subtasks = tasks.filter((t) => t.parent_id && filteredParentIds.has(t.parent_id));
+    const allFiltered = [...filtered, ...subtasks];
+
+    return { filteredTasks: filtered, allFilteredTasks: allFiltered, totalParentTasks: parentTasks.length };
   }, [tasks, filterSearch, filterStatus, filterPriority, filterAssignee, sortBy, sortDir]);
 
   const hasActiveFilters = filterSearch || filterStatus !== "all" || filterPriority !== "all" || filterAssignee !== "all";
@@ -837,7 +844,7 @@ export default function ProjectPage() {
         />
       ) : (
         <ListView
-          tasks={filteredTasks}
+          tasks={allFilteredTasks}
           onUpdateTask={handleUpdateTask}
           onDeleteTask={handleDeleteTask}
           onTaskClick={setSelectedTask}

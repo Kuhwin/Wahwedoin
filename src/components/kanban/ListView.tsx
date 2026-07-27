@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   DragDropContext,
   Droppable,
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Trash2, Check, X, CheckSquare } from "lucide-react";
+import { Trash2, Check, X, CheckSquare, ChevronRight, ChevronDown } from "lucide-react";
 import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +35,50 @@ function ListViewInner({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkStatus, setShowBulkStatus] = useState(false);
   const [showBulkPriority, setShowBulkPriority] = useState(false);
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
 
   const allSelected = tasks.length > 0 && tasks.every((t) => selectedIds.has(t.id));
   const hasSelection = selectedIds.size > 0;
+
+  // Group tasks: parents with their subtasks nested
+  const { displayTasks, taskDepth } = useMemo(() => {
+    const parents: Task[] = [];
+    const subtasksByParent = new Map<string, Task[]>();
+    const depth = new Map<string, number>();
+
+    for (const t of tasks) {
+      if (t.parent_id) {
+        if (!subtasksByParent.has(t.parent_id)) subtasksByParent.set(t.parent_id, []);
+        subtasksByParent.get(t.parent_id)!.push(t);
+        depth.set(t.id, 1);
+      } else {
+        parents.push(t);
+        depth.set(t.id, 0);
+      }
+    }
+
+    const display: Task[] = [];
+    for (const parent of parents) {
+      display.push(parent);
+      if (!collapsedParents.has(parent.id)) {
+        const subs = subtasksByParent.get(parent.id) || [];
+        for (const sub of subs) {
+          display.push(sub);
+        }
+      }
+    }
+
+    return { displayTasks: display, taskDepth: depth };
+  }, [tasks, collapsedParents]);
+
+  function toggleCollapse(parentId: string) {
+    setCollapsedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentId)) next.delete(parentId);
+      else next.add(parentId);
+      return next;
+    });
+  }
 
   function toggleSelect(taskId: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -53,7 +94,7 @@ function ListViewInner({
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(tasks.map((t) => t.id)));
+      setSelectedIds(new Set(displayTasks.map((t) => t.id)));
     }
   }
 
@@ -84,7 +125,7 @@ function ListViewInner({
     const sourceIndex = result.source.index;
     if (destIndex === sourceIndex) return;
 
-    const ordered = [...tasks];
+    const ordered = [...displayTasks];
     const [moved] = ordered.splice(sourceIndex, 1);
     ordered.splice(destIndex, 0, moved);
 
@@ -96,6 +137,179 @@ function ListViewInner({
     });
     void Promise.all(updates);
   }
+
+  function renderTaskRow(task: Task, index: number) {
+    const isSelected = selectedIds.has(task.id);
+    const depth = taskDepth.get(task.id) || 0;
+    const isSubtask = depth > 0;
+    const hasSubtasks = subtaskCounts[task.id] && subtaskCounts[task.id].total > 0;
+    const isCollapsed = collapsedParents.has(task.id);
+
+    return (
+      <Draggable key={task.id} draggableId={task.id} index={index}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            className={cn(
+              "grid items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors",
+              isSubtask && "bg-slate-50/50 dark:bg-slate-800/30",
+              snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
+              isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
+            )}
+            style={{
+              ...provided.draggableProps.style,
+              gridTemplateColumns: "40px 1fr 130px 110px 140px 50px",
+            }}
+          >
+            {/* Checkbox */}
+            <div className="flex items-center justify-center px-2 py-3">
+              <button
+                onClick={(e) => toggleSelect(task.id, e)}
+                className={cn(
+                  "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                  isSelected
+                    ? "bg-indigo-600 border-indigo-600 text-white"
+                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                )}
+              >
+                {isSelected && <Check size={10} />}
+              </button>
+            </div>
+
+            {/* Task name + controls */}
+            <div
+              className="flex items-center gap-2 px-2 py-3 cursor-pointer min-w-0"
+              onClick={() => onTaskClick?.(task)}
+            >
+              {isSubtask && (
+                <span className="text-slate-300 dark:text-slate-600 text-xs shrink-0">└</span>
+              )}
+              {!isSubtask && hasSubtasks && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCollapse(task.id);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
+                >
+                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                </button>
+              )}
+              {!isSubtask && !hasSubtasks && <span className="w-3.5 shrink-0" />}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateTask(task.id, {
+                    status: task.status === "done" ? "todo" : "done",
+                  });
+                }}
+                className={cn(
+                  "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
+                  task.status === "done"
+                    ? "bg-green-500 border-green-500"
+                    : "border-slate-300 dark:border-slate-600"
+                )}
+              >
+                {task.status === "done" && (
+                  <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+              <span className={cn(
+                "text-sm font-medium truncate",
+                isSubtask && "text-sm",
+                task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
+              )}>
+                {task.title}
+                {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
+                {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
+                {!isSubtask && task.projects && task.projects.length > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1">
+                    {task.projects.map((p) => (
+                      <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
+                        {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {!isSubtask && subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
+                  <span className="ml-2 flex items-center gap-1.5">
+                    <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-green-500"
+                        style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
+                    </span>
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {/* Status */}
+            <div className="px-2 py-3">
+              <select
+                value={task.status}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
+                className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+              >
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div className="px-2 py-3">
+              <select
+                value={task.priority}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
+                className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+
+            {/* Due Date */}
+            <div className="px-2 py-3">
+              <input
+                type="date"
+                value={task.due_date || ""}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
+                className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="px-2 py-3 text-right">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteTask(task.id);
+                }}
+                className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </Draggable>
+    );
+  }
+
+  const gridCols = "grid-cols-[40px_1fr_130px_110px_140px_50px]";
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -169,180 +383,49 @@ function ListViewInner({
         </div>
       )}
 
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-            <th className="w-10 px-4 py-3">
-              <button
-                onClick={toggleSelectAll}
-                className={cn(
-                  "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
-                  allSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white"
-                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
-                )}
-              >
-                {allSelected && <Check size={10} />}
-              </button>
-            </th>
-            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-              Task
-            </th>
-            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-              Status
-            </th>
-            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-              Priority
-            </th>
-            <th className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-              Due Date
-            </th>
-            <th className="text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-              Actions
-            </th>
-          </tr>
-        </thead>
-      </table>
+      {/* Header */}
+      <div className={cn("grid items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800", gridCols)}>
+        <div className="flex items-center justify-center px-2 py-3">
+          <button
+            onClick={toggleSelectAll}
+            className={cn(
+              "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
+              allSelected
+                ? "bg-indigo-600 border-indigo-600 text-white"
+                : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+            )}
+          >
+            {allSelected && <Check size={10} />}
+          </button>
+        </div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
+          Task
+        </div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
+          Status
+        </div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
+          Priority
+        </div>
+        <div className="text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
+          Due Date
+        </div>
+        <div className="text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-3">
+          Actions
+        </div>
+      </div>
+
+      {/* Rows */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <Droppable droppableId="list-view">
           {(provided) => (
             <div ref={provided.innerRef} {...provided.droppableProps}>
-              {tasks.length === 0 ? (
+              {displayTasks.length === 0 ? (
                 <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">
                   No tasks yet. Add one to get started.
                 </div>
               ) : (
-                tasks.map((task, index) => {
-                  const isSelected = selectedIds.has(task.id);
-                  return (
-                    <Draggable key={task.id} draggableId={task.id} index={index}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={cn(
-                            "flex items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-grab active:cursor-grabbing",
-                            snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
-                            isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
-                          )}
-                        >
-                          <div
-                            className="flex-1 flex items-center gap-3 px-4 py-3 cursor-pointer min-w-0"
-                            onClick={() => onTaskClick?.(task)}
-                          >
-                            <button
-                              onClick={(e) => toggleSelect(task.id, e)}
-                              className={cn(
-                                "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                isSelected
-                                  ? "bg-indigo-600 border-indigo-600 text-white"
-                                  : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
-                              )}
-                            >
-                              {isSelected && <Check size={10} />}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onUpdateTask(task.id, {
-                                  status: task.status === "done" ? "todo" : "done",
-                                });
-                              }}
-                              className={cn(
-                                "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0",
-                                task.status === "done"
-                                  ? "bg-green-500 border-green-500"
-                                  : "border-slate-300 dark:border-slate-600"
-                              )}
-                            >
-                              {task.status === "done" && (
-                                <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                            <span className={cn(
-                              "text-sm font-medium truncate",
-                              task.status === "done" ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"
-                            )}>
-                              {task.title}
-                              {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
-                              {task.recurrence && <span className="ml-1" title={`Repeats ${task.recurrence}`}>🔁</span>}
-                              {task.projects && task.projects.length > 0 && (
-                                <span className="ml-2 inline-flex items-center gap-1">
-                                  {task.projects.map((p) => (
-                                    <span key={p.id} className="text-[9px] px-1 py-0 rounded font-medium" style={{ backgroundColor: `${p.color}20`, color: p.color }} title={p.name}>
-                                      {p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name}
-                                    </span>
-                                  ))}
-                                </span>
-                              )}
-                              {subtaskCounts[task.id] && subtaskCounts[task.id].total > 0 && (
-                                <span className="ml-2 flex items-center gap-1.5">
-                                  <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-green-500"
-                                      style={{ width: `${Math.round((subtaskCounts[task.id].done / subtaskCounts[task.id].total) * 100)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                                    {subtaskCounts[task.id].done}/{subtaskCounts[task.id].total}
-                                  </span>
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <div className="px-4 py-3 shrink-0">
-                            <select
-                              value={task.status}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
-                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            >
-                              <option value="todo">To Do</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="done">Done</option>
-                            </select>
-                          </div>
-                          <div className="px-4 py-3 shrink-0">
-                            <select
-                              value={task.priority}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
-                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            >
-                              <option value="low">Low</option>
-                              <option value="medium">Medium</option>
-                              <option value="high">High</option>
-                              <option value="urgent">Urgent</option>
-                            </select>
-                          </div>
-                          <div className="px-4 py-3 shrink-0">
-                            <input
-                              type="date"
-                              value={task.due_date || ""}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
-                              className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            />
-                          </div>
-                          <div className="px-4 py-3 text-right shrink-0">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteTask(task.id);
-                              }}
-                              className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  );
-                })
+                displayTasks.map((task, index) => renderTaskRow(task, index))
               )}
               {provided.placeholder}
             </div>
