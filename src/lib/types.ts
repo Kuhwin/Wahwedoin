@@ -274,6 +274,8 @@ export interface LinkedGoogleAccount {
   refresh_token: string | null;
   token_expires_at: string | null;
   scope: string;
+  color: string | null;
+  display_label: string | null;
   created_at: string;
 }
 

@@ -313,7 +313,7 @@ export default function CalendarPage() {
             end: event.end,
             description: event.description,
             allDay: event.allDay,
-            color: "#4285F4",
+            color: result.accountColor || "#4285F4",
             source: result.accountEmail,
           });
         }
@@ -696,12 +696,20 @@ export default function CalendarPage() {
           <span className="h-2 w-2 rounded-full bg-green-600" />
           Barbados Holidays
         </div>
-        {externalEvents.some((e) => e.color === "#4285F4") && (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-            <span className="h-2 w-2 rounded-full bg-[#4285F4]" />
-            Google Calendar
-          </div>
-        )}
+        {externalEvents.some((e) => e.source && e.source !== "Barbados Holidays") && (() => {
+          const googleAccounts = new Map<string, string>();
+          for (const e of externalEvents) {
+            if (e.source && e.source !== "Barbados Holidays" && !googleAccounts.has(e.source)) {
+              googleAccounts.set(e.source, e.color);
+            }
+          }
+          return Array.from(googleAccounts.entries()).map(([email, color]) => (
+            <div key={email} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+              {email.split("@")[0]}
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Calendar Grid */}

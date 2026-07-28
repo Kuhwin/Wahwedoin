@@ -69,6 +69,20 @@ export async function GET(request: Request) {
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null;
 
+    const PALETTE = [
+      '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+      '#ec4899', '#f43f5e', '#ef4444', '#f97316',
+      '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+      '#10b981', '#14b8a6', '#06b6d4', '#3b82f6',
+    ];
+
+    const { count } = await supabase
+      .from("user_google_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    const color = PALETTE[(count || 0) % PALETTE.length];
+
     const { error: dbError } = await supabase.from("user_google_accounts").upsert(
       {
         user_id: userId,
@@ -80,6 +94,7 @@ export async function GET(request: Request) {
         refresh_token: tokens.refresh_token || null,
         token_expires_at: expiresAt,
         scope: tokens.scope || "",
+        color,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,google_user_id" }

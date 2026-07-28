@@ -76,6 +76,7 @@ export async function fetchAllAccountsCalendar(userId: string) {
       return {
         accountEmail: account.email,
         accountName: account.display_name || account.email,
+        accountColor: account.color || "#6366f1",
         events: (data?.items || []).map((e) => ({
           id: `${account.google_user_id}:${e.id}`,
           title: e.summary,
@@ -84,7 +85,7 @@ export async function fetchAllAccountsCalendar(userId: string) {
           description: e.description || "",
           allDay: !!e.start.date,
           source: account.email,
-          color: account.id.slice(0, 7),
+          color: account.color || "#6366f1",
           meetLink: e.hangoutLink || null,
           attendees: (e.attendees || []).map((a) => ({
             email: a.email,
@@ -123,6 +124,7 @@ export async function fetchAllAccountsDrive(userId: string) {
       return {
         accountEmail: account.email,
         accountName: account.display_name || account.email,
+        accountColor: account.color || "#6366f1",
         accountId: account.id,
         files: (data?.files || []).map((f) => ({
           ...f,
@@ -183,6 +185,7 @@ export async function fetchAllAccountsGmail(userId: string) {
         return {
           accountEmail: account.email,
           accountName: account.display_name || account.email,
+          accountColor: account.color || "#6366f1",
           unreadCount: 0,
           messages: [],
         };
@@ -217,6 +220,7 @@ export async function fetchAllAccountsGmail(userId: string) {
       return {
         accountEmail: account.email,
         accountName: account.display_name || account.email,
+        accountColor: account.color || "#6366f1",
         unreadCount: listData.messages.length,
         messages: messages.filter(Boolean) as Array<{
           id: string;

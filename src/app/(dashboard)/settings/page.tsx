@@ -369,36 +369,58 @@ export default function SettingsPage() {
               <div className="space-y-2 mb-4">
                 {linkedAccounts.map((account) => (
                   <div key={account.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <Avatar
-                      name={account.display_name}
-                      email={account.email}
-                      avatarUrl={account.avatar_url}
-                      size="sm"
-                    />
+                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: account.color || "#6366f1" }}>
+                      {(account.display_name || account.email).charAt(0).toUpperCase()}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
-                        {account.display_name || account.email}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          defaultValue={account.display_label || account.display_name || account.email.split("@")[0]}
+                          onBlur={(e) => {
+                            const val = e.target.value.trim();
+                            if (val !== (account.display_label || account.display_name || account.email.split("@")[0])) {
+                              void supabase.from("user_google_accounts").update({ display_label: val }).eq("id", account.id);
+                              setLinkedAccounts(linkedAccounts.map((a) => a.id === account.id ? { ...a, display_label: val } : a));
+                            }
+                          }}
+                          className="text-sm font-medium text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:outline-none transition-colors px-0 py-0 w-full max-w-[160px]"
+                          placeholder="Label (e.g. Work, Personal)"
+                        />
+                      </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{account.email}</p>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {account.scope.includes("calendar") && (
-                        <span title="Calendar" className="p-1 text-blue-500"><Calendar size={12} /></span>
-                      )}
-                      {account.scope.includes("drive") && (
-                        <span title="Drive" className="p-1 text-green-500"><FileText size={12} /></span>
-                      )}
-                      {account.scope.includes("gmail") && (
-                        <span title="Gmail" className="p-1 text-red-500"><Mail size={12} /></span>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        defaultValue={account.color || "#6366f1"}
+                        onChange={(e) => {
+                          const color = e.target.value;
+                          void supabase.from("user_google_accounts").update({ color }).eq("id", account.id);
+                          setLinkedAccounts(linkedAccounts.map((a) => a.id === account.id ? { ...a, color } : a));
+                        }}
+                        className="w-6 h-6 rounded-full border-0 cursor-pointer p-0 bg-transparent"
+                        title="Change account colour"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        {account.scope.includes("calendar") && (
+                          <span title="Calendar" className="p-1 text-blue-500"><Calendar size={12} /></span>
+                        )}
+                        {account.scope.includes("drive") && (
+                          <span title="Drive" className="p-1 text-green-500"><FileText size={12} /></span>
+                        )}
+                        {account.scope.includes("gmail") && (
+                          <span title="Gmail" className="p-1 text-red-500"><Mail size={12} /></span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => void handleUnlinkAccount(account.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Disconnect account"
+                      >
+                        <Unlink size={14} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => void handleUnlinkAccount(account.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                      title="Disconnect account"
-                    >
-                      <Unlink size={14} />
-                    </button>
                   </div>
                 ))}
               </div>

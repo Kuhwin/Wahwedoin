@@ -20,6 +20,7 @@ interface DriveFile {
 interface AccountDrive {
   accountEmail: string;
   accountName: string;
+  accountColor: string;
   accountId: string;
   files: DriveFile[];
 }
@@ -192,7 +193,9 @@ export default function DrivePage() {
                   }}
                   className="w-full flex items-center gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all text-left"
                 >
-                  <Avatar email={account.accountEmail} name={account.accountName} size="sm" />
+                  <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: account.accountColor }}>
+                    {(account.accountName || account.accountEmail).charAt(0).toUpperCase()}
+                  </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{account.accountName}</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500">{account.accountEmail} — {account.files.length} files</p>

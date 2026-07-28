@@ -18,6 +18,7 @@ interface GmailMessage {
 interface AccountGmail {
   accountEmail: string;
   accountName: string;
+  accountColor: string;
   unreadCount: number;
   messages: GmailMessage[];
 }
@@ -106,7 +107,9 @@ export default function GmailPage() {
           {accounts.map((account) => (
             <div key={account.accountEmail}>
               <div className="flex items-center gap-3 mb-3">
-                <Avatar email={account.accountEmail} name={account.accountName} size="sm" />
+                <div className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ backgroundColor: account.accountColor }}>
+                  {(account.accountName || account.accountEmail).charAt(0).toUpperCase()}
+                </div>
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                     {account.accountName}
@@ -114,7 +117,7 @@ export default function GmailPage() {
                   <p className="text-xs text-slate-400 dark:text-slate-500">
                     {account.accountEmail}
                     {account.unreadCount > 0 && (
-                      <span className="ml-2 text-indigo-500 dark:text-indigo-400">
+                      <span className="ml-2" style={{ color: account.accountColor }}>
                         {account.unreadCount} unread
                       </span>
                     )}
@@ -135,8 +138,8 @@ export default function GmailPage() {
                       className="flex items-start gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       <div className="mt-0.5 flex-shrink-0">
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                          <Mail size={14} className="text-indigo-600 dark:text-indigo-400" />
+                        <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${account.accountColor}20` }}>
+                          <Mail size={14} style={{ color: account.accountColor }} />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -144,7 +147,7 @@ export default function GmailPage() {
                           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                             {extractName(msg.from)}
                           </p>
-                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400 flex-shrink-0" />
+                          <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: account.accountColor }} />
                         </div>
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
                           {msg.subject}
