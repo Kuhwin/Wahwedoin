@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, isSafeUrl } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
 
 interface CalEvent {
   id: string;
@@ -85,6 +86,10 @@ export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
+  if (!rateLimit(`calendar:${auth.user!.id}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   try {
     const { url, color } = await request.json();
 
@@ -115,7 +120,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const text = await response.text();
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 5_000_000) {
+      return NextResponse.json({ error: "Calendar file too large" }, { status: 413 });
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return NextResponse.json({ error: "No response body" }, { status: 502 });
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    const MAX_SIZE = 5_000_000;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalSize += value.length;
+      if (totalSize > MAX_SIZE) {
+        reader.cancel();
+        return NextResponse.json({ error: "Calendar file too large" }, { status: 413 });
+      }
+      chunks.push(value);
+    }
+    const text = new TextDecoder().decode(Buffer.concat(chunks));
     const events = parseICal(text, color || "#6366f1");
 
     return NextResponse.json({ events });

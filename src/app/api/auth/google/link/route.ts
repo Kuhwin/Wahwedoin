@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, hmacSign } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 
@@ -14,6 +15,10 @@ const SCOPES = [
 export async function GET(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
+
+  if (!rateLimit(`google-link:${auth.user!.id}`, 5, 300_000)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   const origin = new URL(request.url).origin;
   const redirectUri = `${origin}/api/auth/google/link/callback`;

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { getServiceClient, hmacVerify } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 
 export async function GET(request: Request) {
+  if (!rateLimit("google-callback", 10, 300_000)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");

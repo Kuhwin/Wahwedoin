@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -7,6 +8,10 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
+
+  if (!rateLimit(`google-refresh:${auth.user!.id}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   const { account_id, refresh_token } = await request.json();
 

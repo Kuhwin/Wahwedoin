@@ -47,7 +47,7 @@ export function isSafeUrl(urlString: string): boolean {
     return false;
   }
 
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+  if (parsed.protocol !== "https:") return false;
   if (BLOCKED_HOSTNAMES.has(parsed.hostname)) return false;
   if (isPrivateIP(parsed.hostname)) return false;
   if (/\.internal$/i.test(parsed.hostname)) return false;
@@ -55,25 +55,17 @@ export function isSafeUrl(urlString: string): boolean {
   return true;
 }
 
-export function signState(data: string): string {
-  const secret = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  const encoder = new TextEncoder();
-  const key = crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  return `${data}`;
+function getHmacSecret(): string {
+  const secret = process.env.OAUTH_STATE_SECRET;
+  if (!secret) throw new Error("OAUTH_STATE_SECRET env var is required for HMAC signing");
+  return secret;
 }
 
 export async function hmacSign(data: string): Promise<string> {
-  const secret = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(secret.slice(0, 32).padEnd(32, "0")),
+    encoder.encode(getHmacSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -83,11 +75,10 @@ export async function hmacSign(data: string): Promise<string> {
 }
 
 export async function hmacVerify(data: string, signature: string): Promise<boolean> {
-  const secret = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(secret.slice(0, 32).padEnd(32, "0")),
+    encoder.encode(getHmacSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["verify"]
