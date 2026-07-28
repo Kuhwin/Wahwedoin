@@ -484,13 +484,13 @@ export default function ManagePage() {
                     </button>
                   )}
                 </div>
-                <div className="mb-4">
+                <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
                   <CoverPhotoUpload
                     bucket="org-covers"
                     ownerId={selectedOrgId || ""}
                     currentUrl={selectedOrg?.cover_photo_url ?? null}
                     fallbackText={selectedOrg?.name || ""}
-                    shape="wide"
+                    shape="compact"
                     canEdit={canManage}
                     onChange={(url) => handleOrgCoverChange(url)}
                   />
@@ -756,7 +756,7 @@ export default function ManagePage() {
                 ownerId={selectedTeam.id}
                 currentUrl={selectedTeam.cover_photo_url ?? null}
                 fallbackText={selectedTeam.name}
-                shape="wide"
+                shape="compact"
                 canEdit={selectedTeam.role === "owner" || selectedTeam.role === "admin"}
                 onChange={(url) => handleTeamCoverChange(url)}
               />

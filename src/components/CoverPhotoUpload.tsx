@@ -14,7 +14,7 @@ interface CoverPhotoUploadProps {
   ownerId: string;
   currentUrl: string | null;
   fallbackText: string;
-  shape?: "square" | "wide";
+  shape?: "square" | "wide" | "compact";
   onChange: (url: string | null) => Promise<void> | void;
   canEdit: boolean;
 }
@@ -36,7 +36,9 @@ export default function CoverPhotoUpload({
 
   const dims = shape === "wide"
     ? { w: 320, h: 96, classes: "w-full h-24 rounded-xl" }
-    : { w: 96, h: 96, classes: "h-24 w-24 rounded-2xl" };
+    : shape === "compact"
+      ? { w: 96, h: 60, classes: "w-24 h-[60px] rounded-lg" }
+      : { w: 96, h: 96, classes: "h-24 w-24 rounded-2xl" };
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -106,13 +108,13 @@ export default function CoverPhotoUpload({
             alt={fallbackText}
             width={dims.w}
             height={dims.h}
-            className={cn("h-full w-full", shape === "wide" ? "object-cover" : "object-contain p-1")}
+            className={cn("h-full w-full", (shape === "wide" || shape === "compact") ? "object-cover" : "object-contain p-1")}
             unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-semibold">
-            {shape === "wide" ? (
-              <ImageIcon size={20} />
+            {shape === "wide" || shape === "compact" ? (
+              <ImageIcon size={shape === "compact" ? 16 : 20} />
             ) : (
               <span className="text-center text-lg">{fallbackText.slice(0, 2).toUpperCase()}</span>
             )}
