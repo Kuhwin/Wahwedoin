@@ -95,10 +95,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
     }
     setSaving(true);
     setMessage(null);
-    const { error } = await supabase
-      .from("organizations")
-      .update({ name: nameInput.trim() })
-      .eq("id", orgId);
+    const { error } = await supabase.rpc("update_org_name", { p_org_id: orgId, p_new_name: nameInput.trim() });
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else {
@@ -116,7 +113,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
       if (!window.confirm("Remove this member from the organization?")) return;
     }
     setMessage(null);
-    const { error } = await supabase.from("org_members").delete().eq("id", memberId);
+    const { error } = await supabase.rpc("delete_org_member", { p_member_id: memberId });
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else {
@@ -131,10 +128,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
 
   async function handleChangeRole(member: OrgMember, newRole: "admin" | "member") {
     setMessage(null);
-    const { error } = await supabase
-      .from("org_members")
-      .update({ role: newRole })
-      .eq("id", member.id);
+    const { error } = await supabase.rpc("update_org_member_role", { p_member_id: member.id, p_new_role: newRole });
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else {

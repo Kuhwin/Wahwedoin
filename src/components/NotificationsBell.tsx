@@ -38,9 +38,10 @@ export default function NotificationsBell() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || cancelled) return;
 
       const { data } = await supabase
         .from("notifications")
@@ -49,23 +50,30 @@ export default function NotificationsBell() {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      if (data) setNotifications(data);
+      if (data && !cancelled) setNotifications(data);
 
-      channelRef.current = supabase
-        .channel("notifications")
+      const channelName = `notifications-${crypto.randomUUID()}`;
+      const channel = supabase
+        .channel(channelName)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
           (payload: { new: NotificationItem }) => {
-            setNotifications((prev) => [payload.new, ...prev].slice(0, 10));
+            if (!cancelled) {
+              setNotifications((prev) => [payload.new, ...prev].slice(0, 10));
+            }
           },
         )
         .subscribe();
+
+      channelRef.current = channel;
     }
     void load();
 
     return () => {
+      cancelled = true;
       channelRef.current?.unsubscribe();
+      channelRef.current = undefined;
     };
   }, [supabase]);
 
