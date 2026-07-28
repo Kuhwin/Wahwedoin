@@ -8,15 +8,15 @@ export async function checkDueDateNotifications() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Check notification preferences
-    const { data: prefs } = await supabase
+    // Check notification preferences (table may not exist yet)
+    let taskDueSoonEnabled = true;
+    const { data: prefs, error: prefsErr } = await supabase
       .from("notification_preferences")
       .select("task_due_soon")
       .eq("user_id", user.id)
       .single();
-
-    // If preferences exist and task_due_soon is disabled, skip
-    if (prefs && !prefs.task_due_soon) return;
+    if (!prefsErr && prefs) taskDueSoonEnabled = prefs.task_due_soon !== false;
+    if (!taskDueSoonEnabled) return;
 
     const today = new Date().toISOString().split("T")[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
