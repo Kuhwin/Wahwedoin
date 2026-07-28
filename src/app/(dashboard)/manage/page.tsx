@@ -185,18 +185,16 @@ export default function ManagePage() {
 
   async function handleOrgCoverChange(newUrl: string | null) {
     if (!selectedOrgId) return;
-    const { data, error } = await supabase
-      .from("organizations")
-      .update({ cover_photo_url: newUrl })
-      .eq("id", selectedOrgId)
-      .select("cover_photo_url")
-      .single();
+    const { data, error } = await supabase.rpc("update_org_cover", {
+      p_org_id: selectedOrgId,
+      p_cover_url: newUrl,
+    });
     if (error) {
       console.error("[cover-photo] org update failed", error);
       setMessage({ type: "error", text: "Failed to save cover photo: " + error.message });
       return;
     }
-    setOrgs(orgs.map((o) => o.id === selectedOrgId ? { ...o, cover_photo_url: data?.cover_photo_url ?? newUrl } : o));
+    setOrgs(orgs.map((o) => o.id === selectedOrgId ? { ...o, cover_photo_url: data ?? newUrl } : o));
     setMessage({ type: "success", text: newUrl ? "Cover photo updated" : "Cover photo removed" });
   }
 
@@ -366,20 +364,19 @@ export default function ManagePage() {
 
   async function handleTeamCoverChange(newUrl: string | null) {
     if (!selectedTeam) return;
-    const { data, error } = await supabase
-      .from("teams")
-      .update({ cover_photo_url: newUrl })
-      .eq("id", selectedTeam.id)
-      .select("cover_photo_url")
-      .single();
+    const { data, error } = await supabase.rpc("update_team_cover", {
+      p_team_id: selectedTeam.id,
+      p_cover_url: newUrl,
+    });
     if (error) {
       console.error("[cover-photo] team update failed", error);
       setMessage({ type: "error", text: "Failed to save cover photo: " + error.message });
       return;
     }
-    const updated = { ...selectedTeam, cover_photo_url: data?.cover_photo_url ?? newUrl };
+    const savedUrl = data ?? newUrl;
+    const updated = { ...selectedTeam, cover_photo_url: savedUrl };
     setSelectedTeam(updated as Team);
-    setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: data?.cover_photo_url ?? newUrl } : t));
+    setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: savedUrl } : t));
     setMessage({ type: "success", text: newUrl ? "Cover photo updated" : "Cover photo removed" });
   }
 
