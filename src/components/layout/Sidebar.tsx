@@ -56,6 +56,8 @@ export default function Sidebar({
   const supabase = createClient();
 
   const [teams, setTeams] = useState<TeamWithProjects[]>([]);
+  const [organizations, setOrganizations] = useState<{ id: string; name: string; slug: string }[]>([]);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState("");
@@ -73,7 +75,7 @@ export default function Sidebar({
     try {
       const { data: memberships, error } = await supabase
         .from("team_members")
-        .select("team_id, teams(id, name, description, created_at)")
+        .select("team_id, teams(id, name, description, created_at, org_id)")
         .eq("user_id", user.id);
 
       if (error || !memberships) return;
@@ -81,6 +83,20 @@ export default function Sidebar({
       const teamList = (memberships as { teams: Team }[])
         .map((m) => m.teams)
         .filter(Boolean);
+
+      const orgIds = [...new Set(teamList.map((t) => t.org_id).filter(Boolean))];
+      if (orgIds.length > 0) {
+        const { data: orgs } = await supabase
+          .from("organizations")
+          .select("id, name, slug")
+          .in("id", orgIds);
+        if (orgs?.length) {
+          setOrganizations(orgs as { id: string; name: string; slug: string }[]);
+          if (!currentOrgId || !orgs.find((o: { id: string }) => o.id === currentOrgId)) {
+            setCurrentOrgId(orgs[0].id);
+          }
+        }
+      }
 
       const teamIds = teamList.map((t) => t.id);
       let allProjects: Project[] = [];
@@ -179,14 +195,8 @@ export default function Sidebar({
         return;
       }
 
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("id")
-        .limit(1)
-        .single();
-
-      if (!org) {
-        setTeamError("Could not find organization. Please contact support.");
+      if (!currentOrgId) {
+        setTeamError("No organization selected. Please select an organization first.");
         setCreatingTeam(false);
         return;
       }
@@ -195,7 +205,7 @@ export default function Sidebar({
 
       const { error: teamError } = await supabase.from("teams").insert({
         id: teamId,
-        org_id: org.id,
+        org_id: currentOrgId,
         name: newTeamName.trim(),
         slug: generateSlug(newTeamName) + "-" + crypto.randomUUID().slice(0, 4),
         description: newTeamDesc.trim() || null,
@@ -269,6 +279,10 @@ export default function Sidebar({
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
   ];
 
+  const filteredTeams = currentOrgId
+    ? teams.filter((t) => t.org_id === currentOrgId)
+    : teams;
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -286,6 +300,21 @@ export default function Sidebar({
           </Link>
         )}
       </div>
+
+      {/* Org Switcher */}
+      {expanded && organizations.length > 0 && (
+        <div className="px-3 pb-2">
+          <select
+            value={currentOrgId || ""}
+            onChange={(e) => setCurrentOrgId(e.target.value || null)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+          >
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Quick Add */}
       {expanded && (
@@ -307,7 +336,7 @@ export default function Sidebar({
                 className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
               >
                 <option value="">Select project...</option>
-                {teams.flatMap((team) =>
+                {filteredTeams.flatMap((team) =>
                   team.projects.map((p) => (
                     <option key={p.id} value={p.id}>{team.name} / {p.name}</option>
                   ))
@@ -410,7 +439,7 @@ export default function Sidebar({
           </div>
         )}
 
-        {teams.length === 0 ? (
+        {filteredTeams.length === 0 ? (
           expanded ? (
             <div className="px-3 py-4">
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center dark:bg-slate-800">
@@ -437,7 +466,7 @@ export default function Sidebar({
           )
         ) : (
           <div className="space-y-0.5">
-            {teams.map((team) => {
+            {filteredTeams.map((team) => {
               const isTeamExpanded = expandedTeams.has(team.id);
               const teamActive = pathname.startsWith(`/teams/${team.id}`);
               return (
