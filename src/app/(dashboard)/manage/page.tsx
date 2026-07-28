@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   Building2, Users, Settings, Shield, ShieldAlert, UserMinus, UserCog,
@@ -619,7 +620,7 @@ export default function ManagePage() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl divide-y divide-slate-200 dark:divide-slate-700">
                   {teams.map((team) => (
                     <div key={team.id} className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <Link href={`/teams/${team.id}`} className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center dark:bg-indigo-900/30">
                           <Users size={16} className="text-indigo-600" />
                         </div>
@@ -629,12 +630,14 @@ export default function ManagePage() {
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{team.description}</p>
                           )}
                         </div>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-2 shrink-0">
                         <Button variant="ghost" size="sm" onClick={() => void loadTeamMembers(team)}>
                           <Settings size={13} /> Manage
                         </Button>
-                        <ArrowRight size={14} className="text-slate-300" />
+                        <Link href={`/teams/${team.id}`} className="text-slate-300 hover:text-indigo-600 transition-colors">
+                          <ArrowRight size={14} />
+                        </Link>
                       </div>
                     </div>
                   ))}
