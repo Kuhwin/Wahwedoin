@@ -35,27 +35,27 @@ GRANT EXECUTE ON FUNCTION user_team_role(UUID) TO authenticated;
 --    the first owner of a newly created team.
 -- =============================================
 
-CREATE OR REPLACE FUNCTION bootstrap_team_owner(team_id UUID, user_id UUID)
+CREATE OR REPLACE FUNCTION bootstrap_team_owner(p_team_id UUID, p_user_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  IF user_id <> auth.uid() THEN
+  IF p_user_id <> auth.uid() THEN
     RAISE EXCEPTION 'You can only add yourself as owner';
   END IF;
 
-  IF EXISTS (SELECT 1 FROM team_members WHERE team_id = bootstrap_team_owner.team_id) THEN
+  IF EXISTS (SELECT 1 FROM team_members WHERE team_id = p_team_id) THEN
     RAISE EXCEPTION 'Team already has members';
   END IF;
 
   INSERT INTO team_members (team_id, user_id, role)
-  VALUES (team_id, user_id, 'owner');
+  VALUES (p_team_id, p_user_id, 'owner');
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION bootstrap_team_owner(UUID, UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION bootstrap_team_owner(UUID, UUID) TO authenticated;
+REVOKE EXECUTE ON FUNCTION bootstrap_team_owner(p_team_id UUID, p_user_id UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION bootstrap_team_owner(p_team_id UUID, p_user_id UUID) TO authenticated;
 
 -- Drop the old RLS-based bootstrap policies (they're unreliable)
 DROP POLICY IF EXISTS "Users bootstrap new team as owner" ON team_members;

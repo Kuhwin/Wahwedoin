@@ -95,8 +95,8 @@ export default function TeamsPage() {
       }
 
       const { error: memberError } = await supabase.rpc("bootstrap_team_owner", {
-        team_id: teamId,
-        user_id: user.id,
+        p_team_id: teamId,
+        p_user_id: user.id,
       });
 
       if (memberError) {
