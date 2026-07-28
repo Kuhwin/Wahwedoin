@@ -2,7 +2,6 @@ CREATE OR REPLACE FUNCTION delete_org(p_org_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET session_replication_role = 'replica'
 AS $$
 DECLARE
   v_team_ids UUID[];
@@ -19,6 +18,12 @@ BEGIN
   IF (SELECT COUNT(*) FROM org_members WHERE org_id = p_org_id AND role = 'owner') = 0 THEN
     RAISE EXCEPTION 'Organization has no owner — cannot delete';
   END IF;
+
+  -- Demote owners to admin so the trigger doesn't block the delete
+  UPDATE org_members SET role = 'admin' WHERE org_id = p_org_id AND role = 'owner';
+
+  -- Delete org_members (trigger won't block now since no rows have role='owner')
+  DELETE FROM org_members WHERE org_id = p_org_id;
 
   SELECT ARRAY(SELECT id FROM teams WHERE org_id = p_org_id) INTO v_team_ids;
 
