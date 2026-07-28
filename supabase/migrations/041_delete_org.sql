@@ -2,6 +2,7 @@ CREATE OR REPLACE FUNCTION delete_org(p_org_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET session_replication_role = 'replica'
 AS $$
 DECLARE
   v_team_ids UUID[];
