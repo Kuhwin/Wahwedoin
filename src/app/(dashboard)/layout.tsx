@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
@@ -11,6 +12,8 @@ import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { ActiveUserProvider } from "@/components/ActiveUserProvider";
 import { AccentColourProvider } from "@/components/AccentColourProvider";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
+import InviteHandler from "@/components/InviteHandler";
+import { NotificationsCountProvider } from "@/components/NotificationsCountProvider";
 import type { User } from "@supabase/supabase-js";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -99,6 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ActiveUserProvider>
     <AccentColourProvider>
     <ToastProvider>
+    <NotificationsCountProvider>
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
       <Sidebar
         user={user!}
@@ -110,6 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`transition-all duration-200 ${expanded ? "md:ml-64" : "md:ml-16"}`}>
         <Header onMenuClick={() => setMobileOpen(true)} />
         <KeyboardShortcuts />
+        <InviteHandler />
         <main className="p-4 md:p-6 pb-20 md:pb-6">{children}</main>
       </div>
       <MobileNav />
@@ -119,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
             <div className="text-center mb-6">
-              <img src="/logo.png" alt="Wah We Doin" className="h-12 w-12 rounded-xl object-cover mx-auto mb-4" />
+              <Image src="/logo.png" alt="Wah We Doin" width={48} height={48} className="h-12 w-12 rounded-xl object-cover mx-auto mb-4" />
               <h2 className="text-xl font-bold text-slate-900">What should we call you?</h2>
               <p className="text-sm text-slate-500 mt-1">
                 Enter your name so your teammates can find you
@@ -156,6 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
     </div>
+    </NotificationsCountProvider>
     </ToastProvider>
     </AccentColourProvider>
     </ActiveUserProvider>

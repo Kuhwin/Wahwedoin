@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { X, Mail, UserMinus, Shield, ShieldAlert, UserCog, Save, Search } from "lucide-react";
+import { X, UserMinus, Shield, ShieldAlert, UserCog, Save } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -37,9 +37,9 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<"admin" | "member">("member");
-  const [adding, setAdding] = useState(false);
+  const [, setAdding] = useState(false);
   const [searchResults, setSearchResults] = useState<{ user_id: string; display_name: string; email: string }[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [, setSearching] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -175,7 +175,6 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
   }
 
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
-  const isOwner = currentUserRole === "owner";
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm ${open ? "" : "hidden"}`}

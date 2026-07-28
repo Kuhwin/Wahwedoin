@@ -7,11 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload } from "lucide-react";
+import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload, Globe } from "lucide-react";
 import type { LinkedGoogleAccount } from "@/lib/types";
 import ImportWizard from "@/components/ImportWizard";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useAccentColour } from "@/components/AccentColourProvider";
+import { useTimezone } from "@/lib/useTimezone";
 import { Sun, Moon } from "lucide-react";
 
 export default function SettingsPage() {
@@ -573,6 +574,24 @@ export default function SettingsPage() {
 function AppearanceTab() {
   const { theme, toggleTheme } = useTheme();
   const { accent, setAccent, presets } = useAccentColour();
+  const { timezone, setTimezone, commonTimezones, detectedTimezone } = useTimezone();
+  const [savingTz, setSavingTz] = useState(false);
+  const [tzMessage, setTzMessage] = useState("");
+
+  async function handleSetTimezone(next: string) {
+    if (next === timezone) return;
+    setSavingTz(true);
+    setTzMessage("");
+    try {
+      await setTimezone(next);
+      setTzMessage("Saved");
+      setTimeout(() => setTzMessage(""), 1500);
+    } catch {
+      setTzMessage("Failed to save");
+    } finally {
+      setSavingTz(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -633,6 +652,40 @@ function AppearanceTab() {
         <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">
           This colour is personal to you — teammates won&apos;t see it
         </p>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Globe size={20} className="text-indigo-500" />
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Timezone</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Affects due dates, recurring events, and Google Calendar sync</p>
+          </div>
+        </div>
+        <select
+          value={timezone}
+          onChange={(e) => void handleSetTimezone(e.target.value)}
+          disabled={savingTz}
+          className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        >
+          {commonTimezones.includes(timezone) ? null : (
+            <option value={timezone}>{timezone}</option>
+          )}
+          {commonTimezones.map((tz) => (
+            <option key={tz} value={tz}>{tz}</option>
+          ))}
+        </select>
+        {detectedTimezone && detectedTimezone !== timezone && (
+          <button
+            onClick={() => void handleSetTimezone(detectedTimezone)}
+            className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            Use detected timezone: {detectedTimezone}
+          </button>
+        )}
+        {tzMessage && (
+          <p className="text-[11px] text-green-600 dark:text-green-400 mt-2">{tzMessage}</p>
+        )}
       </div>
     </div>
   );

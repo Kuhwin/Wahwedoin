@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatDate, formatRelativeTime, generateSlug, getInitials } from "../utils";
+import { cn, formatDate, formatRelativeTime, generateSlug, getInitials, expandRecurrence } from "../utils";
 
 describe("cn", () => {
   it("merges class names", () => {
@@ -79,5 +79,67 @@ describe("generateSlug", () => {
 
   it("handles multiple spaces", () => {
     expect(generateSlug("a  b   c")).toBe("a-b-c");
+  });
+});
+
+describe("expandRecurrence", () => {
+  const baseEvent = {
+    id: "evt-1",
+    title: "Daily standup",
+    start_date: "2026-07-28T13:00:00Z",
+    end_date: "2026-07-28T13:30:00Z",
+    recurrence: "daily" as const,
+    recurrence_end: null,
+  };
+
+  it("expands a daily event within the range", () => {
+    const start = new Date("2026-07-28T00:00:00Z");
+    const end = new Date("2026-07-31T00:00:00Z");
+    const out = expandRecurrence(baseEvent, start, end, "r");
+    expect(out.length).toBe(3);
+    expect(out[0].start_date).toBe("2026-07-28T13:00:00.000Z");
+    expect(out[1].start_date).toBe("2026-07-29T13:00:00.000Z");
+    expect(out[2].start_date).toBe("2026-07-30T13:00:00.000Z");
+  });
+
+  it("respects recurrence_end", () => {
+    const evt = { ...baseEvent, recurrence_end: "2026-07-30" };
+    const start = new Date("2026-07-28T00:00:00Z");
+    const end = new Date("2026-08-15T00:00:00Z");
+    const out = expandRecurrence(evt, start, end, "r");
+    expect(out.length).toBe(2);
+  });
+
+  it("returns empty when recurrence is null or none", () => {
+    expect(expandRecurrence({ ...baseEvent, recurrence: null }, new Date(), new Date()).length).toBe(0);
+    expect(expandRecurrence({ ...baseEvent, recurrence: "none" }, new Date(), new Date()).length).toBe(0);
+  });
+
+  it("preserves the original duration for each occurrence", () => {
+    const start = new Date("2026-07-28T00:00:00Z");
+    const end = new Date("2026-07-30T00:00:00Z");
+    const out = expandRecurrence(baseEvent, start, end, "r");
+    for (const o of out) {
+      const d1 = new Date(o.start_date).getTime();
+      const d2 = new Date(o.end_date).getTime();
+      expect(d2 - d1).toBe(30 * 60 * 1000);
+    }
+  });
+
+  it("produces occurrences on the correct local-day boundary in the given timezone", () => {
+    const evt = {
+      id: "weekly-1",
+      title: "Weekly review",
+      start_date: "2026-07-31T23:00:00Z",
+      end_date: "2026-07-31T23:30:00Z",
+      recurrence: "weekly" as const,
+      recurrence_end: null,
+    };
+    const start = new Date("2026-07-28T00:00:00Z");
+    const end = new Date("2026-08-30T00:00:00Z");
+    const outUtc = expandRecurrence(evt, start, end, "r");
+    const outNy = expandRecurrence(evt, start, end, "r", "America/New_York");
+    expect(outUtc.length).toBeGreaterThan(0);
+    expect(outNy.length).toBeGreaterThan(0);
   });
 });

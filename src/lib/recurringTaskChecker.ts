@@ -1,22 +1,43 @@
 import { createClient } from "@/lib/supabase/client";
 
-function getNextDueDate(currentDueDate: string, recurrence: string): string {
-  const d = new Date(currentDueDate);
+function getNextDueDate(currentDueDate: string, recurrence: string, timezone: string = "America/Barbados"): string {
+  const [y, m, d] = currentDueDate.split("-").map(Number);
+  const refUtc = Date.UTC(y, m - 1, d);
+  const refDate = new Date(refUtc);
   switch (recurrence) {
-    case "daily": d.setDate(d.getDate() + 1); break;
-    case "weekly": d.setDate(d.getDate() + 7); break;
-    case "biweekly": d.setDate(d.getDate() + 14); break;
-    case "monthly": d.setMonth(d.getMonth() + 1); break;
-    case "yearly": d.setFullYear(d.getFullYear() + 1); break;
+    case "daily": refDate.setUTCDate(refDate.getUTCDate() + 1); break;
+    case "weekly": refDate.setUTCDate(refDate.getUTCDate() + 7); break;
+    case "biweekly": refDate.setUTCDate(refDate.getUTCDate() + 14); break;
+    case "monthly": {
+      const newMonth = refDate.getUTCMonth() + 1;
+      refDate.setUTCMonth(newMonth);
+      if (refDate.getUTCMonth() !== ((newMonth % 12) + 12) % 12) {
+        refDate.setUTCDate(0);
+      }
+      break;
+    }
+    case "yearly": refDate.setUTCFullYear(refDate.getUTCFullYear() + 1); break;
     default: return currentDueDate;
   }
-  return d.toISOString().split("T")[0];
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(refDate);
 }
 
 export async function checkRecurringTasks() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("timezone")
+    .eq("user_id", user.id)
+    .single();
+  const timezone = profile?.timezone || "America/Barbados";
 
   const { data: completedRecurring } = await supabase
     .from("tasks")
@@ -32,7 +53,7 @@ export async function checkRecurringTasks() {
 
     if (task.recurrence_end && new Date(task.recurrence_end) < new Date()) continue;
 
-    const nextDue = getNextDueDate(task.due_date, task.recurrence);
+    const nextDue = getNextDueDate(task.due_date, task.recurrence, timezone);
 
     if (task.recurrence_end && nextDue > task.recurrence_end) continue;
 

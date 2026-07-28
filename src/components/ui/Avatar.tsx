@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface AvatarProps {
@@ -49,11 +50,20 @@ export default function Avatar({ name, email, avatarUrl, size = "md", className 
     lg: "h-10 w-10 text-sm",
   };
 
+  const sizeMap: Record<NonNullable<AvatarProps["size"]>, number> = {
+    xs: 20,
+    sm: 24,
+    md: 32,
+    lg: 40,
+  };
+
   if (avatarUrl) {
     return (
-      <img
+      <Image
         src={avatarUrl}
         alt={name || email}
+        width={sizeMap[size]}
+        height={sizeMap[size]}
         className={cn(
           "inline-flex items-center justify-center rounded-full shrink-0 object-cover",
           sizeClasses[size],

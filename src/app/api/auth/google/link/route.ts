@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
-  if (!rateLimit(`google-link:${auth.user!.id}`, 5, 300_000)) {
+  if (!(await rateLimit(`google-link:${auth.user!.id}`, 5, 300_000))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 

@@ -9,6 +9,8 @@ import Input from "@/components/ui/Input";
 import { type Event, type Team, type Project, type CalendarLink } from "@/lib/types";
 import { fetchAllAccountsCalendar, createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "@/lib/linkedAccounts";
 import { getHolidaysForYear } from "@/lib/holidays";
+import { useTimezone } from "@/lib/useTimezone";
+import { nextOccurrence, utcIsoToLocalDateStr } from "@/lib/recurrence";
 
 interface ExternalEvent {
   id: string;
@@ -103,7 +105,7 @@ function MultiSelectCheckbox<T extends { id: string; name: string; color?: strin
   );
 }
 
-function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date): CalendarEvent[] {
+function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date, timezone: string): CalendarEvent[] {
   const expanded: CalendarEvent[] = [];
   for (const event of events) {
     if (!event.recurrence) {
@@ -126,8 +128,17 @@ function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date
     const origStart = new Date(event.start_date);
     const origEnd = new Date(event.end_date);
     const duration = origEnd.getTime() - origStart.getTime();
-    const recEnd = event.recurrence_end ? new Date(event.recurrence_end) : new Date(rangeEnd);
-    recEnd.setFullYear(Math.min(recEnd.getFullYear(), rangeEnd.getFullYear() + 1));
+    let recEnd: Date;
+    if (event.recurrence_end) {
+      const [yStr, mStr, dStr] = event.recurrence_end.split("-");
+      const y = Number(yStr);
+      const m = Number(mStr);
+      const d = Number(dStr);
+      recEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59));
+    } else {
+      recEnd = new Date(rangeEnd);
+      recEnd.setFullYear(Math.min(recEnd.getFullYear(), rangeEnd.getFullYear() + 1));
+    }
 
     let current = new Date(origStart);
     let count = 0;
@@ -150,21 +161,9 @@ function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date
       });
 
       count++;
-      if (event.recurrence === "weekly") {
-        current = new Date(current);
-        current.setDate(current.getDate() + 7);
-      } else if (event.recurrence === "biweekly") {
-        current = new Date(current);
-        current.setDate(current.getDate() + 14);
-      } else if (event.recurrence === "monthly") {
-        current = new Date(current);
-        current.setMonth(current.getMonth() + 1);
-      } else if (event.recurrence === "yearly") {
-        current = new Date(current);
-        current.setFullYear(current.getFullYear() + 1);
-      } else {
-        break;
-      }
+      const next = nextOccurrence(current, event.recurrence, timezone);
+      if (!next) break;
+      current = next;
     }
   }
   return expanded;
@@ -225,6 +224,7 @@ export default function CalendarPage() {
   const [syncAccountId, setSyncAccountId] = useState("");
 
   const supabase = createClient();
+  const { timezone } = useTimezone();
 
   const loadData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -427,8 +427,8 @@ export default function CalendarPage() {
   const expandedEvents = useMemo(() => {
     const rangeStart = new Date(year, month, 1);
     const rangeEnd = new Date(year, month + 1, 0);
-    return expandRecurringEvents(events, rangeStart, rangeEnd);
-  }, [events, year, month]);
+    return expandRecurringEvents(events, rangeStart, rangeEnd, timezone);
+  }, [events, year, month, timezone]);
 
   function getEventsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -437,8 +437,8 @@ export default function CalendarPage() {
       const ev = event.originalEvent;
       if (ev && filterTeamIds.length > 0 && !filterTeamIds.includes(ev.team_id)) return false;
       if (ev && filterProjectIds.length > 0 && ev.project_id && !filterProjectIds.includes(ev.project_id)) return false;
-      const start = event.start.split("T")[0];
-      const end = event.end.split("T")[0];
+      const start = utcIsoToLocalDateStr(event.start, timezone);
+      const end = utcIsoToLocalDateStr(event.end, timezone);
       return dateStr >= start && dateStr <= end;
     }).map((e) => ({
       id: e.id,
@@ -456,10 +456,14 @@ export default function CalendarPage() {
     }));
 
     const external = externalEvents.filter((event) => {
-      const start = event.start.split("T")[0];
-      const end = event.end.split("T")[0];
       const isAllDay = event.allDay || (!event.start.includes("T") && !event.end.includes("T"));
-      if (isAllDay) return dateStr >= start && dateStr < end;
+      if (isAllDay) {
+        const start = event.start.split("T")[0];
+        const end = event.end.split("T")[0];
+        return dateStr >= start && dateStr < end;
+      }
+      const start = utcIsoToLocalDateStr(event.start, timezone);
+      const end = utcIsoToLocalDateStr(event.end, timezone);
       return dateStr >= start && dateStr <= end;
     }).map((e) => ({
       id: e.id,
@@ -549,6 +553,7 @@ export default function CalendarPage() {
           end: endDateTime,
           allDay: editAllDay,
           meetLink: editMeetLink.trim() || null,
+          timezone,
         });
       }
     }
@@ -669,6 +674,7 @@ export default function CalendarPage() {
           end: endDateTime,
           allDay: newAllDay,
           meetLink: newMeetLink.trim() || null,
+          timezone,
         });
         if (googleEvent) {
           await supabase.from("events").update({ google_event_id: googleEvent.googleEventId }).eq("id", data.id);

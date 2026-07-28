@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Search, FolderKanban, CheckSquare, Calendar, Users, X, Loader2 } from "lucide-react";
+import { Search, FolderKanban, CheckSquare, Calendar, Users, X, Loader2, MessageSquare, Activity } from "lucide-react";
 
 interface SearchResult {
-  type: "project" | "task" | "event" | "team" | "member";
+  type: "project" | "task" | "event" | "team" | "member" | "comment" | "activity";
   id: string;
   title: string;
   subtitle: string;
@@ -19,6 +19,26 @@ interface SearchModalProps {
   open: boolean;
   onClose: () => void;
 }
+
+const TYPE_LABELS: Record<SearchResult["type"], string> = {
+  project: "Projects",
+  task: "Tasks",
+  event: "Events",
+  team: "Teams",
+  member: "People",
+  comment: "Comments",
+  activity: "Activity",
+};
+
+const SECTION_ORDER: SearchResult["type"][] = [
+  "project",
+  "task",
+  "event",
+  "team",
+  "member",
+  "comment",
+  "activity",
+];
 
 export default function SearchModal({ open, onClose }: SearchModalProps) {
   const [query, setQuery] = useState("");
@@ -43,12 +63,28 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
     setLoading(true);
     const pattern = `%${q}%`;
 
-    const [projectsRes, tasksRes, eventsRes, teamsRes, membersRes] = await Promise.all([
+    const [projectsRes, tasksRes, eventsRes, teamsRes, membersRes, commentsRes, activitiesRes] = await Promise.all([
       supabase.from("projects").select("id, name, team_id").ilike("name", pattern).limit(5),
-      supabase.from("tasks").select("id, title, project_id, status").ilike("title", pattern).limit(5),
+      supabase
+        .from("tasks")
+        .select("id, title, project_id, status, description")
+        .or(`title.ilike.${pattern},description.ilike.${pattern}`)
+        .limit(5),
       supabase.from("events").select("id, title, start_date").ilike("title", pattern).limit(5),
       supabase.from("teams").select("id, name").ilike("name", pattern).limit(5),
       supabase.from("user_profiles").select("user_id, display_name").ilike("display_name", pattern).limit(5),
+      supabase
+        .from("task_comments")
+        .select("id, body, task_id, created_at, tasks(project_id, title)")
+        .ilike("body", pattern)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("activities")
+        .select("id, action, detail, task_id, project_id, created_at")
+        .or(`action.ilike.${pattern},detail.ilike.${pattern}`)
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
 
     const found: SearchResult[] = [];
@@ -78,6 +114,42 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
         found.push({ type: "member", id: m.user_id, title: m.display_name || "Unknown", subtitle: "Team member", link: "/settings", icon: Users, color: "text-green-500" });
       }
     }
+    if (commentsRes.data) {
+      for (const c of commentsRes.data) {
+        const snippet = c.body.length > 80 ? c.body.slice(0, 80) + "…" : c.body;
+        const taskTitle = (c.tasks as unknown as { title?: string } | null)?.title ?? "Task";
+        const projectId = (c.tasks as unknown as { project_id?: string } | null)?.project_id;
+        const link = projectId ? `/projects/${projectId}` : "/my-tasks";
+        found.push({
+          type: "comment",
+          id: `comment-${c.id}`,
+          title: `Comment on “${taskTitle}”`,
+          subtitle: snippet,
+          link,
+          icon: MessageSquare,
+          color: "text-purple-500",
+        });
+      }
+    }
+    if (activitiesRes.data) {
+      for (const a of activitiesRes.data) {
+        const link = a.project_id
+          ? `/projects/${a.project_id}`
+          : a.task_id
+            ? "/my-tasks"
+            : "/";
+        const detail = a.detail ? `${a.action} — ${a.detail}` : a.action;
+        found.push({
+          type: "activity",
+          id: `activity-${a.id}`,
+          title: a.action,
+          subtitle: detail,
+          link,
+          icon: Activity,
+          color: "text-slate-500",
+        });
+      }
+    }
 
     setResults(found);
     setSelectedIdx(0);
@@ -102,6 +174,10 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
   }
 
   const hasResults = results.length > 0;
+  const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {
+    (acc[r.type] ??= []).push(r);
+    return acc;
+  }, {});
 
   if (!open) return null;
 
@@ -113,7 +189,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search tasks, projects, events, teams, members..."
+            placeholder="Search tasks, projects, events, teams, members, comments..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -144,24 +220,39 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
               No results for &ldquo;{query}&rdquo;
             </div>
           ) : (
-            <div className="py-2">
-              {results.map((result, idx) => {
-                const Icon = result.icon;
-                return (
-                  <button
-                    key={`${result.type}-${result.id}`}
-                    onClick={() => handleSelect(result)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                      idx === selectedIdx ? "bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
-                    }`}
+            <div className="py-1">
+              {SECTION_ORDER.flatMap((type) => {
+                const items = grouped[type];
+                if (!items || items.length === 0) return [];
+                return [
+                  <div
+                    key={`header-${type}`}
+                    className="px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
                   >
-                    <Icon size={16} className={`${result.color} shrink-0`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{result.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{result.subtitle}</p>
-                    </div>
-                  </button>
-                );
+                    {TYPE_LABELS[type]}
+                  </div>,
+                  ...items.map((result) => {
+                    const idx = results.indexOf(result);
+                    const Icon = result.icon;
+                    return (
+                      <button
+                        key={`${result.type}-${result.id}`}
+                        onClick={() => handleSelect(result)}
+                        className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${
+                          idx === selectedIdx ? "bg-indigo-50 dark:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <Icon size={16} className={`${result.color} shrink-0`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{result.title}</p>
+                          {result.subtitle && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{result.subtitle}</p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }),
+                ];
               })}
             </div>
           )}

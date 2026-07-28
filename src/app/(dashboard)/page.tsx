@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   FolderKanban,
@@ -19,17 +20,18 @@ import {
   CalendarDays,
   Check,
 } from "lucide-react";
-import type { Project, Task, Activity as ActivityType, Event } from "@/lib/types";
+import type { Task, Activity as ActivityType } from "@/lib/types";
 import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
-import { getHolidaysForYear } from "@/lib/holidays";
-import { formatRelativeTime, expandRecurrence } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils";
 import { useDashboardData } from "@/lib/hooks";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading } = useDashboardData();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<ActivityType[]>([]);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
@@ -50,6 +52,18 @@ export default function DashboardPage() {
     setUserNames(swrUserNames);
     void checkDueDateNotifications();
   }, [swrTasks, swrActivities, swrUserNames]);
+
+  function updateActivityParams(next: { open?: boolean; action?: string; project?: string }) {
+    const params = new URLSearchParams(searchParams.toString());
+    const open = next.open ?? showAllActivities;
+    const action = next.action ?? activityFilterAction;
+    const project = next.project ?? activityFilterProject;
+    if (open) params.set("activity", "all"); else params.delete("activity");
+    if (action) params.set("action", action); else params.delete("action");
+    if (project) params.set("project", project); else params.delete("project");
+    const qs = params.toString();
+    router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+  }
 
   const loadAllActivities = useCallback(async (page: number, reset: boolean) => {
     setActivitiesLoading(true);
@@ -86,8 +100,26 @@ export default function DashboardPage() {
     setActivitiesPage(0);
     setHasMoreActivities(true);
     setAllActivities([]);
+    updateActivityParams({ open: true });
     void loadAllActivities(0, true);
   }
+
+  useEffect(() => {
+    const open = searchParams.get("activity") === "all";
+    const action = searchParams.get("action") ?? "";
+    const project = searchParams.get("project") ?? "";
+    const wasOpen = showAllActivities;
+    setShowAllActivities(open);
+    setActivityFilterAction(action);
+    setActivityFilterProject(project);
+    if (open && !wasOpen) {
+      setActivitiesPage(0);
+      setHasMoreActivities(true);
+      setAllActivities([]);
+      void loadAllActivities(0, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function handleQuickComplete(taskId: string) {
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "done" as const } : t));
@@ -97,7 +129,8 @@ export default function DashboardPage() {
     }
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const [today] = useState(() => new Date().toISOString().split("T")[0]);
+  const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split("T")[0]);
 
   const taskStats = useMemo(() => {
     const result = {
@@ -245,7 +278,7 @@ export default function DashboardPage() {
             {events.slice(0, 6).map((evt) => {
               const evtDate = new Date(evt.start_date || evt.created_at);
               const isToday = evtDate.toISOString().split("T")[0] === today;
-              const isTomorrow = evtDate.toISOString().split("T")[0] === new Date(Date.now() + 86400000).toISOString().split("T")[0];
+              const isTomorrow = evtDate.toISOString().split("T")[0] === tomorrow;
               const isHoliday = String(evt.id).startsWith("holiday-");
               const isExternal = String(evt.id).startsWith("external-");
               const dateLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : evtDate.toLocaleDateString("en-GB", { weekday: "short", month: "short", day: "numeric" });
@@ -458,7 +491,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Full Activity Modal */}
-      <Modal open={showAllActivities} onClose={() => { setShowAllActivities(false); setActivityFilterAction(""); setActivityFilterProject(""); }} title="All Activity">
+      <Modal open={showAllActivities} onClose={() => { updateActivityParams({ open: false, action: "", project: "" }); }} title="All Activity">
         <div className="max-h-[60vh] overflow-y-auto">
           {allActivities.length === 0 && activitiesLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -471,7 +504,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-200 dark:border-slate-700">
                 <select
                   value={activityFilterAction}
-                  onChange={(e) => setActivityFilterAction(e.target.value)}
+                  onChange={(e) => updateActivityParams({ action: e.target.value })}
                   className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">All actions</option>
@@ -481,7 +514,7 @@ export default function DashboardPage() {
                 </select>
                 <select
                   value={activityFilterProject}
-                  onChange={(e) => setActivityFilterProject(e.target.value)}
+                  onChange={(e) => updateActivityParams({ project: e.target.value })}
                   className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">All projects</option>
@@ -491,7 +524,7 @@ export default function DashboardPage() {
                 </select>
                 {(activityFilterAction || activityFilterProject) && (
                   <button
-                    onClick={() => { setActivityFilterAction(""); setActivityFilterProject(""); }}
+                    onClick={() => updateActivityParams({ action: "", project: "" })}
                     className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium"
                   >
                     Clear

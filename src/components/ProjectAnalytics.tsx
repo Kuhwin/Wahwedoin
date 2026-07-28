@@ -15,7 +15,6 @@ export default function ProjectAnalytics({ tasks }: ProjectAnalyticsProps) {
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
   const inProgress = tasks.filter((t) => t.status === "in_progress").length;
-  const todo = tasks.filter((t) => t.status === "todo").length;
 
   const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
 

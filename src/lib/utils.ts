@@ -39,11 +39,71 @@ export function generateSlug(name: string) {
     .replace(/^-|-$/g, "");
 }
 
-export function expandRecurrence<T extends { recurrence?: string | null; recurrence_end?: string | null; start_date?: string | null; end_date?: string | null }>(
+type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "yearly";
+
+interface RecurrenceBase {
+  id: string;
+  recurrence?: string | null;
+  recurrence_end?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+function addIntervalInTz(d: Date, rec: Recurrence, tz: string): Date {
+  const localParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => Number(localParts.find((p) => p.type === t)?.value);
+  const y = get("year");
+  const m = get("month");
+  const day = get("day");
+  let ny = y;
+  let nm = m;
+  let nd = day;
+  if (rec === "daily") nd += 1;
+  else if (rec === "weekly") nd += 7;
+  else if (rec === "biweekly") nd += 14;
+  else if (rec === "monthly") nm += 1;
+  else if (rec === "yearly") ny += 1;
+  let nextDate: Date;
+  try {
+    nextDate = new Date(Date.UTC(ny, nm - 1, nd));
+  } catch {
+    return d;
+  }
+  const tzDay = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(nextDate);
+  if (tzDay !== `${ny}-${String(nm).padStart(2, "0")}-${String(nd).padStart(2, "0")}`) {
+    if (rec === "monthly") {
+      nextDate = new Date(Date.UTC(ny, nm, 0));
+    } else {
+      return d;
+    }
+  }
+  const offsetString = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    timeZoneName: "longOffset",
+  }).formatToParts(nextDate).find((p) => p.type === "timeZoneName")?.value ?? "GMT+00:00";
+  const m2 = offsetString.match(/GMT([+-]\d{1,2}):?(\d{2})?/);
+  const offH = m2 ? Number(m2[1]) * 60 : 0;
+  const offM = m2 && m2[2] ? Number(m2[2]) : 0;
+  const totalOffsetMin = offH + (offH < 0 ? -offM : offM);
+  return new Date(nextDate.getTime() - totalOffsetMin * 60_000);
+}
+
+export function expandRecurrence<T extends RecurrenceBase>(
   evt: T,
   rangeStart: Date,
   rangeEnd: Date,
-  idPrefix = "r"
+  idPrefix = "r",
+  timezone?: string,
 ): (T & { id: string })[] {
   if (!evt.recurrence || evt.recurrence === "none" || !evt.start_date) return [];
   const results: (T & { id: string })[] = [];
@@ -55,23 +115,29 @@ export function expandRecurrence<T extends { recurrence?: string | null; recurre
   let safety = 0;
   const maxIterations = 500;
   while (current <= rangeEnd && current <= recEnd && safety < maxIterations) {
-    safety++;
-    const next = new Date(current);
-    if (evt.recurrence === "daily") next.setDate(next.getDate() + 1);
-    else if (evt.recurrence === "weekly") next.setDate(next.getDate() + 7);
-    else if (evt.recurrence === "biweekly") next.setDate(next.getDate() + 14);
-    else if (evt.recurrence === "monthly") next.setMonth(next.getMonth() + 1);
-    else if (evt.recurrence === "yearly") next.setFullYear(next.getFullYear() + 1);
-    if (next > rangeEnd || next > recEnd) break;
-    const evtEnd = duration > 0 ? new Date(next.getTime() + duration) : null;
-    if (next >= rangeStart) {
+    if (current >= rangeStart) {
+      const evtEnd = duration > 0 ? new Date(current.getTime() + duration) : null;
       results.push({
         ...evt,
-        id: `${(evt as any).id}-${idPrefix}-${next.getTime()}`,
-        start_date: next.toISOString(),
-        end_date: evtEnd ? evtEnd.toISOString() : next.toISOString(),
-      } as T & { id: string });
+        id: `${evt.id}-${idPrefix}-${current.getTime()}`,
+        start_date: current.toISOString(),
+        end_date: evtEnd ? evtEnd.toISOString() : current.toISOString(),
+      });
     }
+    safety++;
+    const next = timezone
+      ? addIntervalInTz(current, evt.recurrence as Recurrence, timezone)
+      : (() => {
+          const fallback = new Date(current);
+          const rec = evt.recurrence as Recurrence;
+          if (rec === "daily") fallback.setDate(fallback.getDate() + 1);
+          else if (rec === "weekly") fallback.setDate(fallback.getDate() + 7);
+          else if (rec === "biweekly") fallback.setDate(fallback.getDate() + 14);
+          else if (rec === "monthly") fallback.setMonth(fallback.getMonth() + 1);
+          else if (rec === "yearly") fallback.setFullYear(fallback.getFullYear() + 1);
+          return fallback;
+        })();
+    if (next > rangeEnd || next > recEnd) break;
     current = next;
   }
   return results;

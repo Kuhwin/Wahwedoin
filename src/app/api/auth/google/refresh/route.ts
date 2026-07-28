@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
-  if (!rateLimit(`google-refresh:${auth.user!.id}`, 20, 60_000)) {
+  if (!(await rateLimit(`google-refresh:${auth.user!.id}`, 20, 60_000))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 

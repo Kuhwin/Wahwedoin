@@ -69,6 +69,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     localStorage.removeItem("wahwedoin-active-user");
     router.push("/auth/login");
   }
+  void handleSignOut;
 
   const otherMembers = orgMembers.filter((m) => m.user_id !== activeUserId);
 

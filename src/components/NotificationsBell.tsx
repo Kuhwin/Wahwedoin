@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Bell, CheckCircle, MessageSquare, Users, FolderKanban, Calendar } from "lucide-react";
+import { Bell, CheckCircle, MessageSquare, Users, FolderKanban, Calendar, CheckCheck } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
+import { useNotificationsCount } from "@/components/NotificationsCountProvider";
 
 interface NotificationItem {
   id: string;
@@ -34,6 +35,7 @@ export default function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+  const { unreadCount } = useNotificationsCount();
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -87,8 +89,6 @@ export default function NotificationsBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   async function handleMarkAsRead(id: string) {
     await supabase
       .from("notifications")
@@ -98,6 +98,19 @@ export default function NotificationsBell() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    window.dispatchEvent(new Event("notifications:changed"));
+  }
+
+  async function handleMarkAllRead() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    window.dispatchEvent(new Event("notifications:changed"));
   }
 
   return (
@@ -118,13 +131,25 @@ export default function NotificationsBell() {
         <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
-            <Link
-              href="/inbox"
-              onClick={() => setOpen(false)}
-              className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-            >
-              View all
-            </Link>
+            <div className="flex items-center gap-3">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                  title="Mark all as read"
+                >
+                  <CheckCheck size={12} />
+                  Mark all
+                </button>
+              )}
+              <Link
+                href="/inbox"
+                onClick={() => setOpen(false)}
+                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                View all
+              </Link>
+            </div>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (

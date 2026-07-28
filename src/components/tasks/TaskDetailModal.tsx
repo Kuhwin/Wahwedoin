@@ -278,44 +278,64 @@ export default function TaskDetailModal({
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const body = newComment.trim();
+    const parentId = replyTo?.id || null;
+
+    // Optimistic insert — show the comment immediately with a temp id
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const optimistic: TaskComment = {
+      id: tempId,
+      task_id: task!.id,
+      user_id: user.id,
+      body,
+      parent_id: parentId,
+      created_at: new Date().toISOString(),
+    };
+    const previousComments = comments;
+    setComments([...comments, optimistic]);
+    setNewComment("");
+    setMentionOpen(false);
+    setReplyTo(null);
+
     const { data, error } = await supabase
       .from("task_comments")
       .insert({
         task_id: task!.id,
-        user_id: user?.id,
-        body: newComment.trim(),
-        parent_id: replyTo?.id || null,
+        user_id: user.id,
+        body,
+        parent_id: parentId,
       })
       .select()
       .single();
 
-    if (data && !error) {
-      setComments([...comments, data]);
-      setReplyTo(null);
-      if (user?.id) {
-        logActivity({ project_id: task!.project_id, task_id: task!.id, user_id: user.id, action: "commented on", detail: task!.title });
-      }
+    if (error || !data) {
+      setComments(previousComments);
+      return;
+    }
 
-      const mentionRegex = /@(\S+)/g;
-      let match;
-      while ((match = mentionRegex.exec(newComment)) !== null) {
-        const mentionedName = match[1].toLowerCase();
-        const mentioned = memberProfiles.find(
-          (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
-        );
-        if (mentioned && mentioned.user_id !== user?.id) {
-          await supabase.from("notifications").insert({
-            user_id: mentioned.user_id,
-            type: "comment",
-            title: `You were mentioned in a comment on "${task!.title}"`,
-            body: `${getMemberName(user?.id || "")}: ${newComment.trim()}`,
-            link: `/projects/${task!.project_id}`,
-          });
-        }
-      }
+    // Replace the optimistic temp with the real DB row
+    setComments((prev) => prev.map((c) => (c.id === tempId ? data : c)));
 
-      setNewComment("");
-      setMentionOpen(false);
+    logActivity({ project_id: task!.project_id, task_id: task!.id, user_id: user.id, action: "commented on", detail: task!.title });
+
+    const mentionRegex = /@(\S+)/g;
+    let match;
+    while ((match = mentionRegex.exec(body)) !== null) {
+      const mentionedName = match[1].toLowerCase();
+      const mentioned = memberProfiles.find(
+        (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
+      );
+      if (mentioned && mentioned.user_id !== user.id) {
+        await supabase.from("notifications").insert({
+          user_id: mentioned.user_id,
+          type: "comment",
+          title: `You were mentioned in a comment on "${task!.title}"`,
+          body: `${getMemberName(user.id)}: ${body}`,
+          link: `/projects/${task!.project_id}`,
+        });
+      }
     }
   }
 
@@ -478,23 +498,22 @@ export default function TaskDetailModal({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    let tagData: { team_id?: string; user_id?: string; name: string; color: string } = {
-      name: newTagName.trim(),
-      color: newTagColor,
-    };
-
-    if (isPersonalTag) {
-      tagData.user_id = user.id;
-    } else {
+    async function buildTagData(): Promise<{ team_id?: string; user_id?: string; name: string; color: string } | null> {
+      if (isPersonalTag) {
+        return { name: newTagName.trim(), color: newTagColor, user_id: user.id };
+      }
       const { data: teamMember } = await supabase
         .from("team_members")
         .select("team_id")
         .eq("user_id", user.id)
         .limit(1)
         .single();
-      if (!teamMember) return;
-      tagData.team_id = teamMember.team_id;
+      if (!teamMember) return null;
+      return { name: newTagName.trim(), color: newTagColor, team_id: teamMember.team_id };
     }
+
+    const tagData = await buildTagData();
+    if (!tagData) return;
 
     const { data: tag, error } = await supabase
       .from("tags")

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllAccountsDrive, fetchDriveFolder } from "@/lib/linkedAccounts";
 import { FileText, ExternalLink, FolderOpen, Search, ChevronRight } from "lucide-react";
-import Avatar from "@/components/ui/Avatar";
 
 interface DriveFile {
   id: string;
@@ -303,7 +303,7 @@ export default function DrivePage() {
                         >
                           <div className="flex-shrink-0">
                             {file.iconLink ? (
-                              <img src={file.iconLink} alt="" className="w-5 h-5" />
+                              <Image src={file.iconLink} alt="" width={20} height={20} className="w-5 h-5" unoptimized />
                             ) : (
                               getFileIcon(file.mimeType)
                             )}

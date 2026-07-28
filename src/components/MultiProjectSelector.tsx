@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { FolderKanban, X, Plus } from "lucide-react";
-import Avatar from "@/components/ui/Avatar";
 import { type ProjectSummary, type Project } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface MultiProjectSelectorProps {
   taskId: string;

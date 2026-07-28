@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
-  if (!rateLimit(`calendar:${auth.user!.id}`, 10, 60_000)) {
+  if (!(await rateLimit(`calendar:${auth.user!.id}`, 10, 60_000))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 

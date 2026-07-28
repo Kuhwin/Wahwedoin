@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchAllAccountsGmail } from "@/lib/linkedAccounts";
-import { Mail, Inbox as InboxIcon, Loader2, ExternalLink } from "lucide-react";
-import Avatar from "@/components/ui/Avatar";
+import { Mail, Inbox as InboxIcon, ExternalLink } from "lucide-react";
 
 interface GmailMessage {
   id: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
@@ -14,6 +14,8 @@ import {
   CheckCheck,
   Inbox as InboxIcon,
 } from "lucide-react";
+
+const PAGE_SIZE = 20;
 
 interface NotificationItem {
   id: string;
@@ -41,31 +43,85 @@ function getIcon(type: string) {
 export default function InboxPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [userId, setUserId] = useState<string | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (data) setNotifications(data);
+  const loadNotifications = useCallback(async (reset = true) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       setLoading(false);
+      return;
     }
-    void load();
-  }, [supabase]);
+    if (reset) setUserId(user.id);
+
+    const offset = reset ? 0 : notifications.length;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    if (data) {
+      if (reset) {
+        setNotifications(data);
+      } else {
+        setNotifications((prev) => [...prev, ...data]);
+      }
+      setHasMore(data.length === PAGE_SIZE);
+    }
+    setLoading(false);
+    setLoadingMore(false);
+  }, [supabase, notifications.length]);
+
+  useEffect(() => {
+    void loadNotifications(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const channel = supabase
+      .channel(`inbox-notifications-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload: { new: NotificationItem }) => {
+          if (cancelled) return;
+          setNotifications((prev) =>
+            prev.some((n) => n.id === payload.new.id) ? prev : [payload.new, ...prev],
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload: { new: NotificationItem }) => {
+          if (cancelled) return;
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.new.id ? payload.new : n)),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void channel.unsubscribe();
+    };
+  }, [supabase, userId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-
   const filtered = filter === "unread"
     ? notifications.filter((n) => !n.read)
     : notifications;
@@ -79,19 +135,31 @@ export default function InboxPage() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    window.dispatchEvent(new Event("notifications:changed"));
   }
 
   async function handleMarkAllRead() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+    }
+    const targetUserId = userId ?? (await supabase.auth.getUser()).data.user?.id;
+    if (!targetUserId) return;
 
     await supabase
       .from("notifications")
       .update({ read: true })
-      .eq("user_id", user.id)
+      .eq("user_id", targetUserId)
       .eq("read", false);
 
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    window.dispatchEvent(new Event("notifications:changed"));
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    await loadNotifications(false);
   }
 
   if (loading) {
@@ -171,48 +239,69 @@ export default function InboxPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
-          {filtered.map((n) => (
-            <div
-              key={n.id}
-              onClick={() => {
-                if (!n.read) handleMarkAsRead(n.id);
-              }}
-              className={`flex items-start gap-3 px-5 py-4 transition-colors cursor-pointer ${
-                !n.read ? "bg-indigo-50/40 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-            >
-              <div className="mt-0.5 flex-shrink-0">
-                {getIcon(n.type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className={`text-sm ${!n.read ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
-                    {n.title}
-                  </p>
-                  {!n.read && (
-                    <span className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 flex-shrink-0" />
-                  )}
+        <>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
+            {filtered.map((n) => (
+              <div
+                key={n.id}
+                onClick={() => {
+                  if (!n.read) handleMarkAsRead(n.id);
+                }}
+                className={`flex items-start gap-3 px-5 py-4 transition-colors cursor-pointer ${
+                  !n.read ? "bg-indigo-50/40 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                <div className="mt-0.5 flex-shrink-0">
+                  {getIcon(n.type)}
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                    {formatRelativeTime(n.created_at)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm ${!n.read ? "font-semibold text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-300"}`}>
+                      {n.title}
+                    </p>
+                    {!n.read && (
+                      <span className="h-2 w-2 rounded-full bg-indigo-500 dark:bg-indigo-400 flex-shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                      {formatRelativeTime(n.created_at)}
+                    </span>
+                    {n.link && (
+                      <Link
+                        href={n.link}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                      >
+                        View
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {hasMore && filter === "all" && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50"
+              >
+                {loadingMore ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                    Loading…
                   </span>
-                  {n.link && (
-                    <Link
-                      href={n.link}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
-                    >
-                      View
-                    </Link>
-                  )}
-                </div>
-              </div>
+                ) : (
+                  "Load more"
+                )}
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

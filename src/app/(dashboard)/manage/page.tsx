@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   Building2, Users, Settings, Shield, ShieldAlert, UserMinus, UserCog,
-  Plus, X, Mail, Search, Copy, Check, Trash2, ArrowRight, Save, UserPlus,
+  Plus, X, Mail, Copy, Check, Trash2, ArrowRight, Save, UserPlus,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -55,8 +55,8 @@ export default function ManagePage() {
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<"admin" | "member">("member");
   const [searchResults, setSearchResults] = useState<{ user_id: string; display_name: string; email: string }[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [addingMember, setAddingMember] = useState(false);
+  const [, setSearching] = useState(false);
+  const [, setAddingMember] = useState(false);
 
   // Delete org
   const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
@@ -83,7 +83,6 @@ export default function ManagePage() {
   const myMembership = selectedOrgId ? orgMemberships[selectedOrgId] : null;
   const currentRole = myMembership?.role || null;
   const canManage = currentRole === "owner" || currentRole === "admin";
-  const isOwner = currentRole === "owner";
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId);
 
   useEffect(() => {
@@ -117,6 +116,7 @@ export default function ManagePage() {
       setLoading(false);
     }
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, searchParams]);
 
   useEffect(() => {

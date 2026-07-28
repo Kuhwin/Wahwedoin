@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -21,7 +22,6 @@ import {
   Trash2,
   FolderOpen,
   Mail,
-  Users,
   Inbox,
   Briefcase,
   Building2,
@@ -364,14 +364,14 @@ export default function Sidebar({
       <div className="px-4 py-4 flex items-center justify-between">
         {expanded ? (
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="Wah We Doin" className="h-7 w-7 rounded-md object-cover" />
+            <Image src="/logo.png" alt="Wah We Doin" width={28} height={28} className="h-7 w-7 rounded-md object-cover" />
             <span className="font-bold text-slate-900 text-sm tracking-tight dark:text-slate-100">
               Wah We Doin
             </span>
           </Link>
         ) : (
           <Link href="/" className="mx-auto">
-            <img src="/logo.png" alt="Wah We Doin" className="h-7 w-7 rounded-md object-cover" />
+            <Image src="/logo.png" alt="Wah We Doin" width={28} height={28} className="h-7 w-7 rounded-md object-cover" />
           </Link>
         )}
       </div>

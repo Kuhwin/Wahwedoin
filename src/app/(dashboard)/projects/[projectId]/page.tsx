@@ -52,7 +52,9 @@ export default function ProjectPage() {
   const { addToast } = useToast();
 
   const selectedTaskRef = useRef(selectedTask);
-  selectedTaskRef.current = selectedTask;
+  useEffect(() => {
+    selectedTaskRef.current = selectedTask;
+  }, [selectedTask]);
   const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -215,7 +217,8 @@ export default function ProjectPage() {
       prev && prev.id === taskId ? { ...prev, ...finalUpdates } : prev
     );
 
-    const { projects: _projects, ...dbUpdates } = finalUpdates;
+    const { projects, ...dbUpdates } = finalUpdates;
+    void projects;
     const { error } = await supabase
       .from("tasks")
       .update({ ...dbUpdates, updated_at: new Date().toISOString() })
@@ -257,6 +260,15 @@ export default function ProjectPage() {
       }
     }
   }, [supabase, currentUser, projectId, addToast, sections]);
+
+  const getStatusForSection = useCallback((sectionId: string): Task["status"] => {
+    const sorted = [...sections].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex((s) => s.id === sectionId);
+    if (sorted.length <= 1) return "todo";
+    if (idx === 0) return "todo";
+    if (idx >= sorted.length - 1) return "done";
+    return "in_progress";
+  }, [sections]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -499,7 +511,7 @@ export default function ProjectPage() {
         },
       );
     }
-  }, [supabase, tasks, currentUser, sections, projectId, addToast]);
+  }, [supabase, tasks, currentUser, sections, projectId, addToast, getStatusForSection]);
 
   const handleBulkAssign = useCallback(async (taskIds: string[], userId: string) => {
     for (const taskId of taskIds) {
@@ -526,15 +538,6 @@ export default function ProjectPage() {
       }
     }
   }, [supabase, currentUser, memberProfiles, projectId]);
-
-  function getStatusForSection(sectionId: string): Task["status"] {
-    const sorted = [...sections].sort((a, b) => a.position - b.position);
-    const idx = sorted.findIndex((s) => s.id === sectionId);
-    if (sorted.length <= 1) return "todo";
-    if (idx === 0) return "todo";
-    if (idx >= sorted.length - 1) return "done";
-    return "in_progress";
-  }
 
   const subtaskCounts = useMemo(() => {
     const counts: Record<string, { total: number; done: number }> = {};
@@ -565,6 +568,7 @@ export default function ProjectPage() {
   const { filteredTasks, allFilteredTasks, totalParentTasks } = useMemo(() => {
     const parentTasks = tasks.filter((t) => !t.parent_id);
     const parentIds = new Set(parentTasks.map((t) => t.id));
+    void parentIds;
 
     const filtered = parentTasks.filter((t) => {
       if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;

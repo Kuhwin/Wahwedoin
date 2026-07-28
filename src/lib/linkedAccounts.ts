@@ -267,6 +267,7 @@ export async function createGoogleCalendarEvent(
     allDay: boolean;
     meetLink?: string | null;
     attendees?: { email: string }[];
+    timezone?: string;
   }
 ): Promise<{ googleEventId: string } | null> {
   const supabase = createClient();
@@ -283,10 +284,10 @@ export async function createGoogleCalendarEvent(
     description: eventData.description || "",
     start: eventData.allDay
       ? { date: eventData.start.split("T")[0] }
-      : { dateTime: eventData.start, timeZone: "America/Barbados" },
+      : { dateTime: eventData.start, timeZone: eventData.timezone ?? "America/Barbados" },
     end: eventData.allDay
       ? { date: eventData.end.split("T")[0] }
-      : { dateTime: eventData.end, timeZone: "America/Barbados" },
+      : { dateTime: eventData.end, timeZone: eventData.timezone ?? "America/Barbados" },
   };
 
   if (eventData.meetLink) {
@@ -325,6 +326,7 @@ export async function updateGoogleCalendarEvent(
     allDay: boolean;
     meetLink?: string | null;
     attendees?: { email: string }[];
+    timezone?: string;
   }
 ): Promise<boolean> {
   const supabase = createClient();
@@ -341,10 +343,10 @@ export async function updateGoogleCalendarEvent(
     description: eventData.description || "",
     start: eventData.allDay
       ? { date: eventData.start.split("T")[0] }
-      : { dateTime: eventData.start, timeZone: "America/Barbados" },
+      : { dateTime: eventData.start, timeZone: eventData.timezone ?? "America/Barbados" },
     end: eventData.allDay
       ? { date: eventData.end.split("T")[0] }
-      : { dateTime: eventData.end, timeZone: "America/Barbados" },
+      : { dateTime: eventData.end, timeZone: eventData.timezone ?? "America/Barbados" },
   };
 
   if (eventData.meetLink) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -74,7 +75,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="Wah We Doin" className="h-12 w-12 rounded-xl object-cover mx-auto mb-4" />
+          <Image src="/logo.png" alt="Wah We Doin" width={48} height={48} className="h-12 w-12 rounded-xl object-cover mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Welcome back</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sign in to Wah We Doin</p>
         </div>

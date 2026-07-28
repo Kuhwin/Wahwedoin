@@ -28,8 +28,6 @@ function ListViewInner({
   onDeleteTask,
   onTaskClick,
   onBulkDelete,
-  onBulkMove,
-  onBulkAssign,
   subtaskCounts = {},
 }: ListViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
