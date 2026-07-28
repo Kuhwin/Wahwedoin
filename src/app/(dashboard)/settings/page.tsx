@@ -90,7 +90,7 @@ export default function SettingsPage() {
 
       const { data: accounts } = await supabase
         .from("user_google_accounts")
-        .select("id, email, display_name, avatar_url, scope, created_at")
+        .select("id, email, display_name, avatar_url, scope, created_at, color, display_label")
         .eq("user_id", authUser.id)
         .order("created_at", { ascending: false });
       if (accounts) setLinkedAccounts(accounts as LinkedGoogleAccount[]);
