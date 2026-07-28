@@ -545,13 +545,14 @@ export default function Sidebar({
                       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500 ml-1 truncate">
                         {org.name}
                       </span>
-                      <button
-                        onClick={() => setOrgSettings({ orgId: org.id, orgName: org.name })}
+                      <Link
+                        href={`/manage?org=${org.id}`}
+                        onClick={onMobileClose}
                         className="ml-1 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500"
-                        title="Organization Settings"
+                        title="Manage Organization"
                       >
                         <Settings size={11} />
-                      </button>
+                      </Link>
                       <button
                         onClick={() => { setCreateTeamOrgId(org.id); setShowCreateTeam(true); }}
                         className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"

@@ -22,6 +22,15 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/teams",
+        destination: "/manage",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

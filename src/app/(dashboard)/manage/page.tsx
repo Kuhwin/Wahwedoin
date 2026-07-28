@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   Building2, Users, Settings, Shield, ShieldAlert, UserMinus, UserCog,
@@ -57,6 +58,10 @@ export default function ManagePage() {
   const [searching, setSearching] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
 
+  // Delete org
+  const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
+  const [deletingOrg, setDeletingOrg] = useState(false);
+
   // Team management
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
@@ -71,6 +76,7 @@ export default function ManagePage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [teamMemberProfiles, setTeamMemberProfiles] = useState<Record<string, { display_name: string | null; avatar_url: string | null }>>({});
 
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const myMembership = selectedOrgId ? orgMemberships[selectedOrgId] : null;
@@ -99,14 +105,18 @@ export default function ManagePage() {
         }
         setOrgs(orgList);
         setOrgMemberships(membershipMap);
-        if (orgList.length > 0 && !selectedOrgId) {
+
+        const orgParam = searchParams.get("org");
+        if (orgParam && orgList.some((o) => o.id === orgParam)) {
+          setSelectedOrgId(orgParam);
+        } else if (orgList.length > 0 && !selectedOrgId) {
           setSelectedOrgId(orgList[0].id);
         }
       }
       setLoading(false);
     }
     void load();
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   useEffect(() => {
     if (!selectedOrgId) return;
@@ -367,21 +377,26 @@ export default function ManagePage() {
         </div>
       </div>
 
-      {/* Org selector + tabs */}
-      <div className="flex items-center justify-between mb-6">
-        {orgs.length > 1 ? (
-          <select
-            value={selectedOrgId || ""}
-            onChange={(e) => setSelectedOrgId(e.target.value || null)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            {orgs.map((o) => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
-        ) : selectedOrg ? (
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedOrg.name}</h2>
-        ) : null}
+      {/* Org tabs + page tabs */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          {orgs.length > 1 ? orgs.map((org) => (
+            <button
+              key={org.id}
+              onClick={() => setSelectedOrgId(org.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                selectedOrgId === org.id
+                  ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              }`}
+            >
+              <Building2 size={12} className="inline mr-1" />
+              {org.name}
+            </button>
+          )) : selectedOrg ? (
+            <h2 className="px-2 py-1 text-base font-semibold text-slate-900 dark:text-slate-100">{selectedOrg.name}</h2>
+          ) : null}
+        </div>
 
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
           {(["overview", "members", "teams"] as Tab[]).map((t) => (
@@ -414,7 +429,17 @@ export default function ManagePage() {
             <div className="space-y-6">
               {/* Org Info Card */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
-                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Organization</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Organization</h3>
+                  {isOwner && (
+                    <button
+                      onClick={() => setDeleteOrgId(selectedOrgId)}
+                      className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 flex items-center gap-1"
+                    >
+                      <Trash2 size={12} /> Delete org
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <div>
                     {editingName ? (
@@ -747,6 +772,50 @@ export default function ManagePage() {
                 <Button type="submit" size="sm" disabled={inviting || !inviteEmail.trim()}>{inviting ? "..." : "Invite"}</Button>
               </div>
             </form>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Org Confirmation */}
+      <Modal open={!!deleteOrgId} onClose={() => setDeleteOrgId(null)} title="Delete Organization">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Are you sure you want to delete <strong>{selectedOrg?.name}</strong>? This will permanently remove
+            the organization, all its teams, projects, tasks, and members. This action cannot be undone.
+          </p>
+          {!deletingOrg && (
+            <p className="text-xs text-red-600">
+              Type <strong>delete</strong> below to confirm.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteOrgId(null)} disabled={deletingOrg}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                if (!selectedOrgId) return;
+                setDeletingOrg(true);
+                setMessage(null);
+                const { error } = await supabase.rpc("delete_org", { p_org_id: selectedOrgId });
+                if (error) {
+                  setMessage({ type: "error", text: error.message });
+                  setDeletingOrg(false);
+                  setDeleteOrgId(null);
+                } else {
+                  setOrgs(orgs.filter((o) => o.id !== selectedOrgId));
+                  setSelectedOrgId(orgs.find((o) => o.id !== selectedOrgId)?.id || null);
+                  setDeleteOrgId(null);
+                  setDeletingOrg(false);
+                  setTab("overview");
+                  setMessage({ type: "success", text: "Organization deleted" });
+                }
+              }}
+              disabled={deletingOrg}
+            >
+              {deletingOrg ? "Deleting..." : "Delete Organization"}
+            </Button>
           </div>
         </div>
       </Modal>
