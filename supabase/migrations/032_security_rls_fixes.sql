@@ -155,7 +155,7 @@ CREATE POLICY "Owners can delete projects"
   );
 
 -- =============================================
--- C4: Fix custom_fields — scope personal to creator
+-- C4: Fix custom_fields — scope via project→team_members
 -- =============================================
 DO $$
 DECLARE pol RECORD;
@@ -170,18 +170,24 @@ END $$;
 CREATE POLICY "Users can view custom_fields"
   ON custom_fields FOR SELECT TO authenticated
   USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    OR (team_id IS NULL AND created_by = auth.uid())
+    project_id IN (
+      SELECT p.id FROM projects p
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+         OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
   );
 
 CREATE POLICY "Team members can manage custom_fields"
   ON custom_fields FOR ALL TO authenticated
   USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    OR (team_id IS NULL AND created_by = auth.uid())
+    project_id IN (
+      SELECT p.id FROM projects p
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+         OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
   );
 
--- Fix task_field_values — scope personal to creator
+-- Fix task_field_values — scope via custom_field→project→team_members
 DO $$
 DECLARE pol RECORD;
 BEGIN
@@ -197,8 +203,9 @@ CREATE POLICY "Users can view task_field_values"
   USING (
     custom_field_id IN (
       SELECT cf.id FROM custom_fields cf
-      WHERE cf.team_id IN (SELECT user_team_ids(auth.uid()))
-         OR (cf.team_id IS NULL AND cf.created_by = auth.uid())
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+         OR (p.team_id IS NULL AND p.created_by = auth.uid())
     )
   );
 
@@ -207,8 +214,9 @@ CREATE POLICY "Team members can manage task_field_values"
   USING (
     custom_field_id IN (
       SELECT cf.id FROM custom_fields cf
-      WHERE cf.team_id IN (SELECT user_team_ids(auth.uid()))
-         OR (cf.team_id IS NULL AND cf.created_by = auth.uid())
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+         OR (p.team_id IS NULL AND p.created_by = auth.uid())
     )
   );
 
