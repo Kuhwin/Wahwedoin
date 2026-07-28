@@ -195,9 +195,8 @@ export default function ProjectPage() {
   }, [loadData]);
 
   const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
-    let oldSectionId: string | null = null;
-    let oldStatus: Task["status"] = "todo";
     let taskTitle = "task";
+    let savedTask: Task | undefined;
 
     const finalUpdates: Partial<Task> = { ...updates };
     if ("status" in updates && updates.status && sections.length > 0 && !("section_id" in updates)) {
@@ -208,8 +207,7 @@ export default function ProjectPage() {
 
     setTasks((prev) => {
       const task = prev.find((t) => t.id === taskId);
-      oldSectionId = task?.section_id ?? null;
-      oldStatus = task?.status ?? "todo";
+      if (task) savedTask = { ...task };
       taskTitle = task?.title || "task";
       return prev.map((t) => (t.id === taskId ? { ...t, ...finalUpdates } : t));
     });
@@ -224,9 +222,14 @@ export default function ProjectPage() {
       .eq("id", taskId);
 
     if (error) {
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+      if (savedTask) {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? savedTask! : t)));
+        setSelectedTask((prev) => prev && prev.id === taskId ? savedTask! : prev);
+      }
     } else {
-      if ("section_id" in finalUpdates && finalUpdates.section_id !== oldSectionId) {
+      const oldSectionId = savedTask?.section_id ?? null;
+      const oldStatus = savedTask?.status ?? "todo";
+      if (savedTask && "section_id" in finalUpdates && finalUpdates.section_id !== oldSectionId) {
         addToast(
           `Moved "${taskTitle}"`,
           "success",
@@ -426,7 +429,8 @@ export default function ProjectPage() {
     const newStatus = project.status === "archived" ? "active" : "archived";
     const action = newStatus === "archived" ? "Archive" : "Restore";
     if (!window.confirm(`${action} "${project.name}"?`)) return;
-    await supabase.from("projects").update({ status: newStatus }).eq("id", projectId);
+    const { error } = await supabase.from("projects").update({ status: newStatus }).eq("id", projectId);
+    if (error) { addToast(error.message, "error"); return; }
     setProject({ ...project, status: newStatus });
     setProjectMenuOpen(false);
     addToast(newStatus === "archived" ? `Archived "${project.name}"` : `Restored "${project.name}"`, "success");

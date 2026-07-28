@@ -23,6 +23,7 @@ import type { Project, Task, Activity as ActivityType, Event } from "@/lib/types
 import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 import { getHolidaysForYear } from "@/lib/holidays";
+import { formatRelativeTime, expandRecurrence } from "@/lib/utils";
 import { useDashboardData } from "@/lib/hooks";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
@@ -89,8 +90,11 @@ export default function DashboardPage() {
   }
 
   async function handleQuickComplete(taskId: string) {
-    await supabase.from("tasks").update({ status: "done" }).eq("id", taskId);
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "done" as const } : t));
+    const { error } = await supabase.from("tasks").update({ status: "done" }).eq("id", taskId);
+    if (error) {
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "todo" as const } : t));
+    }
   }
 
   const today = new Date().toISOString().split("T")[0];
@@ -572,57 +576,4 @@ export default function DashboardPage() {
   );
 }
 
-function formatRelativeTime(dateStr: string) {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMs / 3600000);
-  const diffDay = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function expandRecurrence(evt: Event, rangeStart: Date, rangeEnd: Date): Event[] {
-  if (!evt.recurrence || evt.recurrence === "none" || !evt.start_date) return [];
-  const results: Event[] = [];
-  const originalStart = new Date(evt.start_date);
-  const originalEnd = evt.end_date ? new Date(evt.end_date) : null;
-  const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 0;
-  const recEnd = evt.recurrence_end ? new Date(evt.recurrence_end) : new Date(rangeEnd.getTime() + 365 * 86400000);
-
-  let current = new Date(originalStart);
-  let safety = 0;
-  const maxIterations = 500;
-
-  while (current <= rangeEnd && current <= recEnd && safety < maxIterations) {
-    safety++;
-    const next = new Date(current);
-
-    if (evt.recurrence === "daily") next.setDate(next.getDate() + 1);
-    else if (evt.recurrence === "weekly") next.setDate(next.getDate() + 7);
-    else if (evt.recurrence === "biweekly") next.setDate(next.getDate() + 14);
-    else if (evt.recurrence === "monthly") next.setMonth(next.getMonth() + 1);
-    else if (evt.recurrence === "yearly") next.setFullYear(next.getFullYear() + 1);
-
-    if (next > rangeEnd || next > recEnd) break;
-
-    const evtEnd = duration > 0 ? new Date(next.getTime() + duration) : null;
-    if (next >= rangeStart) {
-      results.push({
-        ...evt,
-        id: `${evt.id}-r-${next.getTime()}`,
-        start_date: next.toISOString(),
-        end_date: evtEnd ? evtEnd.toISOString() : next.toISOString(),
-      });
-    }
-
-    current = next;
-  }
-
-  return results;
-}

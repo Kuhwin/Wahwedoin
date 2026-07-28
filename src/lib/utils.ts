@@ -38,3 +38,41 @@ export function generateSlug(name: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+export function expandRecurrence<T extends { recurrence?: string | null; recurrence_end?: string | null; start_date?: string | null; end_date?: string | null }>(
+  evt: T,
+  rangeStart: Date,
+  rangeEnd: Date,
+  idPrefix = "r"
+): (T & { id: string })[] {
+  if (!evt.recurrence || evt.recurrence === "none" || !evt.start_date) return [];
+  const results: (T & { id: string })[] = [];
+  const originalStart = new Date(evt.start_date);
+  const originalEnd = evt.end_date ? new Date(evt.end_date) : null;
+  const duration = originalEnd ? originalEnd.getTime() - originalStart.getTime() : 0;
+  const recEnd = evt.recurrence_end ? new Date(evt.recurrence_end) : new Date(rangeEnd.getTime() + 365 * 86400000);
+  let current = new Date(originalStart);
+  let safety = 0;
+  const maxIterations = 500;
+  while (current <= rangeEnd && current <= recEnd && safety < maxIterations) {
+    safety++;
+    const next = new Date(current);
+    if (evt.recurrence === "daily") next.setDate(next.getDate() + 1);
+    else if (evt.recurrence === "weekly") next.setDate(next.getDate() + 7);
+    else if (evt.recurrence === "biweekly") next.setDate(next.getDate() + 14);
+    else if (evt.recurrence === "monthly") next.setMonth(next.getMonth() + 1);
+    else if (evt.recurrence === "yearly") next.setFullYear(next.getFullYear() + 1);
+    if (next > rangeEnd || next > recEnd) break;
+    const evtEnd = duration > 0 ? new Date(next.getTime() + duration) : null;
+    if (next >= rangeStart) {
+      results.push({
+        ...evt,
+        id: `${(evt as any).id}-${idPrefix}-${next.getTime()}`,
+        start_date: next.toISOString(),
+        end_date: evtEnd ? evtEnd.toISOString() : next.toISOString(),
+      } as T & { id: string });
+    }
+    current = next;
+  }
+  return results;
+}
