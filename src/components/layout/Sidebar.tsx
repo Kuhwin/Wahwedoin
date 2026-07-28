@@ -280,6 +280,33 @@ export default function Sidebar({
     router.push("/auth/login");
   }
 
+  async function handleCreateOrg() {
+    const name = window.prompt("Organization name:");
+    if (!name?.trim()) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .insert({ name: name.trim(), slug: generateSlug(name.trim()) + "-" + crypto.randomUUID().slice(0, 4) })
+        .select()
+        .single();
+
+      if (orgError) { alert(orgError.message); return; }
+
+      const { error: memberError } = await supabase
+        .from("org_members")
+        .insert({ org_id: org.id, user_id: user.id, role: "owner" });
+
+      if (memberError) { alert(memberError.message); return; }
+
+      void loadData();
+    } catch {
+      alert("Failed to create organization");
+    }
+  }
+
   async function handleDeleteTeam() {
     if (!confirmDeleteTeam) return;
     const { error } = await supabase.from("teams").delete().eq("id", confirmDeleteTeam.id);
@@ -438,7 +465,7 @@ export default function Sidebar({
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {teams.length === 0 ? (
           expanded ? (
-            <div className="px-3 py-4">
+            <div className="px-3 py-4 space-y-3">
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center dark:bg-slate-800">
                 <p className="text-xs text-slate-500 mb-3 dark:text-slate-400">No teams yet</p>
                 <button
@@ -449,15 +476,29 @@ export default function Sidebar({
                   Create Team
                 </button>
               </div>
+              <button
+                onClick={() => void handleCreateOrg()}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                <Plus size={12} />
+                New Organization
+              </button>
             </div>
           ) : (
-            <div className="px-2 pb-2 flex justify-center">
+            <div className="px-2 pb-2 flex flex-col items-center gap-1">
               <button
                 onClick={() => { setCreateTeamOrgId(null); setShowCreateTeam(true); }}
                 className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Team"
               >
                 <Plus size={18} />
+              </button>
+              <button
+                onClick={() => void handleCreateOrg()}
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
+                title="New Organization"
+              >
+                <Building2 size={18} />
               </button>
             </div>
           )
@@ -616,6 +657,17 @@ export default function Sidebar({
                 </div>
               );
             })}
+          </div>
+        )}
+        {expanded && (
+          <div className="px-2 pt-2">
+            <button
+              onClick={() => void handleCreateOrg()}
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              <Plus size={14} />
+              New Organization
+            </button>
           </div>
         )}
       </div>
