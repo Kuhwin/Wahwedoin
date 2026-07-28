@@ -30,14 +30,46 @@ REVOKE EXECUTE ON FUNCTION user_team_role(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION user_team_role(UUID) TO authenticated;
 
 -- =============================================
--- 1. Add 'viewer' to team_members role constraint
+-- 1. SECURITY DEFINER function for team bootstrapping
+--    Bypasses RLS to let the creator add themselves as
+--    the first owner of a newly created team.
+-- =============================================
+
+CREATE OR REPLACE FUNCTION bootstrap_team_owner(team_id UUID, user_id UUID)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF user_id <> auth.uid() THEN
+    RAISE EXCEPTION 'You can only add yourself as owner';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM team_members WHERE team_id = bootstrap_team_owner.team_id) THEN
+    RAISE EXCEPTION 'Team already has members';
+  END IF;
+
+  INSERT INTO team_members (team_id, user_id, role)
+  VALUES (team_id, user_id, 'owner');
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION bootstrap_team_owner(UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION bootstrap_team_owner(UUID, UUID) TO authenticated;
+
+-- Drop the old RLS-based bootstrap policies (they're unreliable)
+DROP POLICY IF EXISTS "Users bootstrap new team as owner" ON team_members;
+DROP POLICY IF EXISTS "Team creators can add themselves as owner" ON team_members;
+
+-- =============================================
+-- 2. Add 'viewer' to team_members role constraint
 -- =============================================
 ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_role_check;
 ALTER TABLE team_members ADD CONSTRAINT team_members_role_check
   CHECK (role IN ('owner', 'admin', 'member', 'viewer'));
 
 -- =============================================
--- 2. Fix teams — admin can update/delete
+-- 3. Fix teams — admin can update/delete
 -- =============================================
 DROP POLICY IF EXISTS "Owners update teams" ON teams;
 DROP POLICY IF EXISTS "Owners delete teams" ON teams;

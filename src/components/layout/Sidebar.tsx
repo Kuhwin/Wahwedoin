@@ -207,10 +207,9 @@ export default function Sidebar({
         return;
       }
 
-      const { error: memberError } = await supabase.from("team_members").insert({
+      const { error: memberError } = await supabase.rpc("bootstrap_team_owner", {
         team_id: teamId,
         user_id: user.id,
-        role: "owner",
       });
 
       if (memberError) {
