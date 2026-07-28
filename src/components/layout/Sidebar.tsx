@@ -213,7 +213,7 @@ export default function Sidebar({
       });
 
       if (memberError) {
-        setTeamError("Team created but failed to add you as owner.");
+        setTeamError(memberError.message);
         setCreatingTeam(false);
         return;
       }

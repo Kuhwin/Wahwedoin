@@ -100,7 +100,7 @@ export default function TeamsPage() {
       });
 
       if (memberError) {
-        setMessage({ type: "error", text: "Team created but failed to add you as owner." });
+        setMessage({ type: "error", text: memberError.message });
         setCreating(false);
         return;
       }
