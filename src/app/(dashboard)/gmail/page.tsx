@@ -60,8 +60,36 @@ export default function GmailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 size={24} className="animate-spin text-indigo-600" />
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <div className="h-8 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+          <div className="h-4 w-64 bg-slate-100 dark:bg-slate-800 rounded mt-2 animate-pulse" />
+        </div>
+        <div className="space-y-6">
+          {[1, 2].map((i) => (
+            <div key={i}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                <div>
+                  <div className="h-4 w-40 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                  <div className="h-3 w-56 bg-slate-100 dark:bg-slate-800 rounded mt-1 animate-pulse" />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className="flex items-start gap-3 px-5 py-4">
+                    <div className="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                    <div className="flex-1">
+                      <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                      <div className="h-3 w-48 bg-slate-100 dark:bg-slate-800 rounded mt-1 animate-pulse" />
+                      <div className="h-3 w-64 bg-slate-100 dark:bg-slate-800 rounded mt-1 animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

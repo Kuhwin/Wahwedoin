@@ -143,8 +143,22 @@ export default function DrivePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="max-w-5xl mx-auto">
+        <div className="mb-8">
+          <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+          <div className="h-4 w-64 bg-slate-100 dark:bg-slate-800 rounded mt-2 animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+              <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
+              <div>
+                <div className="h-4 w-40 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+                <div className="h-3 w-56 bg-slate-100 dark:bg-slate-800 rounded mt-1 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -207,6 +221,16 @@ export default function DrivePage() {
 
           {currentAccount && (
             <>
+              {/* Back to accounts */}
+              {accounts.length > 1 && (
+                <button
+                  onClick={() => { setCurrentAccount(null); setFolderStack([{ id: null, name: "My Drive" }]); setFolderFiles(null); }}
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium mb-3"
+                >
+                  ← All accounts
+                </button>
+              )}
+
               {/* Search */}
               <div className="relative mb-4">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

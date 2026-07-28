@@ -274,10 +274,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                         {linkedGoogle.map((acc) => (
                           <div key={acc.id} className="flex items-center gap-2.5 px-3 py-1.5">
                             <div className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: acc.color || "#6366f1" }}>
-                              {(acc.display_name || acc.email).charAt(0).toUpperCase()}
+                              {acc.email.charAt(0).toUpperCase()}
                             </div>
                             <span className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                              {acc.display_label || acc.display_name || acc.email.split("@")[0]}
+                              {acc.display_label ? `${acc.display_label} — ${acc.email}` : acc.email}
                             </span>
                           </div>
                         ))}
