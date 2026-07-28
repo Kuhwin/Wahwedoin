@@ -122,6 +122,8 @@ export interface Event {
   created_at: string;
   recurrence: string | null;
   recurrence_end: string | null;
+  meet_link: string | null;
+  attendees: { email: string; name?: string; status?: string }[] | null;
 }
 
 export interface Activity {

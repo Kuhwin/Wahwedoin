@@ -159,7 +159,7 @@ export async function fetchDriveFolder(accountId: string, folderId: string) {
     }>;
   }>(
     account,
-    `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink,parents)&q=trashed%3Dfalse+'${folderId}'+in+parents&orderBy=name`
+    `https://www.googleapis.com/drive/v3/files?pageSize=100&fields=files(id,name,mimeType,webViewLink,modifiedTime,iconLink,parents)&q=${encodeURIComponent(`'${folderId}' in parents and trashed=false`)}&orderBy=name`
   );
 
   return (files?.files || []).map((f) => ({

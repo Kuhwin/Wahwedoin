@@ -20,7 +20,7 @@ interface ExternalEvent {
   color: string;
   source?: string;
   meetLink?: string | null;
-  attendees?: { email: string; name: string; status: string }[];
+  attendees?: { email: string; name?: string; status?: string }[];
 }
 
 interface CalendarEvent {
@@ -35,7 +35,7 @@ interface CalendarEvent {
   source?: string;
   originalEvent?: Event;
   meetLink?: string | null;
-  attendees?: { email: string; name: string; status: string }[];
+  attendees?: { email: string; name?: string; status?: string }[];
 }
 
 const CALENDAR_COLORS = [
@@ -117,6 +117,8 @@ function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date
         allDay: event.all_day,
         type: "internal",
         originalEvent: event,
+        meetLink: event.meet_link,
+        attendees: event.attendees || undefined,
       });
       continue;
     }
@@ -143,6 +145,8 @@ function expandRecurringEvents(events: Event[], rangeStart: Date, rangeEnd: Date
         allDay: event.all_day,
         type: "recurring",
         originalEvent: event,
+        meetLink: event.meet_link,
+        attendees: event.attendees || undefined,
       });
 
       count++;
@@ -181,10 +185,13 @@ export default function CalendarPage() {
   const [newProjectIds, setNewProjectIds] = useState<string[]>([]);
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
+  const [newStartTime, setNewStartTime] = useState("09:00");
+  const [newEndTime, setNewEndTime] = useState("10:00");
   const [newAllDay, setNewAllDay] = useState(true);
   const [newColor, setNewColor] = useState(CALENDAR_COLORS[0]);
   const [newRecurrence, setNewRecurrence] = useState("");
   const [newRecurrenceEnd, setNewRecurrenceEnd] = useState("");
+  const [newMeetLink, setNewMeetLink] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [calLinks, setCalLinks] = useState<CalendarLink[]>([]);
@@ -202,7 +209,10 @@ export default function CalendarPage() {
   const [editColor, setEditColor] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("09:00");
+  const [editEndTime, setEditEndTime] = useState("10:00");
   const [editAllDay, setEditAllDay] = useState(true);
+  const [editMeetLink, setEditMeetLink] = useState("");
   const [saving, setSaving] = useState(false);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
@@ -302,7 +312,7 @@ export default function CalendarPage() {
       }
     }
 
-    try {
+      try {
       const googleResults = await fetchAllAccountsCalendar(user.id);
       for (const result of googleResults) {
         for (const event of result.events) {
@@ -315,6 +325,8 @@ export default function CalendarPage() {
             allDay: event.allDay,
             color: result.accountColor || "#4285F4",
             source: result.accountEmail,
+            meetLink: event.meetLink || null,
+            attendees: event.attendees || [],
           });
         }
       }
@@ -428,8 +440,8 @@ export default function CalendarPage() {
       description: e.description,
       allDay: e.allDay,
       originalEvent: e.originalEvent,
-      meetLink: e.meetLink || null,
-      attendees: e.attendees || [],
+      meetLink: e.originalEvent?.meet_link || e.meetLink || null,
+      attendees: e.originalEvent?.attendees || e.attendees || [],
     }));
 
     const external = externalEvents.filter((event) => {
@@ -480,9 +492,24 @@ export default function CalendarPage() {
     setEditTitle(event.title);
     setEditDesc(event.description || "");
     setEditColor(event.color);
-    setEditStartDate(event.start.split("T")[0]);
-    setEditEndDate(event.end.split("T")[0]);
-    setEditAllDay(event.allDay ?? true);
+    const startStr = event.start;
+    const endStr = event.end;
+    if (startStr.includes("T")) {
+      const startDt = new Date(startStr);
+      const endDt = new Date(endStr);
+      setEditStartDate(startStr.split("T")[0]);
+      setEditEndDate(endStr.split("T")[0]);
+      setEditStartTime(`${String(startDt.getUTCHours()).padStart(2, "0")}:${String(startDt.getUTCMinutes()).padStart(2, "0")}`);
+      setEditEndTime(`${String(endDt.getUTCHours()).padStart(2, "0")}:${String(endDt.getUTCMinutes()).padStart(2, "0")}`);
+      setEditAllDay(false);
+    } else {
+      setEditStartDate(startStr.split("T")[0]);
+      setEditEndDate(endStr.split("T")[0]);
+      setEditStartTime("09:00");
+      setEditEndTime("10:00");
+      setEditAllDay(true);
+    }
+    setEditMeetLink(event.meetLink || event.originalEvent?.meet_link || "");
     setSelectedEvent(null);
   }
 
@@ -491,13 +518,16 @@ export default function CalendarPage() {
     setSaving(true);
     const ev = editingEvent.originalEvent;
     if (ev) {
+      const startDateTime = editAllDay ? editStartDate + "T00:00:00Z" : editStartDate + "T" + editStartTime + ":00Z";
+      const endDateTime = editAllDay ? editEndDate + "T23:59:59Z" : editEndDate + "T" + editEndTime + ":00Z";
       await supabase.from("events").update({
         title: editTitle.trim(),
         description: editDesc.trim() || null,
-        start_date: editStartDate + "T00:00:00Z",
-        end_date: editEndDate + "T23:59:59Z",
+        start_date: startDateTime,
+        end_date: endDateTime,
         all_day: editAllDay,
         color: editColor,
+        meet_link: editMeetLink.trim() || null,
       }).eq("id", ev.id);
     }
     setEditingEvent(null);
@@ -580,17 +610,20 @@ export default function CalendarPage() {
     if (!newTitle.trim() || newTeamIds.length === 0) return;
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
+    const startDateTime = newAllDay ? newStartDate + "T00:00:00Z" : newStartDate + "T" + newStartTime + ":00Z";
+    const endDateTime = newAllDay ? newEndDate + "T23:59:59Z" : newEndDate + "T" + newEndTime + ":00Z";
     const { data, error } = await supabase.from("events").insert({
       title: newTitle.trim(),
       description: newDesc.trim() || null,
       team_id: newTeamIds[0],
-      start_date: newStartDate + "T00:00:00Z",
-      end_date: newEndDate + "T23:59:59Z",
+      start_date: startDateTime,
+      end_date: endDateTime,
       all_day: newAllDay,
       color: newColor,
       created_by: user?.id,
       recurrence: newRecurrence || null,
       recurrence_end: newRecurrenceEnd || null,
+      meet_link: newMeetLink.trim() || null,
     }).select().single();
 
     if (data && !error) {
@@ -608,6 +641,9 @@ export default function CalendarPage() {
       setNewRecurrence("");
       setNewRecurrenceEnd("");
       setNewProjectIds([]);
+      setNewMeetLink("");
+      setNewStartTime("09:00");
+      setNewEndTime("10:00");
     }
     setCreating(false);
   }
@@ -706,7 +742,7 @@ export default function CalendarPage() {
           return Array.from(googleAccounts.entries()).map(([email, color]) => (
             <div key={email} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-              {email.split("@")[0]}
+              {email}
             </div>
           ));
         })()}
@@ -799,36 +835,110 @@ export default function CalendarPage() {
               <div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedEvent.title}</h3>
                 {selectedEvent.description && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{selectedEvent.description}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 whitespace-pre-wrap">{selectedEvent.description}</p>
                 )}
               </div>
             </div>
+
+            {/* Date & Time */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Start</span>
-                <p className="text-slate-900 dark:text-slate-100">{new Date(selectedEvent.start).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</p>
+                <p className="text-slate-900 dark:text-slate-100">
+                  {new Date(selectedEvent.start).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                  {!selectedEvent.allDay && (
+                    <span className="ml-1 text-slate-600 dark:text-slate-300">
+                      {new Date(selectedEvent.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </span>
+                  )}
+                </p>
               </div>
               <div>
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">End</span>
-                <p className="text-slate-900 dark:text-slate-100">{new Date(selectedEvent.end).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</p>
+                <p className="text-slate-900 dark:text-slate-100">
+                  {new Date(selectedEvent.end).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                  {!selectedEvent.allDay && (
+                    <span className="ml-1 text-slate-600 dark:text-slate-300">
+                      {new Date(selectedEvent.end).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+
+            {/* Team & Project (internal events) */}
+            {selectedEvent.originalEvent && (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {selectedEvent.originalEvent.team_id && (() => {
+                  const team = teams.find((t) => t.id === selectedEvent.originalEvent!.team_id);
+                  return team ? (
+                    <div>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Team</span>
+                      <p className="text-slate-900 dark:text-slate-100">{team.name}</p>
+                    </div>
+                  ) : null;
+                })()}
+                {selectedEvent.originalEvent.project_id && (() => {
+                  const project = projects.find((p) => p.id === selectedEvent.originalEvent!.project_id);
+                  return project ? (
+                    <div>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Project</span>
+                      <p className="text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
+                        {project.name}
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* Badges & Links */}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               {selectedEvent.type === "recurring" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"><Repeat size={10} /> Recurring</span>}
-              {selectedEvent.type === "external" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{sourceLabel(selectedEvent.source)}</span>}
+              {selectedEvent.type === "external" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{selectedEvent.source}</span>}
               {selectedEvent.allDay && <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">All day</span>}
               {selectedEvent.meetLink && (
                 <a href={selectedEvent.meetLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
-                  <Video size={10} /> Join Meeting
+                  <Video size={10} /> Join Google Meet
                 </a>
               )}
-              {selectedEvent.attendees && selectedEvent.attendees.length > 0 && (
-                <span className="flex items-center gap-1">
-                  <Users size={10} />
-                  {selectedEvent.attendees.length} attendee{selectedEvent.attendees.length !== 1 ? "s" : ""}
-                </span>
-              )}
             </div>
+
+            {/* Attendees */}
+            {selectedEvent.attendees && selectedEvent.attendees.length > 0 && (
+              <div>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-2">
+                  <Users size={10} className="inline mr-1" />
+                  Attendees ({selectedEvent.attendees.length})
+                </span>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {selectedEvent.attendees.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-6 w-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-medium text-slate-600 dark:text-slate-300 flex-shrink-0">
+                          {(a.name || a.email).charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-slate-900 dark:text-slate-100 truncate">{a.name || a.email}</p>
+                          {a.name && <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{a.email}</p>}
+                        </div>
+                      </div>
+                      <span className={`text-xs font-medium flex-shrink-0 ml-2 ${
+                        a.status === "accepted" ? "text-green-600 dark:text-green-400" :
+                        a.status === "declined" ? "text-red-600 dark:text-red-400" :
+                        a.status === "tentative" ? "text-amber-600 dark:text-amber-400" :
+                        "text-slate-400 dark:text-slate-500"
+                      }`}>
+                        {a.status === "accepted" ? "Accepted" : a.status === "declined" ? "Declined" : a.status === "tentative" ? "Maybe" : "Pending"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
               {selectedEvent.originalEvent && (
                 <>
@@ -864,6 +974,21 @@ export default function CalendarPage() {
               <input type="checkbox" id="editAllDay" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
               <label htmlFor="editAllDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
             </div>
+            {!editAllDay && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start Time</label>
+                  <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
+                  <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                </div>
+              </div>
+            )}
+            <Input label="Google Meet Link (optional)" placeholder="https://meet.google.com/..." value={editMeetLink} onChange={(e) => setEditMeetLink(e.target.value)} />
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
               <div className="flex gap-2">
@@ -903,6 +1028,20 @@ export default function CalendarPage() {
             <input type="checkbox" id="allDay" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
             <label htmlFor="allDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
           </div>
+          {!newAllDay && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start Time</label>
+                <input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)}
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              </div>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
+                <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Repeat</label>
             <select value={newRecurrence} onChange={(e) => setNewRecurrence(e.target.value)}
@@ -915,6 +1054,7 @@ export default function CalendarPage() {
           {newRecurrence && (
             <Input label="Repeat until (optional)" type="date" value={newRecurrenceEnd} onChange={(e) => setNewRecurrenceEnd(e.target.value)} />
           )}
+          <Input label="Google Meet Link (optional)" placeholder="https://meet.google.com/..." value={newMeetLink} onChange={(e) => setNewMeetLink(e.target.value)} />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
             <div className="flex gap-2">
