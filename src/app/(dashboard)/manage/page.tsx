@@ -61,6 +61,7 @@ export default function ManagePage() {
   // Delete org
   const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
   const [deletingOrg, setDeletingOrg] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
 
   // Team management
   const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -431,12 +432,12 @@ export default function ManagePage() {
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Organization</h3>
-                  {isOwner && (
+                  {canManage && (
                     <button
-                      onClick={() => setDeleteOrgId(selectedOrgId)}
+                      onClick={() => { setDeleteOrgId(selectedOrgId); setDeleteConfirm(""); }}
                       className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 flex items-center gap-1"
                     >
-                      <Trash2 size={12} /> Delete org
+                      <Trash2 size={12} /> Delete Organisation
                     </button>
                   )}
                 </div>
@@ -777,19 +778,28 @@ export default function ManagePage() {
       </Modal>
 
       {/* Delete Org Confirmation */}
-      <Modal open={!!deleteOrgId} onClose={() => setDeleteOrgId(null)} title="Delete Organization">
+      <Modal open={!!deleteOrgId} onClose={() => { setDeleteOrgId(null); setDeleteConfirm(""); }} title="Delete Organization">
         <div className="space-y-4">
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Are you sure you want to delete <strong>{selectedOrg?.name}</strong>? This will permanently remove
             the organization, all its teams, projects, tasks, and members. This action cannot be undone.
           </p>
-          {!deletingOrg && (
-            <p className="text-xs text-red-600">
-              Type <strong>delete</strong> below to confirm.
-            </p>
-          )}
+          <div>
+            <label className="block text-xs font-medium text-red-600 mb-1">
+              Type <strong>delete</strong> to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="type 'delete'"
+              className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-red-300 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-red-800 dark:bg-slate-800 dark:text-slate-100"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirm === "delete") { e.preventDefault(); } }}
+            />
+          </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setDeleteOrgId(null)} disabled={deletingOrg}>
+            <Button variant="secondary" onClick={() => { setDeleteOrgId(null); setDeleteConfirm(""); }} disabled={deletingOrg}>
               Cancel
             </Button>
             <Button
@@ -803,16 +813,18 @@ export default function ManagePage() {
                   setMessage({ type: "error", text: error.message });
                   setDeletingOrg(false);
                   setDeleteOrgId(null);
+                  setDeleteConfirm("");
                 } else {
                   setOrgs(orgs.filter((o) => o.id !== selectedOrgId));
                   setSelectedOrgId(orgs.find((o) => o.id !== selectedOrgId)?.id || null);
                   setDeleteOrgId(null);
                   setDeletingOrg(false);
+                  setDeleteConfirm("");
                   setTab("overview");
                   setMessage({ type: "success", text: "Organization deleted" });
                 }
               }}
-              disabled={deletingOrg}
+              disabled={deletingOrg || deleteConfirm !== "delete"}
             >
               {deletingOrg ? "Deleting..." : "Delete Organization"}
             </Button>

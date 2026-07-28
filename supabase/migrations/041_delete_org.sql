@@ -10,9 +10,13 @@ BEGIN
     SELECT 1 FROM org_members
     WHERE org_id = p_org_id
       AND user_id = auth.uid()
-      AND role = 'owner'
+      AND role IN ('owner', 'admin')
   ) THEN
-    RAISE EXCEPTION 'Only org owners can delete an organization';
+    RAISE EXCEPTION 'Only org owners and admins can delete an organization';
+  END IF;
+
+  IF (SELECT COUNT(*) FROM org_members WHERE org_id = p_org_id AND role = 'owner') = 0 THEN
+    RAISE EXCEPTION 'Organization has no owner — cannot delete';
   END IF;
 
   SELECT ARRAY(SELECT id FROM teams WHERE org_id = p_org_id) INTO v_team_ids;
