@@ -78,16 +78,15 @@ export default function TeamsPage() {
         return;
       }
 
-      const { data: team, error: teamError } = await supabase
-        .from("teams")
-        .insert({
-          org_id: org.id,
-          name: newName.trim(),
-          slug: generateSlug(newName),
-          description: newDesc.trim() || null,
-        })
-        .select()
-        .single();
+      const teamId = crypto.randomUUID();
+
+      const { error: teamError } = await supabase.from("teams").insert({
+        id: teamId,
+        org_id: org.id,
+        name: newName.trim(),
+        slug: generateSlug(newName),
+        description: newDesc.trim() || null,
+      });
 
       if (teamError) {
         setMessage({ type: "error", text: teamError.message || "Failed to create team." });
@@ -96,7 +95,7 @@ export default function TeamsPage() {
       }
 
       const { error: memberError } = await supabase.from("team_members").insert({
-        team_id: team.id,
+        team_id: teamId,
         user_id: user.id,
         role: "owner",
       });
@@ -107,7 +106,13 @@ export default function TeamsPage() {
         return;
       }
 
-      setTeams([...teams, team]);
+      const { data: team } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", teamId)
+        .single();
+
+      if (team) setTeams([...teams, team]);
       setShowCreate(false);
       setNewName("");
       setNewDesc("");

@@ -306,9 +306,9 @@ export default function TaskDetailModal({
         if (mentioned && mentioned.user_id !== user?.id) {
           await supabase.from("notifications").insert({
             user_id: mentioned.user_id,
-            type: "task_commented",
+            type: "comment",
             title: `You were mentioned in a comment on "${task!.title}"`,
-            detail: `${getMemberName(user?.id || "")}: ${newComment.trim()}`,
+            body: `${getMemberName(user?.id || "")}: ${newComment.trim()}`,
             link: `/projects/${task!.project_id}`,
           });
         }
@@ -519,6 +519,15 @@ export default function TaskDetailModal({
     } else {
       await supabase.from("task_assignees").insert({ task_id: task!.id, user_id: userId });
       setTaskAssignees([...taskAssignees, userId]);
+      if (userId !== currentUserId && task) {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          title: `You were assigned to "${task.title}"`,
+          body: `Assigned by ${getMemberName(currentUserId ?? "")}`,
+          type: "task",
+          link: `/projects/${task.project_id}`,
+        });
+      }
     }
   }
 

@@ -191,16 +191,15 @@ export default function Sidebar({
         return;
       }
 
-      const { data: team, error: teamError } = await supabase
-        .from("teams")
-        .insert({
-          org_id: org.id,
-          name: newTeamName.trim(),
-          slug: generateSlug(newTeamName),
-          description: newTeamDesc.trim() || null,
-        })
-        .select()
-        .single();
+      const teamId = crypto.randomUUID();
+
+      const { error: teamError } = await supabase.from("teams").insert({
+        id: teamId,
+        org_id: org.id,
+        name: newTeamName.trim(),
+        slug: generateSlug(newTeamName),
+        description: newTeamDesc.trim() || null,
+      });
 
       if (teamError) {
         setTeamError(teamError.message || "Failed to create team.");
@@ -209,13 +208,25 @@ export default function Sidebar({
       }
 
       const { error: memberError } = await supabase.from("team_members").insert({
-        team_id: team.id,
+        team_id: teamId,
         user_id: user.id,
         role: "owner",
       });
 
       if (memberError) {
         setTeamError("Team created but failed to add you as owner.");
+        setCreatingTeam(false);
+        return;
+      }
+
+      const { data: team } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", teamId)
+        .single();
+
+      if (!team) {
+        setTeamError("Team created but failed to load team data.");
         setCreatingTeam(false);
         return;
       }

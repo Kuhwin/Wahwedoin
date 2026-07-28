@@ -511,6 +511,15 @@ export default function ProjectPage() {
     if (currentUser) {
       const assigneeName = memberProfiles[userId] || userId;
       logActivity({ project_id: projectId, user_id: currentUser, action: `assigned ${assigneeName} to`, detail: `${taskIds.length} tasks` });
+      if (userId !== currentUser) {
+        await supabase.from("notifications").insert({
+          user_id: userId,
+          title: `You were assigned to ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""}`,
+          body: `Assigned by ${memberProfiles[currentUser] || currentUser}`,
+          type: "task",
+          link: `/projects/${projectId}`,
+        });
+      }
     }
   }, [supabase, currentUser, memberProfiles, projectId]);
 

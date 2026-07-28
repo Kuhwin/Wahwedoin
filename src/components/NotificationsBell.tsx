@@ -35,6 +35,8 @@ export default function NotificationsBell() {
   const ref = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -48,8 +50,23 @@ export default function NotificationsBell() {
         .limit(10);
 
       if (data) setNotifications(data);
+
+      channelRef.current = supabase
+        .channel("notifications")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+          (payload: { new: NotificationItem }) => {
+            setNotifications((prev) => [payload.new, ...prev].slice(0, 10));
+          },
+        )
+        .subscribe();
     }
     void load();
+
+    return () => {
+      channelRef.current?.unsubscribe();
+    };
   }, [supabase]);
 
   useEffect(() => {
