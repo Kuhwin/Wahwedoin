@@ -58,7 +58,7 @@ export default function Sidebar({
   const supabase = createClient();
 
   const [teams, setTeams] = useState<TeamWithProjects[]>([]);
-  const [orgsById, setOrgsById] = useState<Record<string, { id: string; name: string; slug: string }>>({});
+  const [orgsById, setOrgsById] = useState<Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }>>({});
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -99,7 +99,7 @@ export default function Sidebar({
     try {
       const { data: memberships, error } = await supabase
         .from("team_members")
-        .select("team_id, teams(id, name, description, created_at, org_id)")
+        .select("team_id, teams(id, name, description, created_at, org_id, cover_photo_url)")
         .eq("user_id", user.id);
 
       if (error || !memberships) return;
@@ -126,11 +126,11 @@ export default function Sidebar({
       if (allOrgIds.length > 0) {
         const { data: orgs } = await supabase
           .from("organizations")
-          .select("id, name, slug")
+          .select("id, name, slug, cover_photo_url")
           .in("id", allOrgIds);
         if (orgs?.length) {
-          const orgMap: Record<string, { id: string; name: string; slug: string }> = {};
-          orgs.forEach((o: { id: string; name: string; slug: string }) => { orgMap[o.id] = o; });
+          const orgMap: Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }> = {};
+          orgs.forEach((o: { id: string; name: string; slug: string; cover_photo_url: string | null }) => { orgMap[o.id] = o; });
           setOrgsById(orgMap);
           setExpandedOrgs(new Set(allOrgIds));
         }
@@ -542,6 +542,20 @@ export default function Sidebar({
                       >
                         {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRightIcon size={12} />}
                       </button>
+                      {org.cover_photo_url ? (
+                        <Image
+                          src={org.cover_photo_url}
+                          alt={org.name}
+                          width={18}
+                          height={18}
+                          className="h-[18px] w-[18px] rounded object-cover ml-1"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="ml-1 h-[18px] w-[18px] rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold text-slate-500 dark:text-slate-400">
+                          {org.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500 ml-1 truncate">
                         {org.name}
                       </span>
@@ -590,6 +604,20 @@ export default function Sidebar({
                                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
                                   )}
                                 >
+                                  {team.cover_photo_url ? (
+                                    <Image
+                                      src={team.cover_photo_url}
+                                      alt={team.name}
+                                      width={16}
+                                      height={16}
+                                      className="h-4 w-4 rounded object-cover shrink-0"
+                                      unoptimized
+                                    />
+                                  ) : (
+                                    <span className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[8px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                                      {team.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
                                   <span className="truncate">{team.name}</span>
                                   <span className="text-[11px] text-slate-400 shrink-0 dark:text-slate-500">
                                     {team.projects.length}

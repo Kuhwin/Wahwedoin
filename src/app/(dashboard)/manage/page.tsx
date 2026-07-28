@@ -13,6 +13,7 @@ import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
+import CoverPhotoUpload from "@/components/CoverPhotoUpload";
 import { generateSlug } from "@/lib/utils";
 import type { Team, TeamMember } from "@/lib/types";
 
@@ -20,6 +21,7 @@ interface OrgInfo {
   id: string;
   name: string;
   slug: string;
+  cover_photo_url: string | null;
 }
 
 interface OrgMember {
@@ -68,7 +70,7 @@ export default function ManagePage() {
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<(Team & { role?: string }) | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamInvites, setTeamInvites] = useState<{ id: string; email: string; role: string }[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -93,14 +95,19 @@ export default function ManagePage() {
 
       const { data: orgMembers } = await supabase
         .from("org_members")
-        .select("*, organizations(name, slug)")
+        .select("*, organizations(name, slug, cover_photo_url)")
         .eq("user_id", authUser.id);
 
       if (orgMembers) {
         const orgList: OrgInfo[] = [];
         const membershipMap: Record<string, OrgMember> = {};
-        for (const m of orgMembers as (OrgMember & { organizations: { name: string; slug: string } })[]) {
-          orgList.push({ id: m.org_id, name: m.organizations?.name || "Unknown", slug: m.organizations?.slug || "" });
+        for (const m of orgMembers as (OrgMember & { organizations: { name: string; slug: string; cover_photo_url: string | null } })[]) {
+          orgList.push({
+            id: m.org_id,
+            name: m.organizations?.name || "Unknown",
+            slug: m.organizations?.slug || "",
+            cover_photo_url: m.organizations?.cover_photo_url ?? null,
+          });
           membershipMap[m.org_id] = m;
         }
         setOrgs(orgList);
@@ -174,6 +181,19 @@ export default function ManagePage() {
       setEditingName(false);
     }
     setSavingName(false);
+  }
+
+  async function handleOrgCoverChange(newUrl: string | null) {
+    if (!selectedOrgId) return;
+    const { error } = await supabase
+      .from("organizations")
+      .update({ cover_photo_url: newUrl })
+      .eq("id", selectedOrgId);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    setOrgs(orgs.map((o) => o.id === selectedOrgId ? { ...o, cover_photo_url: newUrl } : o));
   }
 
   async function handleSearch(query: string) {
@@ -274,7 +294,15 @@ export default function ManagePage() {
   }
 
   async function loadTeamMembers(team: Team) {
-    setSelectedTeam(team);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
+    const { data: myMembership } = await supabase
+      .from("team_members")
+      .select("role")
+      .eq("team_id", team.id)
+      .eq("user_id", authUser.id)
+      .maybeSingle();
+    setSelectedTeam({ ...team, role: myMembership?.role });
     const { data: mData } = await supabase.from("team_members").select("*").eq("team_id", team.id);
     if (mData) {
       setTeamMembers(mData);
@@ -330,6 +358,21 @@ export default function ManagePage() {
   async function handleRevokeInvite(inviteId: string) {
     await supabase.from("team_invites").delete().eq("id", inviteId);
     setTeamInvites(teamInvites.filter((i) => i.id !== inviteId));
+  }
+
+  async function handleTeamCoverChange(newUrl: string | null) {
+    if (!selectedTeam) return;
+    const { error } = await supabase
+      .from("teams")
+      .update({ cover_photo_url: newUrl })
+      .eq("id", selectedTeam.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    const updated = { ...selectedTeam, cover_photo_url: newUrl };
+    setSelectedTeam(updated as Team);
+    setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: newUrl } : t));
   }
 
   if (loading && orgs.length === 0) {
@@ -440,6 +483,17 @@ export default function ManagePage() {
                       <Trash2 size={12} /> Delete Organisation
                     </button>
                   )}
+                </div>
+                <div className="mb-4">
+                  <CoverPhotoUpload
+                    bucket="org-covers"
+                    ownerId={selectedOrgId || ""}
+                    currentUrl={selectedOrg?.cover_photo_url ?? null}
+                    fallbackText={selectedOrg?.name || ""}
+                    shape="wide"
+                    canEdit={canManage}
+                    onChange={(url) => handleOrgCoverChange(url)}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
@@ -695,6 +749,19 @@ export default function ManagePage() {
       {/* Team Manage Modal */}
       <Modal open={!!selectedTeam} onClose={() => setSelectedTeam(null)} title={selectedTeam ? `${selectedTeam.name} - Manage` : ""}>
         <div className="space-y-5">
+          {selectedTeam && (
+            <div>
+              <CoverPhotoUpload
+                bucket="team-covers"
+                ownerId={selectedTeam.id}
+                currentUrl={selectedTeam.cover_photo_url ?? null}
+                fallbackText={selectedTeam.name}
+                shape="wide"
+                canEdit={selectedTeam.role === "owner" || selectedTeam.role === "admin"}
+                onChange={(url) => handleTeamCoverChange(url)}
+              />
+            </div>
+          )}
           <div>
             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Members ({teamMembers.length})</h4>
             <div className="space-y-2">

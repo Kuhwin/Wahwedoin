@@ -2,6 +2,7 @@ export interface Organization {
   id: string;
   name: string;
   slug: string;
+  cover_photo_url: string | null;
   created_at: string;
 }
 
@@ -12,6 +13,7 @@ export interface Team {
   slug: string;
   description: string | null;
   parent_team_id: string | null;
+  cover_photo_url: string | null;
   created_at: string;
 }
 
