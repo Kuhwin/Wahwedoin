@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { type Event, type Team, type Project, type CalendarLink } from "@/lib/types";
-import { fetchAllAccountsCalendar } from "@/lib/linkedAccounts";
+import { fetchAllAccountsCalendar, createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "@/lib/linkedAccounts";
 import { getHolidaysForYear } from "@/lib/holidays";
 
 interface ExternalEvent {
@@ -220,6 +220,10 @@ export default function CalendarPage() {
   const [filterTeamIds, setFilterTeamIds] = useState<string[]>([]);
   const [filterProjectIds, setFilterProjectIds] = useState<string[]>([]);
 
+  const [linkedAccounts, setLinkedAccounts] = useState<{ id: string; email: string; display_name: string | null; color: string | null }[]>([]);
+  const [syncToGoogle, setSyncToGoogle] = useState(false);
+  const [syncAccountId, setSyncAccountId] = useState("");
+
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
@@ -340,6 +344,13 @@ export default function CalendarPage() {
       setNewTeamIds((prev) => prev.length > 0 ? prev : [teamList[0].id]);
       setFilterTeamIds((prev) => prev.length > 0 ? prev : teamList.map((t) => t.id));
     }
+
+    const { data: accounts } = await supabase
+      .from("user_google_accounts")
+      .select("id, email, display_name, color")
+      .eq("user_id", user.id)
+      .contains("scope", "calendar");
+    if (accounts) setLinkedAccounts(accounts);
   }, [supabase]);
 
   useEffect(() => {
@@ -529,6 +540,17 @@ export default function CalendarPage() {
         color: editColor,
         meet_link: editMeetLink.trim() || null,
       }).eq("id", ev.id);
+
+      if (ev.google_account_id && ev.google_event_id) {
+        await updateGoogleCalendarEvent(ev.google_account_id, ev.google_event_id, {
+          title: editTitle.trim(),
+          description: editDesc.trim() || null,
+          start: startDateTime,
+          end: endDateTime,
+          allDay: editAllDay,
+          meetLink: editMeetLink.trim() || null,
+        });
+      }
     }
     setEditingEvent(null);
     setSaving(false);
@@ -539,6 +561,9 @@ export default function CalendarPage() {
     if (!window.confirm("Delete this event?")) return;
     const ev = event.originalEvent;
     if (ev) {
+      if (ev.google_account_id && ev.google_event_id) {
+        await deleteGoogleCalendarEvent(ev.google_account_id, ev.google_event_id);
+      }
       await supabase.from("events").delete().eq("id", ev.id);
     }
     setSelectedEvent(null);
@@ -624,6 +649,7 @@ export default function CalendarPage() {
       recurrence: newRecurrence || null,
       recurrence_end: newRecurrenceEnd || null,
       meet_link: newMeetLink.trim() || null,
+      google_account_id: syncToGoogle && syncAccountId ? syncAccountId : null,
     }).select().single();
 
     if (data && !error) {
@@ -633,6 +659,23 @@ export default function CalendarPage() {
       if (newProjectIds.length > 0) {
         await supabase.from("event_projects").insert(newProjectIds.map((pid) => ({ event_id: data.id, project_id: pid })));
       }
+
+      // Sync to Google Calendar
+      if (syncToGoogle && syncAccountId) {
+        const googleEvent = await createGoogleCalendarEvent(syncAccountId, {
+          title: newTitle.trim(),
+          description: newDesc.trim() || null,
+          start: startDateTime,
+          end: endDateTime,
+          allDay: newAllDay,
+          meetLink: newMeetLink.trim() || null,
+        });
+        if (googleEvent) {
+          await supabase.from("events").update({ google_event_id: googleEvent.googleEventId }).eq("id", data.id);
+          data.google_event_id = googleEvent.googleEventId;
+        }
+      }
+
       setEvents([...events, data]);
       setShowCreate(false);
       setNewTitle("");
@@ -644,6 +687,8 @@ export default function CalendarPage() {
       setNewMeetLink("");
       setNewStartTime("09:00");
       setNewEndTime("10:00");
+      setSyncToGoogle(false);
+      setSyncAccountId("");
     }
     setCreating(false);
   }
@@ -903,6 +948,14 @@ export default function CalendarPage() {
                   <Video size={10} /> Join Google Meet
                 </a>
               )}
+              {selectedEvent.originalEvent?.google_account_id && (() => {
+                const acc = linkedAccounts.find((a) => a.id === selectedEvent.originalEvent!.google_account_id);
+                return acc ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
+                    Synced to {acc.display_name || acc.email}
+                  </span>
+                ) : null;
+              })()}
             </div>
 
             {/* Attendees */}
@@ -989,6 +1042,14 @@ export default function CalendarPage() {
               </div>
             )}
             <Input label="Google Meet Link (optional)" placeholder="https://meet.google.com/..." value={editMeetLink} onChange={(e) => setEditMeetLink(e.target.value)} />
+            {editingEvent?.originalEvent?.google_account_id && (() => {
+              const acc = linkedAccounts.find((a) => a.id === editingEvent!.originalEvent!.google_account_id);
+              return acc ? (
+                <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
+                  Synced to Google Calendar: {acc.display_name || acc.email}
+                </div>
+              ) : null;
+            })()}
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Colour</label>
               <div className="flex gap-2">
@@ -1065,6 +1126,25 @@ export default function CalendarPage() {
               ))}
             </div>
           </div>
+          {linkedAccounts.length > 0 && (
+            <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={syncToGoogle} onChange={(e) => { setSyncToGoogle(e.target.checked); if (e.target.checked && !syncAccountId && linkedAccounts.length > 0) setSyncAccountId(linkedAccounts[0].id); }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <div>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sync to Google Calendar</span>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Event will appear in your connected Google Calendar</p>
+                </div>
+              </label>
+              {syncToGoogle && (
+                <select value={syncAccountId} onChange={(e) => setSyncAccountId(e.target.value)}
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                  {linkedAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>{acc.display_name || acc.email}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
           {newTeamIds.length === 0 && <p className="text-xs text-amber-600 dark:text-amber-400">Select at least one team</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>

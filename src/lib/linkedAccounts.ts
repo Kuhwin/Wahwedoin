@@ -236,3 +236,153 @@ export async function fetchAllAccountsGmail(userId: string) {
 
   return results;
 }
+
+async function callGoogleAPI<T>(
+  account: LinkedGoogleAccount,
+  method: "POST" | "PATCH" | "DELETE",
+  url: string,
+  body?: unknown
+): Promise<T | null> {
+  const token = await getValidToken(account);
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) return null;
+  if (method === "DELETE") return {} as T;
+  return res.json() as Promise<T>;
+}
+
+export async function createGoogleCalendarEvent(
+  accountId: string,
+  eventData: {
+    title: string;
+    description: string | null;
+    start: string;
+    end: string;
+    allDay: boolean;
+    meetLink?: string | null;
+    attendees?: { email: string }[];
+  }
+): Promise<{ googleEventId: string } | null> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_google_accounts")
+    .select("*")
+    .eq("id", accountId)
+    .single();
+  if (!data) return null;
+  const account = data as LinkedGoogleAccount;
+
+  const googleEvent: Record<string, unknown> = {
+    summary: eventData.title,
+    description: eventData.description || "",
+    start: eventData.allDay
+      ? { date: eventData.start.split("T")[0] }
+      : { dateTime: eventData.start, timeZone: "America/Barbados" },
+    end: eventData.allDay
+      ? { date: eventData.end.split("T")[0] }
+      : { dateTime: eventData.end, timeZone: "America/Barbados" },
+  };
+
+  if (eventData.meetLink) {
+    googleEvent.hangoutLink = eventData.meetLink;
+    googleEvent.conferenceData = {
+      createRequest: {
+        requestId: crypto.randomUUID(),
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
+  if (eventData.attendees && eventData.attendees.length > 0) {
+    googleEvent.attendees = eventData.attendees.map((a) => ({ email: a.email }));
+  }
+
+  const result = await callGoogleAPI<{ id: string }>(
+    account,
+    "POST",
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+    googleEvent
+  );
+
+  if (!result?.id) return null;
+  return { googleEventId: result.id };
+}
+
+export async function updateGoogleCalendarEvent(
+  accountId: string,
+  googleEventId: string,
+  eventData: {
+    title: string;
+    description: string | null;
+    start: string;
+    end: string;
+    allDay: boolean;
+    meetLink?: string | null;
+    attendees?: { email: string }[];
+  }
+): Promise<boolean> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_google_accounts")
+    .select("*")
+    .eq("id", accountId)
+    .single();
+  if (!data) return false;
+  const account = data as LinkedGoogleAccount;
+
+  const googleEvent: Record<string, unknown> = {
+    summary: eventData.title,
+    description: eventData.description || "",
+    start: eventData.allDay
+      ? { date: eventData.start.split("T")[0] }
+      : { dateTime: eventData.start, timeZone: "America/Barbados" },
+    end: eventData.allDay
+      ? { date: eventData.end.split("T")[0] }
+      : { dateTime: eventData.end, timeZone: "America/Barbados" },
+  };
+
+  if (eventData.meetLink) {
+    googleEvent.hangoutLink = eventData.meetLink;
+  }
+
+  if (eventData.attendees && eventData.attendees.length > 0) {
+    googleEvent.attendees = eventData.attendees.map((a) => ({ email: a.email }));
+  }
+
+  const result = await callGoogleAPI<{ id: string }>(
+    account,
+    "PATCH",
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+    googleEvent
+  );
+
+  return !!result?.id;
+}
+
+export async function deleteGoogleCalendarEvent(
+  accountId: string,
+  googleEventId: string
+): Promise<boolean> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("user_google_accounts")
+    .select("*")
+    .eq("id", accountId)
+    .single();
+  if (!data) return false;
+  const account = data as LinkedGoogleAccount;
+
+  const result = await callGoogleAPI<null>(
+    account,
+    "DELETE",
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`
+  );
+
+  return result !== null;
+}

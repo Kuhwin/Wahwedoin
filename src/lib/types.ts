@@ -124,6 +124,8 @@ export interface Event {
   recurrence_end: string | null;
   meet_link: string | null;
   attendees: { email: string; name?: string; status?: string }[] | null;
+  google_event_id: string | null;
+  google_account_id: string | null;
 }
 
 export interface Activity {
