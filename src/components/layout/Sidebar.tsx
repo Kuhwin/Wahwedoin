@@ -80,6 +80,12 @@ export default function Sidebar({
         if (!existing) return prev;
         return { ...prev, [orgId]: { ...existing, name: newName } };
       });
+      setOrgSettings((prev) => {
+        if (prev && prev.orgId === orgId) {
+          return { ...prev, orgName: newName };
+        }
+        return prev;
+      });
     }
     void loadData();
   }

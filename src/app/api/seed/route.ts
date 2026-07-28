@@ -12,7 +12,7 @@ export async function POST() {
 
   const { error } = await auth.supabase!
     .from("organizations")
-    .upsert({ name: "Default Team", slug: "default-team" }, { onConflict: "slug" });
+    .upsert({ name: "Default Organization", slug: "default-org" }, { onConflict: "slug" });
 
   if (error) {
     return NextResponse.json({ error: "Failed to seed" }, { status: 500 });

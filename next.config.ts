@@ -15,7 +15,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://www.google.com",
-  "connect-src 'self' https://*.supabase.co https://oauth2.googleapis.com https://www.googleapis.com https://www.googleapis.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://oauth2.googleapis.com https://www.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
