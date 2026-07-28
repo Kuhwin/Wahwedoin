@@ -84,7 +84,7 @@ export default function TeamsPage() {
         id: teamId,
         org_id: org.id,
         name: newName.trim(),
-        slug: generateSlug(newName),
+        slug: generateSlug(newName) + "-" + crypto.randomUUID().slice(0, 4),
         description: newDesc.trim() || null,
       });
 

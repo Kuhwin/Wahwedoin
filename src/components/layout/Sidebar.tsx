@@ -197,7 +197,7 @@ export default function Sidebar({
         id: teamId,
         org_id: org.id,
         name: newTeamName.trim(),
-        slug: generateSlug(newTeamName),
+        slug: generateSlug(newTeamName) + "-" + crypto.randomUUID().slice(0, 4),
         description: newTeamDesc.trim() || null,
       });
 
