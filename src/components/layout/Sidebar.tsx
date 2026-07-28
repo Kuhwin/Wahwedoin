@@ -299,7 +299,6 @@ export default function Sidebar({
     { href: "/drive", icon: FolderOpen, label: "Drive" },
     { href: "/gmail", icon: Mail, label: "Gmail" },
     { href: "/inbox", icon: Inbox, label: "Inbox" },
-    { href: "/teams", icon: Users, label: "Teams" },
     { href: "/manage", icon: Building2, label: "Manage" },
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
   ];
