@@ -66,6 +66,9 @@ export default function Sidebar({
   const [quickAddProjectId, setQuickAddProjectId] = useState("");
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [creatingOrg, setCreatingOrg] = useState(false);
   const [createTeamOrgId, setCreateTeamOrgId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
@@ -105,17 +108,31 @@ export default function Sidebar({
         .map((m) => m.teams)
         .filter(Boolean);
 
-      const orgIds = [...new Set(teamList.map((t) => t.org_id).filter(Boolean))] as string[];
-      if (orgIds.length > 0) {
+      // Also fetch all orgs the user is a member of (even those with no teams)
+      const { data: orgMembers } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("user_id", user.id);
+
+      const memberOrgIds = (orgMembers || []).map((m: { org_id: string }) => m.org_id);
+
+      const allOrgIds = [
+        ...new Set([
+          ...teamList.map((t) => t.org_id).filter(Boolean),
+          ...memberOrgIds,
+        ]),
+      ] as string[];
+
+      if (allOrgIds.length > 0) {
         const { data: orgs } = await supabase
           .from("organizations")
           .select("id, name, slug")
-          .in("id", orgIds);
+          .in("id", allOrgIds);
         if (orgs?.length) {
           const orgMap: Record<string, { id: string; name: string; slug: string }> = {};
           orgs.forEach((o: { id: string; name: string; slug: string }) => { orgMap[o.id] = o; });
           setOrgsById(orgMap);
-          setExpandedOrgs(new Set(orgIds));
+          setExpandedOrgs(new Set(allOrgIds));
         }
       }
 
@@ -280,31 +297,35 @@ export default function Sidebar({
     router.push("/auth/login");
   }
 
-  async function handleCreateOrg() {
-    const name = window.prompt("Organization name:");
-    if (!name?.trim()) return;
+  async function handleCreateOrg(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newOrgName.trim()) return;
+    setCreatingOrg(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { setCreatingOrg(false); return; }
 
       const { data: org, error: orgError } = await supabase
         .from("organizations")
-        .insert({ name: name.trim(), slug: generateSlug(name.trim()) + "-" + crypto.randomUUID().slice(0, 4) })
+        .insert({ name: newOrgName.trim(), slug: generateSlug(newOrgName.trim()) + "-" + crypto.randomUUID().slice(0, 4) })
         .select()
         .single();
 
-      if (orgError) { alert(orgError.message); return; }
+      if (orgError) { setCreatingOrg(false); return; }
 
       const { error: memberError } = await supabase
         .from("org_members")
         .insert({ org_id: org.id, user_id: user.id, role: "owner" });
 
-      if (memberError) { alert(memberError.message); return; }
+      if (memberError) { setCreatingOrg(false); return; }
 
+      setShowCreateOrg(false);
+      setNewOrgName("");
       void loadData();
     } catch {
-      alert("Failed to create organization");
+      // ignore
     }
+    setCreatingOrg(false);
   }
 
   async function handleDeleteTeam() {
@@ -477,7 +498,7 @@ export default function Sidebar({
                 </button>
               </div>
               <button
-                onClick={() => void handleCreateOrg()}
+                onClick={() => setShowCreateOrg(true)}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
               >
                 <Plus size={12} />
@@ -494,7 +515,7 @@ export default function Sidebar({
                 <Plus size={18} />
               </button>
               <button
-                onClick={() => void handleCreateOrg()}
+                onClick={() => setShowCreateOrg(true)}
                 className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Organization"
               >
@@ -504,18 +525,17 @@ export default function Sidebar({
           )
         ) : (
           <div className="space-y-2">
-            {Object.entries(teamsByOrg).map(([orgId, orgTeams]) => {
-              const org = orgsById[orgId];
-              const orgLabel = org?.name || "Other";
-              const isOrgExpanded = expandedOrgs.has(orgId);
+            {Object.values(orgsById).map((org) => {
+              const orgTeams = teamsByOrg[org.id] || [];
+              const isOrgExpanded = expandedOrgs.has(org.id);
               return (
-                <div key={orgId}>
+                <div key={org.id}>
                   {expanded && (
                     <div className="flex items-center gap-0 px-1 py-1">
                       <button
                         onClick={() => {
                           const next = new Set(expandedOrgs);
-                          if (isOrgExpanded) next.delete(orgId); else next.add(orgId);
+                          if (isOrgExpanded) next.delete(org.id); else next.add(org.id);
                           setExpandedOrgs(next);
                         }}
                         className="p-0.5 rounded text-slate-400 hover:text-slate-600 dark:text-slate-500"
@@ -523,19 +543,17 @@ export default function Sidebar({
                         {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRightIcon size={12} />}
                       </button>
                       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500 ml-1 truncate">
-                        {orgLabel}
+                        {org.name}
                       </span>
-                      {org && (
-                        <button
-                          onClick={() => setOrgSettings({ orgId: org.id, orgName: org.name })}
-                          className="ml-1 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500"
-                          title="Organization Settings"
-                        >
-                          <Settings size={11} />
-                        </button>
-                      )}
                       <button
-                        onClick={() => { setCreateTeamOrgId(orgId); setShowCreateTeam(true); }}
+                        onClick={() => setOrgSettings({ orgId: org.id, orgName: org.name })}
+                        className="ml-1 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500"
+                        title="Organization Settings"
+                      >
+                        <Settings size={11} />
+                      </button>
+                      <button
+                        onClick={() => { setCreateTeamOrgId(org.id); setShowCreateTeam(true); }}
                         className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
                         title="New Team"
                       >
@@ -545,6 +563,9 @@ export default function Sidebar({
                   )}
                   {isOrgExpanded && (
                     <div className="space-y-0.5">
+                      {orgTeams.length === 0 && expanded && (
+                        <p className="text-[11px] text-slate-400 px-2 py-1">No teams</p>
+                      )}
                       {orgTeams.map((team) => {
                         const isTeamExpanded = expandedTeams.has(team.id);
                         const teamActive = pathname.startsWith(`/teams/${team.id}`);
@@ -662,7 +683,7 @@ export default function Sidebar({
         {expanded && (
           <div className="px-2 pt-2">
             <button
-              onClick={() => void handleCreateOrg()}
+              onClick={() => setShowCreateOrg(true)}
               className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
             >
               <Plus size={14} />
@@ -812,6 +833,43 @@ export default function Sidebar({
                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {creatingTeam ? "Creating..." : "Create Team"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Create Org Modal */}
+      {showCreateOrg && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowCreateOrg(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-semibold text-slate-900">New Organization</h2>
+                <button onClick={() => setShowCreateOrg(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                  <X size={18} />
+                </button>
+              </div>
+              <form onSubmit={(e) => void handleCreateOrg(e)} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-slate-700">Organization Name</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="e.g. Acme Corp"
+                    value={newOrgName}
+                    onChange={(e) => setNewOrgName(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowCreateOrg(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                  <button type="submit" disabled={creatingOrg || !newOrgName.trim()} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {creatingOrg ? "Creating..." : "Create Organization"}
                   </button>
                 </div>
               </form>
