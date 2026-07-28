@@ -952,7 +952,7 @@ export default function CalendarPage() {
                 const acc = linkedAccounts.find((a) => a.id === selectedEvent.originalEvent!.google_account_id);
                 return acc ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400">
-                    Synced to {acc.display_name || acc.email}
+                    Synced to {acc.email}
                   </span>
                 ) : null;
               })()}
@@ -1046,7 +1046,7 @@ export default function CalendarPage() {
               const acc = linkedAccounts.find((a) => a.id === editingEvent!.originalEvent!.google_account_id);
               return acc ? (
                 <div className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700">
-                  Synced to Google Calendar: {acc.display_name || acc.email}
+                  Synced to Google Calendar: {acc.email}
                 </div>
               ) : null;
             })()}
@@ -1139,7 +1139,7 @@ export default function CalendarPage() {
                 <select value={syncAccountId} onChange={(e) => setSyncAccountId(e.target.value)}
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                   {linkedAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>{acc.display_name || acc.email}</option>
+                    <option key={acc.id} value={acc.id}>{acc.email}</option>
                   ))}
                 </select>
               )}
