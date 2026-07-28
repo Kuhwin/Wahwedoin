@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft, Palette } from "lucide-react";
+import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft, Palette, Link2 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationsBell from "@/components/NotificationsBell";
 import SearchModal from "@/components/SearchModal";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useAccentColour } from "@/components/AccentColourProvider";
 import { useActiveUser } from "@/components/ActiveUserProvider";
+import type { LinkedGoogleAccount } from "@/lib/types";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -19,6 +20,7 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [linkedGoogle, setLinkedGoogle] = useState<LinkedGoogleAccount[]>([]);
   const { theme, toggleTheme } = useTheme();
   const { accent, setAccent, presets } = useAccentColour();
   const { activeProfile, activeUserId, authUserId, orgMembers, isImpersonating, switchUser } = useActiveUser();
@@ -26,6 +28,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadGoogle() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("user_google_accounts")
+        .select("id, email, display_name, avatar_url, color, scope")
+        .eq("user_id", user.id);
+      if (data) setLinkedGoogle(data as LinkedGoogleAccount[]);
+    }
+    void loadGoogle();
+  }, [supabase]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -248,9 +263,30 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   </div>
 
                   <div className="p-1 border-t border-slate-100 dark:border-slate-700">
+                    {linkedGoogle.length > 0 && (
+                      <>
+                        <div className="px-3 py-1.5">
+                          <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <Link2 size={10} />
+                            Linked Accounts
+                          </p>
+                        </div>
+                        {linkedGoogle.map((acc) => (
+                          <div key={acc.id} className="flex items-center gap-2.5 px-3 py-1.5">
+                            <div className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ backgroundColor: acc.color || "#6366f1" }}>
+                              {(acc.display_name || acc.email).charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                              {acc.display_label || acc.display_name || acc.email.split("@")[0]}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                      </>
+                    )}
                     <button
-                      onClick={() => void handleSignOut()}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      onClick={() => { setDropdownOpen(false); router.push("/settings"); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                       <LogOut size={15} />
                       Sign Out
