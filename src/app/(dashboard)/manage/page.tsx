@@ -185,15 +185,19 @@ export default function ManagePage() {
 
   async function handleOrgCoverChange(newUrl: string | null) {
     if (!selectedOrgId) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("organizations")
       .update({ cover_photo_url: newUrl })
-      .eq("id", selectedOrgId);
+      .eq("id", selectedOrgId)
+      .select("cover_photo_url")
+      .single();
     if (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("[cover-photo] org update failed", error);
+      setMessage({ type: "error", text: "Failed to save cover photo: " + error.message });
       return;
     }
-    setOrgs(orgs.map((o) => o.id === selectedOrgId ? { ...o, cover_photo_url: newUrl } : o));
+    setOrgs(orgs.map((o) => o.id === selectedOrgId ? { ...o, cover_photo_url: data?.cover_photo_url ?? newUrl } : o));
+    setMessage({ type: "success", text: newUrl ? "Cover photo updated" : "Cover photo removed" });
   }
 
   async function handleSearch(query: string) {
@@ -362,17 +366,21 @@ export default function ManagePage() {
 
   async function handleTeamCoverChange(newUrl: string | null) {
     if (!selectedTeam) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("teams")
       .update({ cover_photo_url: newUrl })
-      .eq("id", selectedTeam.id);
+      .eq("id", selectedTeam.id)
+      .select("cover_photo_url")
+      .single();
     if (error) {
-      setMessage({ type: "error", text: error.message });
+      console.error("[cover-photo] team update failed", error);
+      setMessage({ type: "error", text: "Failed to save cover photo: " + error.message });
       return;
     }
-    const updated = { ...selectedTeam, cover_photo_url: newUrl };
+    const updated = { ...selectedTeam, cover_photo_url: data?.cover_photo_url ?? newUrl };
     setSelectedTeam(updated as Team);
-    setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: newUrl } : t));
+    setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: data?.cover_photo_url ?? newUrl } : t));
+    setMessage({ type: "success", text: newUrl ? "Cover photo updated" : "Cover photo removed" });
   }
 
   if (loading && orgs.length === 0) {
@@ -491,6 +499,7 @@ export default function ManagePage() {
                     currentUrl={selectedOrg?.cover_photo_url ?? null}
                     fallbackText={selectedOrg?.name || ""}
                     shape="compact"
+                    aspectRatio={16 / 9}
                     canEdit={canManage}
                     onChange={(url) => handleOrgCoverChange(url)}
                   />
@@ -757,6 +766,7 @@ export default function ManagePage() {
                 currentUrl={selectedTeam.cover_photo_url ?? null}
                 fallbackText={selectedTeam.name}
                 shape="compact"
+                aspectRatio={16 / 9}
                 canEdit={selectedTeam.role === "owner" || selectedTeam.role === "admin"}
                 onChange={(url) => handleTeamCoverChange(url)}
               />

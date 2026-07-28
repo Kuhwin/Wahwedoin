@@ -10,6 +10,7 @@ import Avatar from "@/components/ui/Avatar";
 import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload, Globe } from "lucide-react";
 import type { LinkedGoogleAccount } from "@/lib/types";
 import ImportWizard from "@/components/ImportWizard";
+import ImageCropper from "@/components/ImageCropper";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useAccentColour } from "@/components/AccentColourProvider";
 import { useTimezone } from "@/lib/useTimezone";
@@ -116,10 +117,49 @@ export default function SettingsPage() {
     void load();
   }, [supabase, router]);
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const [avatarCropSrc, setAvatarCropSrc] = useState<string | null>(null);
+
+  async function handleAvatarUpload(blob: Blob) {
+    if (!user) return;
+    setUploading(true);
+    setMessage("");
+
+    const ext = blob.type === "image/jpeg" ? "jpg" : "png";
+    const filePath = `${user.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, blob, { upsert: true, contentType: blob.type || "image/png" });
+
+    if (uploadError) {
+      console.error("[avatar] upload failed", uploadError);
+      setMessage("Upload failed: " + uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+    const { data, error: upsertErr } = await supabase.from("user_profiles").upsert(
+      { user_id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    ).select("avatar_url").single();
+
+    if (upsertErr) {
+      console.error("[avatar] profile upsert failed", upsertErr);
+      setMessage("Failed to save: " + upsertErr.message);
+      setUploading(false);
+      return;
+    }
+
+    setAvatarUrl(data?.avatar_url || publicUrl);
+    setUploading(false);
+    setMessage("Profile photo updated.");
+  }
+
+  function handleAvatarFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
     if (file.size > 2 * 1024 * 1024) {
       setMessage("Image must be under 2MB.");
       return;
@@ -128,33 +168,10 @@ export default function SettingsPage() {
       setMessage("File must be an image.");
       return;
     }
-
-    setUploading(true);
-    setMessage("");
-
-    const fileExt = file.name.split(".").pop();
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      setMessage("Upload failed: " + uploadError.message);
-      setUploading(false);
-      return;
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-    await supabase.from("user_profiles").upsert(
-      { user_id: user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() },
-      { onConflict: "user_id" }
-    );
-
-    setAvatarUrl(publicUrl);
-    setUploading(false);
-    setMessage("Profile photo updated.");
+    const reader = new FileReader();
+    reader.onload = () => setAvatarCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
@@ -323,9 +340,9 @@ export default function SettingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 className="hidden"
-                onChange={(e) => void handleAvatarUpload(e)}
+                onChange={handleAvatarFileSelect}
               />
             </div>
             <div>
@@ -566,6 +583,17 @@ export default function SettingsPage() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
           <ImportWizard />
         </div>
+      )}
+
+      {avatarCropSrc && (
+        <ImageCropper
+          open={!!avatarCropSrc}
+          imageSrc={avatarCropSrc}
+          aspectRatio={1}
+          onClose={() => setAvatarCropSrc(null)}
+          onConfirm={handleAvatarUpload}
+          title="Crop your profile photo"
+        />
       )}
     </div>
   );
