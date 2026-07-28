@@ -29,6 +29,7 @@ import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import OrgSettingsModal from "@/components/org/OrgSettingsModal";
 import type { User } from "@supabase/supabase-js";
 import type { Team, Project } from "@/lib/types";
 
@@ -70,6 +71,11 @@ export default function Sidebar({
   const [teamError, setTeamError] = useState("");
   const [teamMenuOpen, setTeamMenuOpen] = useState<string | null>(null);
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<TeamWithProjects | null>(null);
+  const [orgSettings, setOrgSettings] = useState<{ orgId: string; orgName: string } | null>(null);
+
+  function handleOrgUpdated() {
+    void loadData();
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -461,6 +467,15 @@ export default function Sidebar({
                       <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500 ml-1 truncate">
                         {orgLabel}
                       </span>
+                      {org && (
+                        <button
+                          onClick={() => setOrgSettings({ orgId: org.id, orgName: org.name })}
+                          className="ml-1 p-0.5 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500"
+                          title="Organization Settings"
+                        >
+                          <Settings size={11} />
+                        </button>
+                      )}
                       <button
                         onClick={() => setShowCreateTeam(true)}
                         className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
@@ -738,6 +753,17 @@ export default function Sidebar({
           </div>
         </div>
       </Modal>
+
+      {/* Org Settings Modal */}
+      {orgSettings && (
+        <OrgSettingsModal
+          open={!!orgSettings}
+          onClose={() => setOrgSettings(null)}
+          orgId={orgSettings.orgId}
+          orgName={orgSettings.orgName}
+          onOrgUpdated={handleOrgUpdated}
+        />
+      )}
     </>
   );
 }
