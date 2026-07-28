@@ -73,7 +73,14 @@ export default function Sidebar({
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<TeamWithProjects | null>(null);
   const [orgSettings, setOrgSettings] = useState<{ orgId: string; orgName: string } | null>(null);
 
-  function handleOrgUpdated() {
+  function handleOrgUpdated(orgId?: string, newName?: string) {
+    if (orgId && newName) {
+      setOrgsById((prev) => {
+        const existing = prev[orgId];
+        if (!existing) return prev;
+        return { ...prev, [orgId]: { ...existing, name: newName } };
+      });
+    }
     void loadData();
   }
 

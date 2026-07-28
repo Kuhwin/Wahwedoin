@@ -23,7 +23,7 @@ interface OrgSettingsModalProps {
   onClose: () => void;
   orgId: string;
   orgName: string;
-  onOrgUpdated: () => void;
+  onOrgUpdated: (orgId: string, newName: string) => void;
 }
 
 export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgUpdated }: OrgSettingsModalProps) {
@@ -58,22 +58,22 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
 
       if (orgMembers) {
         type OrgMemberRow = { id: string; org_id: string; user_id: string; role: "owner" | "admin" | "member"; joined_at: string };
-        type ProfileRow = { user_id: string; display_name: string | null; avatar_url: string | null };
 
-        const userIds = orgMembers.map((m: OrgMemberRow) => m.user_id);
-        const { data: profiles } = await supabase
-          .from("user_profiles")
-          .select("user_id, display_name, avatar_url")
-          .in("user_id", userIds);
+        const { data: profiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
+        const profileMap = new Map<string, { display_name: string; avatar_url: string | null; email: string }>();
+        (profiles as { user_id: string; display_name: string; avatar_url: string | null; email: string }[] | null)?.forEach((p) => {
+          profileMap.set(p.user_id, p);
+        });
 
-        const profileMap = new Map<string, ProfileRow>((profiles || []).map((p: ProfileRow) => [p.user_id, p]));
-
-        const enriched: OrgMember[] = orgMembers.map((m: OrgMemberRow) => ({
-          ...m,
-          display_name: profileMap.get(m.user_id)?.display_name || undefined,
-          avatar_url: profileMap.get(m.user_id)?.avatar_url || undefined,
-          email: m.user_id === user.id ? user.email || undefined : undefined,
-        }));
+        const enriched: OrgMember[] = orgMembers.map((m: OrgMemberRow) => {
+          const p = profileMap.get(m.user_id);
+          return {
+            ...m,
+            display_name: p?.display_name || undefined,
+            avatar_url: p?.avatar_url || undefined,
+            email: p?.email || undefined,
+          };
+        });
 
         const myMembership = orgMembers.find((m: OrgMemberRow) => m.user_id === user.id);
         setCurrentUserRole(myMembership?.role || null);
@@ -104,7 +104,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
     } else {
       setMessage({ type: "success", text: "Organization name updated" });
       setEditingName(false);
-      onOrgUpdated();
+      onOrgUpdated(orgId, nameInput.trim());
     }
     setSaving(false);
   }
@@ -143,19 +143,15 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
     }
   }
 
-  async function handleSearch(email: string) {
-    setAddEmail(email);
-    if (email.length < 3) {
+  async function handleSearch(query: string) {
+    setAddEmail(query);
+    if (query.length < 2) {
       setSearchResults([]);
       return;
     }
     setSearching(true);
-    const { data: profiles } = await supabase
-      .from("user_profiles")
-      .select("user_id, display_name, email")
-      .ilike("email", `%${email}%`)
-      .limit(5);
-    if (profiles) setSearchResults(profiles as { user_id: string; display_name: string; email: string }[]);
+    const { data: results } = await supabase.rpc("search_org_candidates", { p_query: query, p_org_id: orgId });
+    if (results) setSearchResults(results as { user_id: string; display_name: string; email: string }[]);
     setSearching(false);
   }
 
@@ -179,7 +175,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
       setAddEmail("");
       setSearchResults([]);
       setMessage({ type: "success", text: `Added ${email} as ${addRole}` });
-      onOrgUpdated();
+      onOrgUpdated(orgId, nameInput.trim() || orgName);
     }
     setAdding(false);
   }
@@ -334,12 +330,12 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                 <div className="flex-1 relative">
                   <input
                     type="text"
-                    placeholder="Search by email..."
+                    placeholder="Search by name or email..."
                     value={addEmail}
                     onChange={(e) => void handleSearch(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
                   />
-                  {searchResults.length > 0 && addEmail.length >= 3 && (
+                  {searchResults.length > 0 && addEmail.length >= 2 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-30 max-h-40 overflow-y-auto">
                       {searchResults.map((r) => (
                         <button
@@ -348,8 +344,10 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                         >
                           <Avatar email={r.user_id} name={r.display_name} size="xs" />
-                          <span className="truncate">{r.display_name || r.email}</span>
-                          <span className="text-xs text-slate-400 truncate">{r.email}</span>
+                          <div className="truncate text-left">
+                            <div className="truncate font-medium">{r.display_name || "Unknown"}</div>
+                            <div className="text-xs text-slate-400 truncate">{r.email}</div>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -365,7 +363,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                 </select>
               </div>
               <p className="text-[11px] text-slate-400 mt-2">
-                Search for users by email address to add them to the organization.
+                Search by name or email to find and add users to this organization.
               </p>
             </div>
           )}
