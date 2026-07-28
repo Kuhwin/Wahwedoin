@@ -56,8 +56,8 @@ export default function Sidebar({
   const supabase = createClient();
 
   const [teams, setTeams] = useState<TeamWithProjects[]>([]);
-  const [organizations, setOrganizations] = useState<{ id: string; name: string; slug: string }[]>([]);
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  const [orgsById, setOrgsById] = useState<Record<string, { id: string; name: string; slug: string }>>({});
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickAddTitle, setQuickAddTitle] = useState("");
@@ -84,17 +84,17 @@ export default function Sidebar({
         .map((m) => m.teams)
         .filter(Boolean);
 
-      const orgIds = [...new Set(teamList.map((t) => t.org_id).filter(Boolean))];
+      const orgIds = [...new Set(teamList.map((t) => t.org_id).filter(Boolean))] as string[];
       if (orgIds.length > 0) {
         const { data: orgs } = await supabase
           .from("organizations")
           .select("id, name, slug")
           .in("id", orgIds);
         if (orgs?.length) {
-          setOrganizations(orgs as { id: string; name: string; slug: string }[]);
-          if (!currentOrgId || !orgs.find((o: { id: string }) => o.id === currentOrgId)) {
-            setCurrentOrgId(orgs[0].id);
-          }
+          const orgMap: Record<string, { id: string; name: string; slug: string }> = {};
+          orgs.forEach((o: { id: string; name: string; slug: string }) => { orgMap[o.id] = o; });
+          setOrgsById(orgMap);
+          setExpandedOrgs(new Set(orgIds));
         }
       }
 
@@ -195,8 +195,9 @@ export default function Sidebar({
         return;
       }
 
-      if (!currentOrgId) {
-        setTeamError("No organization selected. Please select an organization first.");
+      const orgEntries = Object.values(orgsById);
+      if (orgEntries.length === 0) {
+        setTeamError("No organization found. Please contact support.");
         setCreatingTeam(false);
         return;
       }
@@ -205,7 +206,7 @@ export default function Sidebar({
 
       const { error: teamError } = await supabase.from("teams").insert({
         id: teamId,
-        org_id: currentOrgId,
+        org_id: orgEntries[0].id,
         name: newTeamName.trim(),
         slug: generateSlug(newTeamName) + "-" + crypto.randomUUID().slice(0, 4),
         description: newTeamDesc.trim() || null,
@@ -279,9 +280,12 @@ export default function Sidebar({
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
   ];
 
-  const filteredTeams = currentOrgId
-    ? teams.filter((t) => t.org_id === currentOrgId)
-    : teams;
+  const teamsByOrg = teams.reduce<Record<string, TeamWithProjects[]>>((acc, t) => {
+    const oid = t.org_id || "__none__";
+    if (!acc[oid]) acc[oid] = [];
+    acc[oid].push(t);
+    return acc;
+  }, {});
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -300,21 +304,6 @@ export default function Sidebar({
           </Link>
         )}
       </div>
-
-      {/* Org Switcher */}
-      {expanded && organizations.length > 0 && (
-        <div className="px-3 pb-2">
-          <select
-            value={currentOrgId || ""}
-            onChange={(e) => setCurrentOrgId(e.target.value || null)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
-          >
-            {organizations.map((org) => (
-              <option key={org.id} value={org.id}>{org.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Quick Add */}
       {expanded && (
@@ -336,7 +325,7 @@ export default function Sidebar({
                 className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
               >
                 <option value="">Select project...</option>
-                {filteredTeams.flatMap((team) =>
+                {teams.flatMap((team) =>
                   team.projects.map((p) => (
                     <option key={p.id} value={p.id}>{team.name} / {p.name}</option>
                   ))
@@ -424,22 +413,7 @@ export default function Sidebar({
 
       {/* Teams Section */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {expanded && (
-          <div className="px-3 py-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500">
-              Teams
-            </span>
-            <button
-              onClick={() => setShowCreateTeam(true)}
-              className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
-              title="New Team"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        )}
-
-        {filteredTeams.length === 0 ? (
+        {teams.length === 0 ? (
           expanded ? (
             <div className="px-3 py-4">
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center dark:bg-slate-800">
@@ -465,113 +439,146 @@ export default function Sidebar({
             </div>
           )
         ) : (
-          <div className="space-y-0.5">
-            {filteredTeams.map((team) => {
-              const isTeamExpanded = expandedTeams.has(team.id);
-              const teamActive = pathname.startsWith(`/teams/${team.id}`);
+          <div className="space-y-2">
+            {Object.entries(teamsByOrg).map(([orgId, orgTeams]) => {
+              const org = orgsById[orgId];
+              const orgLabel = org?.name || "Other";
+              const isOrgExpanded = expandedOrgs.has(orgId);
               return (
-                <div key={team.id} className="group">
-                  {expanded ? (
-                    <div className="flex items-center gap-0">
+                <div key={orgId}>
+                  {expanded && (
+                    <div className="flex items-center gap-0 px-1 py-1">
                       <button
-                        onClick={() => toggleTeam(team.id)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-600 shrink-0 dark:text-slate-500"
+                        onClick={() => {
+                          const next = new Set(expandedOrgs);
+                          if (isOrgExpanded) next.delete(orgId); else next.add(orgId);
+                          setExpandedOrgs(next);
+                        }}
+                        className="p-0.5 rounded text-slate-400 hover:text-slate-600 dark:text-slate-500"
                       >
-                        {isTeamExpanded ? (
-                          <ChevronDown size={14} />
-                        ) : (
-                          <ChevronRightIcon size={14} />
-                        )}
+                        {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRightIcon size={12} />}
                       </button>
-                      <Link
-                        href={`/teams/${team.id}`}
-                        onClick={onMobileClose}
-                        className={cn(
-                          "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors truncate",
-                          teamActive
-                            ? "bg-indigo-50 text-indigo-700"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
-                        )}
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider dark:text-slate-500 ml-1 truncate">
+                        {orgLabel}
+                      </span>
+                      <button
+                        onClick={() => setShowCreateTeam(true)}
+                        className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
+                        title="New Team"
                       >
-                        <span className="truncate">{team.name}</span>
-                        <span className="text-[11px] text-slate-400 shrink-0 dark:text-slate-500">
-                          {team.projects.length}
-                        </span>
-                      </Link>
-                      <div className="relative">
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTeamMenuOpen(teamMenuOpen === team.id ? null : team.id); }}
-                          className="p-1 rounded text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-all dark:text-slate-500 dark:hover:text-slate-300"
-                        >
-                          <MoreVertical size={14} />
-                        </button>
-                        {teamMenuOpen === team.id && (
-                          <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[140px]">
-                            <button
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDeleteTeam(team); setTeamMenuOpen(null); }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 size={12} />
-                              Delete Team
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                        <Plus size={12} />
+                      </button>
                     </div>
-                  ) : (
-                    <Link
-                      href={`/teams/${team.id}`}
-                      onClick={onMobileClose}
-                      className="flex items-center justify-center py-1"
-                      title={team.name}
-                    >
-                      <div
-                        className={cn(
-                          "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
-                          teamActive ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"
-                        )}
-                      >
-                        <span className="text-[10px] font-semibold">
-                          {team.name.slice(0, 2).toUpperCase()}
-                        </span>
-                      </div>
-                    </Link>
                   )}
-
-                  {/* Projects under team */}
-                  {expanded && isTeamExpanded && (
-                    <div className="ml-5 pl-3 border-l border-slate-100 space-y-0.5 pb-1">
-                      {team.projects.map((project) => {
-                        const projectActive = pathname === `/projects/${project.id}`;
+                  {isOrgExpanded && (
+                    <div className="space-y-0.5">
+                      {orgTeams.map((team) => {
+                        const isTeamExpanded = expandedTeams.has(team.id);
+                        const teamActive = pathname.startsWith(`/teams/${team.id}`);
                         return (
-                          <Link
-                            key={project.id}
-                            href={`/projects/${project.id}`}
-                            onClick={onMobileClose}
-                            className={cn(
-                              "flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
-                              projectActive
-                                ? "bg-indigo-50 text-indigo-700 font-medium"
-                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                          <div key={team.id} className="group">
+                            {expanded ? (
+                              <div className="flex items-center gap-0">
+                                <button
+                                  onClick={() => toggleTeam(team.id)}
+                                  className="p-1 rounded text-slate-400 hover:text-slate-600 shrink-0 dark:text-slate-500"
+                                >
+                                  {isTeamExpanded ? <ChevronDown size={14} /> : <ChevronRightIcon size={14} />}
+                                </button>
+                                <Link
+                                  href={`/teams/${team.id}`}
+                                  onClick={onMobileClose}
+                                  className={cn(
+                                    "flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors truncate",
+                                    teamActive
+                                      ? "bg-indigo-50 text-indigo-700"
+                                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
+                                  )}
+                                >
+                                  <span className="truncate">{team.name}</span>
+                                  <span className="text-[11px] text-slate-400 shrink-0 dark:text-slate-500">
+                                    {team.projects.length}
+                                  </span>
+                                </Link>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTeamMenuOpen(teamMenuOpen === team.id ? null : team.id); }}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-all dark:text-slate-500 dark:hover:text-slate-300"
+                                  >
+                                    <MoreVertical size={14} />
+                                  </button>
+                                  {teamMenuOpen === team.id && (
+                                    <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[140px]">
+                                      <button
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDeleteTeam(team); setTeamMenuOpen(null); }}
+                                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      >
+                                        <Trash2 size={12} />
+                                        Delete Team
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <Link
+                                href={`/teams/${team.id}`}
+                                onClick={onMobileClose}
+                                className="flex items-center justify-center py-1"
+                                title={team.name}
+                              >
+                                <div
+                                  className={cn(
+                                    "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
+                                    teamActive ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-600"
+                                  )}
+                                >
+                                  <span className="text-[10px] font-semibold">
+                                    {team.name.slice(0, 2).toUpperCase()}
+                                  </span>
+                                </div>
+                              </Link>
                             )}
-                          >
-                            <FolderKanban
-                              size={14}
-                              className="shrink-0"
-                              style={{ color: project.color }}
-                            />
-                            <span className="truncate">{project.name}</span>
-                          </Link>
+
+                            {/* Projects under team */}
+                            {expanded && isTeamExpanded && (
+                              <div className="ml-5 pl-3 border-l border-slate-100 space-y-0.5 pb-1">
+                                {team.projects.map((project) => {
+                                  const projectActive = pathname === `/projects/${project.id}`;
+                                  return (
+                                    <Link
+                                      key={project.id}
+                                      href={`/projects/${project.id}`}
+                                      onClick={onMobileClose}
+                                      className={cn(
+                                        "flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
+                                        projectActive
+                                          ? "bg-indigo-50 text-indigo-700 font-medium"
+                                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                                      )}
+                                    >
+                                      <FolderKanban
+                                        size={14}
+                                        className="shrink-0"
+                                        style={{ color: project.color }}
+                                      />
+                                      <span className="truncate">{project.name}</span>
+                                    </Link>
+                                  );
+                                })}
+                                <Link
+                                  href={`/projects?team=${team.id}`}
+                                  onClick={onMobileClose}
+                                  className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
+                                >
+                                  <Plus size={12} className="shrink-0" />
+                                  <span className="text-xs">Add Project</span>
+                                </Link>
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
-                      <Link
-                        href={`/projects?team=${team.id}`}
-                        onClick={onMobileClose}
-                        className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
-                      >
-                        <Plus size={12} className="shrink-0" />
-                        <span className="text-xs">Add Project</span>
-                      </Link>
                     </div>
                   )}
                 </div>
