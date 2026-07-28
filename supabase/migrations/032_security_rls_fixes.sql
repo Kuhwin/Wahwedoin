@@ -201,7 +201,7 @@ END $$;
 CREATE POLICY "Users can view task_field_values"
   ON task_field_values FOR SELECT TO authenticated
   USING (
-    custom_field_id IN (
+    field_id IN (
       SELECT cf.id FROM custom_fields cf
       JOIN projects p ON p.id = cf.project_id
       WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
@@ -212,7 +212,7 @@ CREATE POLICY "Users can view task_field_values"
 CREATE POLICY "Team members can manage task_field_values"
   ON task_field_values FOR ALL TO authenticated
   USING (
-    custom_field_id IN (
+    field_id IN (
       SELECT cf.id FROM custom_fields cf
       JOIN projects p ON p.id = cf.project_id
       WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
