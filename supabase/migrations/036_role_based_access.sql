@@ -3,6 +3,33 @@
 -- viewer read-only restrictions across all tables.
 
 -- =============================================
+-- 0. Ensure helper functions exist
+-- =============================================
+
+CREATE OR REPLACE FUNCTION user_team_ids(uid UUID)
+RETURNS SETOF UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT team_id FROM team_members WHERE user_id = auth.uid();
+$$;
+
+CREATE OR REPLACE FUNCTION user_team_role(tid UUID)
+RETURNS TEXT
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT role FROM team_members WHERE user_id = auth.uid() AND team_id = tid LIMIT 1;
+$$;
+
+REVOKE EXECUTE ON FUNCTION user_team_ids(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION user_team_ids(UUID) TO authenticated;
+REVOKE EXECUTE ON FUNCTION user_team_role(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION user_team_role(UUID) TO authenticated;
+
+-- =============================================
 -- 1. Add 'viewer' to team_members role constraint
 -- =============================================
 ALTER TABLE team_members DROP CONSTRAINT IF EXISTS team_members_role_check;
