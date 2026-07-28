@@ -1,12 +1,10 @@
 -- =============================================
 -- Migration 039: Fix user_team_ids/role functions
 -- auth.uid() inside SECURITY DEFINER functions can
--- return NULL because the function runs as the
--- definer (postgres), not as the calling user.
--- Fix: use the passed-in parameter instead.
+-- return NULL. Fix: use passed-in parameter instead.
 -- =============================================
 
--- Fix user_team_ids: use the uid parameter, not auth.uid()
+-- Fix user_team_ids: use uid parameter, not auth.uid()
 CREATE OR REPLACE FUNCTION user_team_ids(uid UUID)
 RETURNS SETOF UUID
 LANGUAGE sql
@@ -16,7 +14,7 @@ AS $$
   SELECT team_id FROM team_members WHERE user_id = uid;
 $$;
 
--- Fix user_team_role: accept both uid and tid, use the parameters
+-- Fix user_team_role: accept uid explicitly instead of calling auth.uid()
 DROP FUNCTION IF EXISTS user_team_role(UUID);
 CREATE OR REPLACE FUNCTION user_team_role(uid UUID, tid UUID)
 RETURNS TEXT
@@ -30,8 +28,8 @@ $$;
 REVOKE EXECUTE ON FUNCTION user_team_role(UUID, UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION user_team_role(UUID, UUID) TO authenticated;
 
--- Update all RLS policies to pass auth.uid() explicitly
--- (auth.uid() in the policy context is the calling user, not the function definer)
+-- Update RLS policies that used the old 1-arg user_team_role(team_id)
+-- to pass auth.uid() explicitly: user_team_role(auth.uid(), team_id)
 
 -- Teams
 DROP POLICY IF EXISTS "Members can update teams" ON teams;
@@ -69,92 +67,129 @@ CREATE POLICY "Owners and admins can delete projects" ON projects FOR DELETE TO 
     OR user_team_role(auth.uid(), team_id) IN ('owner', 'admin')
   );
 
--- Task comments
-DROP POLICY IF EXISTS "Members can create comments" ON task_comments;
-CREATE POLICY "Members can create comments" ON task_comments FOR INSERT TO authenticated
+-- Portfolios
+DROP POLICY IF EXISTS "Members can create portfolios" ON portfolios;
+CREATE POLICY "Members can create portfolios" ON portfolios FOR INSERT TO authenticated
   WITH CHECK (
     team_id IN (SELECT user_team_ids(auth.uid()))
     AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
   );
 
--- Custom fields
-DROP POLICY IF EXISTS "Members can create custom fields" ON custom_fields;
-DROP POLICY IF EXISTS "Members can update custom fields" ON custom_fields;
-DROP POLICY IF EXISTS "Owners can delete custom fields" ON custom_fields;
-CREATE POLICY "Members can create custom fields" ON custom_fields FOR INSERT TO authenticated
-  WITH CHECK (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-CREATE POLICY "Members can update custom fields" ON custom_fields FOR UPDATE TO authenticated
-  USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-CREATE POLICY "Owners can delete custom fields" ON custom_fields FOR DELETE TO authenticated
-  USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin')
-  );
-
--- Activities
-DROP POLICY IF EXISTS "Members can create activities" ON activities;
-DROP POLICY IF EXISTS "Members can delete activities" ON activities;
-CREATE POLICY "Members can create activities" ON activities FOR INSERT TO authenticated
-  WITH CHECK (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-CREATE POLICY "Members can delete activities" ON activities FOR DELETE TO authenticated
-  USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-
--- Event policies
-DROP POLICY IF EXISTS "Members can create event-team links" ON event_teams;
-DROP POLICY IF EXISTS "Members can delete event-team links" ON event_teams;
-CREATE POLICY "Members can create event-team links" ON event_teams FOR INSERT TO authenticated
-  WITH CHECK (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-CREATE POLICY "Members can delete event-team links" ON event_teams FOR DELETE TO authenticated
-  USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
-  );
-
--- Portfolio policies
+-- portfolio_projects
 DROP POLICY IF EXISTS "Members can create portfolio_projects" ON portfolio_projects;
 DROP POLICY IF EXISTS "Members can delete portfolio_projects" ON portfolio_projects;
 CREATE POLICY "Members can create portfolio_projects" ON portfolio_projects FOR INSERT TO authenticated
   WITH CHECK (
-    project_id IN (
-      SELECT p.id FROM projects p
-      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
-        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+    portfolio_id IN (
+      SELECT id FROM portfolios
+      WHERE team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
     )
   );
 CREATE POLICY "Members can delete portfolio_projects" ON portfolio_projects FOR DELETE TO authenticated
   USING (
+    portfolio_id IN (
+      SELECT id FROM portfolios
+      WHERE team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
+    )
+  );
+
+-- custom_fields
+DROP POLICY IF EXISTS "Members can manage custom_fields" ON custom_fields;
+DROP POLICY IF EXISTS "Members can update custom_fields" ON custom_fields;
+DROP POLICY IF EXISTS "Members can delete custom_fields" ON custom_fields;
+CREATE POLICY "Members can manage custom_fields" ON custom_fields FOR INSERT TO authenticated
+  WITH CHECK (
     project_id IN (
       SELECT p.id FROM projects p
       WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
         AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  );
+CREATE POLICY "Members can update custom_fields" ON custom_fields FOR UPDATE TO authenticated
+  USING (
+    project_id IN (
+      SELECT p.id FROM projects p
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  )
+  WITH CHECK (
+    project_id IN (
+      SELECT p.id FROM projects p
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  );
+CREATE POLICY "Members can delete custom_fields" ON custom_fields FOR DELETE TO authenticated
+  USING (
+    project_id IN (
+      SELECT p.id FROM projects p
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
     )
   );
 
--- Team invites
-DROP POLICY IF EXISTS "Members can create team invites" ON team_invites;
-DROP POLICY IF EXISTS "Members can revoke team invites" ON team_invites;
-CREATE POLICY "Members can create team invites" ON team_invites FOR INSERT TO authenticated
+-- task_field_values
+DROP POLICY IF EXISTS "Members can manage task_field_values" ON task_field_values;
+DROP POLICY IF EXISTS "Members can update task_field_values" ON task_field_values;
+DROP POLICY IF EXISTS "Members can delete task_field_values" ON task_field_values;
+CREATE POLICY "Members can manage task_field_values" ON task_field_values FOR INSERT TO authenticated
   WITH CHECK (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
+    field_id IN (
+      SELECT cf.id FROM custom_fields cf
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
   );
-CREATE POLICY "Members can revoke team invites" ON team_invites FOR DELETE TO authenticated
+CREATE POLICY "Members can update task_field_values" ON task_field_values FOR UPDATE TO authenticated
   USING (
-    team_id IN (SELECT user_team_ids(auth.uid()))
-    AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member')
+    field_id IN (
+      SELECT cf.id FROM custom_fields cf
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  )
+  WITH CHECK (
+    field_id IN (
+      SELECT cf.id FROM custom_fields cf
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  );
+CREATE POLICY "Members can delete task_field_values" ON task_field_values FOR DELETE TO authenticated
+  USING (
+    field_id IN (
+      SELECT cf.id FROM custom_fields cf
+      JOIN projects p ON p.id = cf.project_id
+      WHERE p.team_id IN (SELECT user_team_ids(auth.uid()))
+        AND user_team_role(auth.uid(), p.team_id) IN ('owner', 'admin', 'member')
+      OR (p.team_id IS NULL AND p.created_by = auth.uid())
+    )
+  );
+
+-- activities
+DROP POLICY IF EXISTS "Members can create activities" ON activities;
+CREATE POLICY "Members can create activities" ON activities FOR INSERT TO authenticated
+  WITH CHECK (
+    (team_id IN (SELECT user_team_ids(auth.uid()))
+     AND user_team_role(auth.uid(), team_id) IN ('owner', 'admin', 'member'))
+    OR (team_id IS NULL AND (
+      project_id IN (
+        SELECT p.id FROM projects p
+        WHERE p.created_by = auth.uid()
+      )
+      OR project_id IS NULL
+    ))
   );

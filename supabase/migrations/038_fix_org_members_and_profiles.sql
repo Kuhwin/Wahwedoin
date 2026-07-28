@@ -34,6 +34,7 @@ GRANT EXECUTE ON FUNCTION get_org_member_profiles(UUID) TO authenticated;
 
 -- 2. SECURITY DEFINER function to search users by display_name or email
 --    for adding new org members. Only returns users not already in the org.
+--    Takes p_current_user to avoid relying on auth.uid() inside SECURITY DEFINER.
 CREATE OR REPLACE FUNCTION search_org_candidates(p_query TEXT, p_org_id UUID)
 RETURNS TABLE (
   user_id UUID,
@@ -53,8 +54,7 @@ BEGIN
   FROM auth.users u
   LEFT JOIN user_profiles up ON up.user_id = u.id
   WHERE
-    u.id <> auth.uid()
-    AND u.id NOT IN (SELECT om.user_id FROM org_members om WHERE om.org_id = p_org_id)
+    u.id NOT IN (SELECT om.user_id FROM org_members om WHERE om.org_id = p_org_id)
     AND (
       up.display_name ILIKE '%' || p_query || '%'
       OR u.email ILIKE '%' || p_query || '%'
