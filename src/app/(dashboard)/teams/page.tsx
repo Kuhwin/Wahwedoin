@@ -27,6 +27,7 @@ export default function TeamsPage() {
   const [inviting, setInviting] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [memberProfiles, setMemberProfiles] = useState<Record<string, { display_name: string | null; avatar_url: string | null; email: string }>>({});
   const supabase = createClient();
 
   useEffect(() => {
@@ -125,7 +126,22 @@ export default function TeamsPage() {
       .from("team_members")
       .select("*")
       .eq("team_id", team.id);
-    if (membersData) setMembers(membersData);
+    if (membersData) {
+      setMembers(membersData);
+
+      const userIds = membersData.map((m: TeamMember) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("user_id, display_name, avatar_url")
+        .in("user_id", userIds);
+
+      const { data: authData } = await supabase.auth.getUser();
+      const profileMap: Record<string, { display_name: string | null; avatar_url: string | null; email: string }> = {};
+      (profiles || []).forEach((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => {
+        profileMap[p.user_id] = { ...p, email: p.user_id === authData.user?.id ? (authData.user.email || "") : "" };
+      });
+      setMemberProfiles(profileMap);
+    }
 
     const { data: invitesData } = await supabase
       .from("team_invites")
@@ -145,12 +161,9 @@ export default function TeamsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Check if already a member
-    const alreadyMember = members.some(
-      (m) => m.user_email?.toLowerCase() === inviteEmail.trim().toLowerCase()
-    );
-    if (alreadyMember) {
-      setMessage({ type: "error", text: "This person is already a team member." });
+    // Check if inviting self
+    if (inviteEmail.trim().toLowerCase() === user.email?.toLowerCase()) {
+      setMessage({ type: "error", text: "You cannot invite yourself." });
       setInviting(false);
       return;
     }
@@ -351,31 +364,35 @@ export default function TeamsPage() {
               {members.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">No members yet</p>
               ) : (
-                members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
-                    <div className="flex items-center gap-3">
-                      <Avatar email={member.user_email || member.user_id} size="sm" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{member.user_email || member.user_id}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
+                members.map((member) => {
+                  const profile = memberProfiles[member.user_id];
+                  const displayName = profile?.display_name || profile?.email || member.user_id;
+                  return (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
+                      <div className="flex items-center gap-3">
+                        <Avatar email={member.user_id} avatarUrl={profile?.avatar_url} name={profile?.display_name} size="sm" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{displayName}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Joined {new Date(member.joined_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={member.role === "owner" ? "info" : "default"}>
+                          {member.role}
+                        </Badge>
+                        {member.role !== "owner" && (
+                          <button
+                            onClick={() => handleRemoveMember(member.id)}
+                            className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors"
+                            title="Remove member"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={member.role === "owner" ? "info" : "default"}>
-                        {member.role}
-                      </Badge>
-                      {member.role !== "owner" && (
-                        <button
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors"
-                          title="Remove member"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
