@@ -65,6 +65,7 @@ export default function Sidebar({
   const [quickAddProjectId, setQuickAddProjectId] = useState("");
   const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [createTeamOrgId, setCreateTeamOrgId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDesc, setNewTeamDesc] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
@@ -221,11 +222,12 @@ export default function Sidebar({
         return;
       }
 
+      const targetOrgId = createTeamOrgId || orgEntries[0].id;
       const teamId = crypto.randomUUID();
 
       const { error: teamError } = await supabase.from("teams").insert({
         id: teamId,
-        org_id: orgEntries[0].id,
+        org_id: targetOrgId,
         name: newTeamName.trim(),
         slug: generateSlug(newTeamName) + "-" + crypto.randomUUID().slice(0, 4),
         description: newTeamDesc.trim() || null,
@@ -262,6 +264,7 @@ export default function Sidebar({
 
       setTeams([...teams, { ...team, projects: [] }]);
       setShowCreateTeam(false);
+      setCreateTeamOrgId(null);
       setNewTeamName("");
       setNewTeamDesc("");
       setExpandedTeams(new Set([team.id]));
@@ -438,7 +441,7 @@ export default function Sidebar({
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4 text-center dark:bg-slate-800">
                 <p className="text-xs text-slate-500 mb-3 dark:text-slate-400">No teams yet</p>
                 <button
-                  onClick={() => setShowCreateTeam(true)}
+                  onClick={() => { setCreateTeamOrgId(null); setShowCreateTeam(true); }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
                 >
                   <Plus size={12} />
@@ -449,7 +452,7 @@ export default function Sidebar({
           ) : (
             <div className="px-2 pb-2 flex justify-center">
               <button
-                onClick={() => setShowCreateTeam(true)}
+                onClick={() => { setCreateTeamOrgId(null); setShowCreateTeam(true); }}
                 className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Team"
               >
@@ -490,7 +493,7 @@ export default function Sidebar({
                         </button>
                       )}
                       <button
-                        onClick={() => setShowCreateTeam(true)}
+                        onClick={() => { setCreateTeamOrgId(orgId); setShowCreateTeam(true); }}
                         className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
                         title="New Team"
                       >
@@ -704,6 +707,20 @@ export default function Sidebar({
                 {teamError && (
                   <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
                     {teamError}
+                  </div>
+                )}
+                {!createTeamOrgId && orgsById && Object.keys(orgsById).length > 1 && (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-slate-700">Organization</label>
+                    <select
+                      value={createTeamOrgId || ""}
+                      onChange={(e) => setCreateTeamOrgId(e.target.value || null)}
+                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {Object.values(orgsById).map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
                 <div className="space-y-1">
