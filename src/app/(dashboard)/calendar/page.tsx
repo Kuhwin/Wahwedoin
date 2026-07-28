@@ -349,7 +349,7 @@ export default function CalendarPage() {
       .from("user_google_accounts")
       .select("id, email, display_name, color")
       .eq("user_id", user.id)
-      .contains("scope", "calendar");
+      .ilike("scope", "%calendar%");
     if (accounts) setLinkedAccounts(accounts);
   }, [supabase]);
 
