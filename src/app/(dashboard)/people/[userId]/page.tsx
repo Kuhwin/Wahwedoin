@@ -189,54 +189,38 @@ export default function MemberDetailPage() {
         }));
       setTasks(taskRows);
 
-      // Events: from user's teams AND from any linked Google accounts
-      const { data: googleAccounts } = await supabase
-        .from("user_google_accounts")
-        .select("id, email")
-        .eq("user_id", userId);
-      const accountIds = (googleAccounts || []).map((a: { id: string }) => a.id);
-      const accountEmailMap = new Map<string, string>();
-      (googleAccounts || []).forEach((a: { id: string; email: string }) => {
-        accountEmailMap.set(a.id, a.email);
-      });
+      // Events: fetch via server-side API (combines internal events + live Google Calendar data for all linked accounts)
+      try {
+        const res = await fetch(`/api/people/${userId}/calendar?days=14`);
+        if (res.ok) {
+          const data = await res.json();
+          const apiEvents: Array<{
+            id: string;
+            title: string;
+            start: string;
+            end: string;
+            allDay: boolean;
+            color: string;
+            source: string;
+            meetLink: string | null;
+          }> = data.events || [];
 
-      const orFilters: string[] = [];
-      if (teamIds.length > 0) orFilters.push(`team_id.in.(${teamIds.join(",")})`);
-      if (accountIds.length > 0) orFilters.push(`google_account_id.in.(${accountIds.join(",")})`);
-
-      if (orFilters.length > 0) {
-        const now = new Date().toISOString();
-        const weekAhead = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: eventsData } = await supabase
-          .from("events")
-          .select("id, title, start_date, end_date, color, all_day, meet_link, team_id, google_account_id")
-          .or(orFilters.join(","))
-          .gte("start_date", now)
-          .lte("start_date", weekAhead)
-          .order("start_date", { ascending: true })
-          .limit(20);
-
-        const seen = new Set<string>();
-        const unique: (EventRow & { team_id: string; google_account_id: string | null })[] = [];
-        (eventsData || []).forEach((e: EventRow & { team_id: string; google_account_id: string | null }) => {
-          if (seen.has(e.id)) return;
-          seen.add(e.id);
-          unique.push(e);
-        });
-
-        setEvents(
-          unique.map((e) => ({
-            id: e.id,
-            title: e.title,
-            start_date: e.start_date,
-            end_date: e.end_date,
-            color: e.color,
-            all_day: e.all_day,
-            meet_link: e.meet_link,
-            team_name: e.team_id ? teamNameMap.get(e.team_id) : (e.google_account_id ? accountEmailMap.get(e.google_account_id) || undefined : undefined),
-          }))
-        );
-      } else {
+          setEvents(
+            apiEvents.map((e) => ({
+              id: e.id,
+              title: e.title,
+              start_date: e.start,
+              end_date: e.end,
+              color: e.color,
+              all_day: e.allDay,
+              meet_link: e.meetLink,
+              team_name: e.source,
+            }))
+          );
+        } else {
+          setEvents([]);
+        }
+      } catch {
         setEvents([]);
       }
 
