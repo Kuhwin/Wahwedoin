@@ -341,17 +341,29 @@ export default function Sidebar({
     setTeamMenuOpen(null);
   }
 
-  const navItems = [
+  const primaryNavItems = [
     { href: "/", icon: Home, label: "Home" },
     { href: "/my-tasks", icon: CheckSquare, label: "My Tasks" },
+    { href: "/inbox", icon: Inbox, label: "Inbox" },
     { href: "/calendar", icon: Calendar, label: "Calendar" },
+  ];
+
+  const moreNavItems = [
     { href: "/drive", icon: FolderOpen, label: "Drive" },
     { href: "/gmail", icon: Mail, label: "Gmail" },
-    { href: "/inbox", icon: Inbox, label: "Inbox" },
     { href: "/manage", icon: Building2, label: "Manage" },
     { href: "/people", icon: Users, label: "People" },
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
   ];
+
+  const isMoreActive = moreNavItems.some(
+    (item) => pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+  );
+  const [moreOpen, setMoreOpen] = useState(isMoreActive);
+
+  useEffect(() => {
+    if (isMoreActive) setMoreOpen(true);
+  }, [isMoreActive]);
 
   const teamsByOrg = teams.reduce<Record<string, TeamWithProjects[]>>((acc, t) => {
     const oid = t.org_id || "__none__";
@@ -455,7 +467,7 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav className="px-3 py-2 space-y-0.5">
-        {navItems.map((item) => {
+        {primaryNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));
@@ -482,6 +494,82 @@ export default function Sidebar({
             </Link>
           );
         })}
+
+        {expanded && (
+          <>
+            <button
+              onClick={() => setMoreOpen((v) => !v)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
+            >
+              <ChevronRightIcon
+                size={11}
+                className={cn(
+                  "transition-transform shrink-0",
+                  moreOpen && "rotate-90"
+                )}
+              />
+              <span>More</span>
+            </button>
+            {moreOpen && (
+              <div className="space-y-0.5">
+                {moreNavItems.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== "/" && pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onMobileClose}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "text-white"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
+                      )}
+                      style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
+                    >
+                      <item.icon
+                        size={18}
+                        className={cn(
+                          isActive ? "text-white" : "text-slate-400 dark:text-slate-500"
+                        )}
+                      />
+                      <span className="flex-1">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {!expanded && (
+          <div className="space-y-0.5 pt-2 border-t border-slate-200 dark:border-slate-700 mt-2">
+            {moreNavItems.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/" && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onMobileClose}
+                  className={cn(
+                    "flex items-center justify-center p-2 rounded-lg transition-colors",
+                    isActive
+                      ? "text-white"
+                      : "text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800"
+                  )}
+                  style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
+                  title={item.label}
+                >
+                  <item.icon size={18} />
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Teams Section */}

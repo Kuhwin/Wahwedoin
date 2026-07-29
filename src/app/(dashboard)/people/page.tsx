@@ -160,11 +160,28 @@ export default function PeoplePage() {
       const teamIds = (teamMembersRes.data || []).map((t: { team_id: string }) => t.team_id);
       const eventsMap: Record<string, number> = {};
       userIds.forEach((id) => { eventsMap[id] = 0 });
-      if (teamIds.length > 0) {
+
+      const { data: googleAccounts } = await supabase
+        .from("user_google_accounts")
+        .select("id, user_id")
+        .in("user_id", userIds);
+
+      const userAccountSet: Record<string, Set<string>> = {};
+      userIds.forEach((id) => { userAccountSet[id] = new Set(); });
+      (googleAccounts || []).forEach((a: { id: string; user_id: string }) => {
+        userAccountSet[a.user_id]?.add(a.id);
+      });
+      const allAccountIds = [...new Set((googleAccounts || []).map((a: { id: string }) => a.id))] as string[];
+
+      const orFilters: string[] = [];
+      if (teamIds.length > 0) orFilters.push(`team_id.in.(${teamIds.join(",")})`);
+      if (allAccountIds.length > 0) orFilters.push(`google_account_id.in.(${allAccountIds.join(",")})`);
+
+      if (orFilters.length > 0) {
         const { data: events } = await supabase
           .from("events")
-          .select("team_id, start_date")
-          .in("team_id", teamIds)
+          .select("team_id, start_date, google_account_id")
+          .or(orFilters.join(","))
           .gte("start_date", today)
           .lte("start_date", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
 
@@ -173,10 +190,20 @@ export default function PeoplePage() {
         (teamMembersRes.data || []).forEach((tm: { user_id: string; team_id: string }) => {
           userTeamSet[tm.user_id]?.add(tm.team_id);
         });
-        (events || []).forEach((ev: { team_id: string }) => {
+
+        (events || []).forEach((ev: { team_id: string; google_account_id: string | null }) => {
           Object.entries(userTeamSet).forEach(([uid, teamSet]) => {
-            if (teamSet.has(ev.team_id)) eventsMap[uid] = (eventsMap[uid] || 0) + 1;
+            if (teamSet.has(ev.team_id)) {
+              eventsMap[uid] = (eventsMap[uid] || 0) + 1;
+            }
           });
+          if (ev.google_account_id) {
+            Object.entries(userAccountSet).forEach(([uid, accountSet]) => {
+              if (accountSet.has(ev.google_account_id!)) {
+                eventsMap[uid] = (eventsMap[uid] || 0) + 1;
+              }
+            });
+          }
         });
       }
 
