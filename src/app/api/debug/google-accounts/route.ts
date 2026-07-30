@@ -22,7 +22,7 @@ export async function GET() {
     hasScope: a.scope?.includes("calendar") ?? false,
     tokenExpired: a.token_expires_at ? new Date(a.token_expires_at) <= now : "no_expiry_stored",
     tokenExpiresAt: a.token_expires_at,
-    scope: a.scope?.slice(0, 80),
+    scope: a.scope,
     linkedAt: a.created_at,
     updatedAt: a.updated_at,
   }));
