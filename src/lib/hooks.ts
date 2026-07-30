@@ -117,15 +117,22 @@ export function useDashboardData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { projects: [] as Project[], tasks: [] as Task[], activities: [] as Activity[], events: [] as Event[], userNames: {} as Record<string, string> };
 
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString();
+      const thirtyDaysFromNow = new Date(Date.now() + 30 * 86400000).toISOString();
+
       const [projectsRes, tasksRes, actRes, eventsRes] = await Promise.all([
         supabase
           .from("projects")
           .select("id, name, team_id, status, color, created_at")
-          .order("created_at", { ascending: false }),
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(50),
         supabase
           .from("tasks")
           .select("id, project_id, title, status, priority, due_date, position, created_at")
-          .order("created_at", { ascending: false }),
+          .gte("created_at", ninetyDaysAgo)
+          .order("created_at", { ascending: false })
+          .limit(200),
         supabase
           .from("activities")
           .select("id, user_id, action, detail, created_at")
@@ -134,6 +141,8 @@ export function useDashboardData() {
         supabase
           .from("events")
           .select("*")
+          .gte("start_date", ninetyDaysAgo)
+          .lte("start_date", thirtyDaysFromNow)
           .order("start_date", { ascending: true }),
       ]);
 
@@ -168,7 +177,7 @@ export function useDashboardData() {
 
       return { projects, tasks, activities, events: upcoming, userNames };
     },
-    { revalidateOnFocus: false, dedupingInterval: 5000 }
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
   );
 
   return {

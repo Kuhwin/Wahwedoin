@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check, X, Edit3, Repeat, Video, Users } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -226,9 +227,9 @@ export default function CalendarPage() {
   const supabase = createClient();
   const { timezone } = useTimezone();
 
-  const loadData = useCallback(async () => {
+  const calendarFetcher = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return null;
 
     const { data: memberships } = await supabase
       .from("team_members")
@@ -238,28 +239,29 @@ export default function CalendarPage() {
     let teamList: Team[] = [];
     if (memberships) {
       teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
-      setTeams(teamList);
     }
 
     const teamIds = (memberships || []).map((m: { team_id: string }) => m.team_id);
 
+    let projectsData: Project[] | null = null;
     if (teamIds.length > 0) {
-      const { data: projectsData } = await supabase
+      const { data } = await supabase
         .from("projects")
         .select("*")
         .in("team_id", teamIds)
         .eq("status", "active")
         .order("name");
-
-      if (projectsData) setProjects(projectsData);
+      projectsData = data as Project[] | null;
     }
 
+    const oneYearAgo = new Date(Date.now() - 365 * 86400000).toISOString();
+    const oneYearFromNow = new Date(Date.now() + 365 * 86400000).toISOString();
     const { data: eventsData } = await supabase
       .from("events")
       .select("*")
+      .gte("start_date", oneYearAgo)
+      .lte("start_date", oneYearFromNow)
       .order("start_date", { ascending: true });
-
-    if (eventsData) setEvents(eventsData);
 
     const allExternal: ExternalEvent[] = [];
 
@@ -282,15 +284,70 @@ export default function CalendarPage() {
       }
     }
 
+    let calLinksData: CalendarLink[] = [];
     if (teamIds.length > 0) {
       const { data: links } = await supabase
         .from("calendar_links")
         .select("*")
         .in("team_id", teamIds);
-      if (links) {
-        setCalLinks(links as CalendarLink[]);
+      if (links) calLinksData = links as CalendarLink[];
+    }
+
+    const { data: accounts } = await supabase
+      .from("user_google_accounts")
+      .select("id, email, display_name, color")
+      .eq("user_id", user.id)
+      .ilike("scope", "%calendar%");
+
+    const googleAccounts = accounts as { id: string; email: string; display_name: string | null; color: string | null }[] | null;
+
+    return { teamList, projectsData: projectsData || [], eventsData: eventsData || [], calLinksData, googleAccounts: googleAccounts || [], user };
+  }, [supabase]);
+
+  const { data: calData, mutate: calMutate } = useSWR(
+    "calendar-data",
+    calendarFetcher,
+    { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+
+  const calLoaded = useRef(false);
+  useEffect(() => {
+    if (calData && !calLoaded.current) {
+      calLoaded.current = true;
+      setTeams(calData.teamList);
+      if (calData.projectsData) setProjects(calData.projectsData);
+      if (calData.eventsData) setEvents(calData.eventsData);
+      setCalLinks(calData.calLinksData);
+      if (calData.googleAccounts) setLinkedAccounts(calData.googleAccounts);
+
+      if (calData.teamList.length > 0) {
+        setNewTeamIds((prev) => prev.length > 0 ? prev : [calData.teamList[0].id]);
+        setFilterTeamIds((prev) => prev.length > 0 ? prev : calData.teamList.map((t) => t.id));
+      }
+
+      const fetchExternal = async () => {
+        const allExternal: ExternalEvent[] = [];
+        const now = new Date();
+        const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
+        for (const year of holidayYears) {
+          for (const h of getHolidaysForYear(year)) {
+            const nextDay = new Date(year, h.month, h.day + 1);
+            const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
+            allExternal.push({
+              id: `holiday-${h.dateStr}-${h.name}`,
+              title: h.name,
+              start: h.dateStr,
+              end: nextDayStr,
+              description: "Barbados public holiday",
+              allDay: true,
+              color: "#16a34a",
+              source: "Barbados Holidays",
+            });
+          }
+        }
+
         await Promise.all(
-          (links as CalendarLink[]).map(async (link) => {
+          calData.calLinksData.map(async (link) => {
             try {
               const res = await fetch("/api/calendar", {
                 method: "POST",
@@ -300,62 +357,40 @@ export default function CalendarPage() {
               if (res.ok) {
                 const data = await res.json();
                 if (data.events) {
-                  allExternal.push(
-                    ...data.events.map((e: ExternalEvent) => ({
-                      ...e,
-                      color: link.color,
-                    }))
-                  );
+                  allExternal.push(...data.events.map((e: ExternalEvent) => ({ ...e, color: link.color })));
                 }
               }
-            } catch {
-              // Skip failed calendars silently
-            }
+            } catch { /* skip */ }
           })
         );
-      }
-    }
 
-      try {
-      const googleResults = await fetchAllAccountsCalendar(user.id);
-      for (const result of googleResults) {
-        for (const event of result.events) {
-          allExternal.push({
-            id: event.id,
-            title: event.title,
-            start: event.start,
-            end: event.end,
-            description: event.description,
-            allDay: event.allDay,
-            color: result.accountColor || "#4285F4",
-            source: result.accountEmail,
-            meetLink: event.meetLink || null,
-            attendees: event.attendees || [],
-          });
+        if (calData.user?.id) {
+          try {
+            const googleResults = await fetchAllAccountsCalendar(calData.user.id);
+            for (const result of googleResults) {
+              for (const event of result.events) {
+                allExternal.push({
+                  id: event.id,
+                  title: event.title,
+                  start: event.start,
+                  end: event.end,
+                  description: event.description,
+                  allDay: event.allDay,
+                  color: result.accountColor || "#4285F4",
+                  source: result.accountEmail,
+                  meetLink: event.meetLink || null,
+                  attendees: event.attendees || [],
+                });
+              }
+            }
+          } catch { /* skip */ }
         }
-      }
-    } catch {
-      // Google Calendar fetch failed silently
+
+        setExternalEvents(allExternal);
+      };
+      void fetchExternal();
     }
-
-    setExternalEvents(allExternal);
-
-    if (teamList.length > 0) {
-      setNewTeamIds((prev) => prev.length > 0 ? prev : [teamList[0].id]);
-      setFilterTeamIds((prev) => prev.length > 0 ? prev : teamList.map((t) => t.id));
-    }
-
-    const { data: accounts } = await supabase
-      .from("user_google_accounts")
-      .select("id, email, display_name, color")
-      .eq("user_id", user.id)
-      .ilike("scope", "%calendar%");
-    if (accounts) setLinkedAccounts(accounts);
-  }, [supabase]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  }, [calData]);
 
   async function fetchAllExternalEvents(links: CalendarLink[]) {
     setLoadingCal(true);
@@ -559,7 +594,7 @@ export default function CalendarPage() {
     }
     setEditingEvent(null);
     setSaving(false);
-    void loadData();
+    void calMutate();
   }
 
   async function handleDeleteEvent(event: CalendarEvent) {
@@ -573,7 +608,7 @@ export default function CalendarPage() {
     }
     setSelectedEvent(null);
     setEditingEvent(null);
-    void loadData();
+    void calMutate();
   }
 
   function handleDragStart(e: React.DragEvent, event: CalendarEvent) {
@@ -631,7 +666,7 @@ export default function CalendarPage() {
     }).eq("id", ev.id);
 
     if (error) {
-      void loadData();
+      void calMutate();
     }
   }
 

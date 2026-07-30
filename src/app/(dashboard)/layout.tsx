@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { SWRConfig } from "swr";
 import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
@@ -98,6 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <SWRConfig value={{ dedupingInterval: 5000, revalidateOnFocus: false, errorRetryCount: 2, keepPreviousData: true }}>
     <ThemeProvider>
     <ActiveUserProvider>
     <AccentColourProvider>
@@ -166,5 +168,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </AccentColourProvider>
     </ActiveUserProvider>
     </ThemeProvider>
+    </SWRConfig>
   );
 }

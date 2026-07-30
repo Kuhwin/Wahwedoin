@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import {
   Home,
@@ -79,6 +80,84 @@ export default function Sidebar({
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<TeamWithProjects | null>(null);
   const [orgSettings, setOrgSettings] = useState<{ orgId: string; orgName: string } | null>(null);
 
+  const sidebarFetcher = useCallback(async () => {
+    const { data: memberships, error } = await supabase
+      .from("team_members")
+      .select("team_id, teams(id, name, description, created_at, org_id, cover_photo_url)")
+      .eq("user_id", user.id);
+
+    if (error || !memberships) return { teamsWithProjects: [] as TeamWithProjects[], orgMap: {} as Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }>, allOrgIds: [] as string[] };
+
+    const teamList = (memberships as { teams: Team }[])
+      .map((m) => m.teams)
+      .filter(Boolean);
+
+    const { data: orgMembers } = await supabase
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", user.id);
+
+    const memberOrgIds = (orgMembers || []).map((m: { org_id: string }) => m.org_id);
+
+    const allOrgIds = [
+      ...new Set([
+        ...teamList.map((t) => t.org_id).filter(Boolean),
+        ...memberOrgIds,
+      ]),
+    ] as string[];
+
+    let orgMap: Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }> = {};
+    if (allOrgIds.length > 0) {
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, name, slug, cover_photo_url")
+        .in("id", allOrgIds);
+      if (orgs?.length) {
+        orgs.forEach((o: { id: string; name: string; slug: string; cover_photo_url: string | null }) => { orgMap[o.id] = o; });
+      }
+    }
+
+    const teamIds = teamList.map((t) => t.id);
+    let allProjects: Project[] = [];
+    if (teamIds.length > 0) {
+      const { data: projectsData } = await supabase
+        .from("projects")
+        .select("id, name, team_id, status, created_at")
+        .in("team_id", teamIds)
+        .order("name");
+      if (projectsData) allProjects = projectsData as Project[];
+    }
+
+    const projectsByTeam = new Map<string, Project[]>();
+    allProjects.forEach((p) => {
+      if (!projectsByTeam.has(p.team_id)) projectsByTeam.set(p.team_id, []);
+      projectsByTeam.get(p.team_id)!.push(p);
+    });
+
+    const teamsWithProjects: TeamWithProjects[] = teamList.map((team) => ({
+      ...team,
+      projects: projectsByTeam.get(team.id) || [],
+    }));
+
+    return { teamsWithProjects, orgMap, allOrgIds };
+  }, [supabase, user.id]);
+
+  const { data: sidebarData, mutate } = useSWR(
+    user.id ? `sidebar:${user.id}` : null,
+    sidebarFetcher,
+    { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+
+  const hasLoaded = useRef(false);
+  useEffect(() => {
+    if (sidebarData && !hasLoaded.current) {
+      setTeams(sidebarData.teamsWithProjects);
+      setOrgsById(sidebarData.orgMap);
+      setExpandedOrgs(new Set(sidebarData.allOrgIds));
+      hasLoaded.current = true;
+    }
+  }, [sidebarData]);
+
   function handleOrgUpdated(orgId?: string, newName?: string) {
     if (orgId && newName) {
       setOrgsById((prev) => {
@@ -93,81 +172,8 @@ export default function Sidebar({
         return prev;
       });
     }
-    void loadData();
+    void mutate();
   }
-
-  const loadData = useCallback(async () => {
-    try {
-      const { data: memberships, error } = await supabase
-        .from("team_members")
-        .select("team_id, teams(id, name, description, created_at, org_id, cover_photo_url)")
-        .eq("user_id", user.id);
-
-      if (error || !memberships) return;
-
-      const teamList = (memberships as { teams: Team }[])
-        .map((m) => m.teams)
-        .filter(Boolean);
-
-      // Also fetch all orgs the user is a member of (even those with no teams)
-      const { data: orgMembers } = await supabase
-        .from("org_members")
-        .select("org_id")
-        .eq("user_id", user.id);
-
-      const memberOrgIds = (orgMembers || []).map((m: { org_id: string }) => m.org_id);
-
-      const allOrgIds = [
-        ...new Set([
-          ...teamList.map((t) => t.org_id).filter(Boolean),
-          ...memberOrgIds,
-        ]),
-      ] as string[];
-
-      if (allOrgIds.length > 0) {
-        const { data: orgs } = await supabase
-          .from("organizations")
-          .select("id, name, slug, cover_photo_url")
-          .in("id", allOrgIds);
-        if (orgs?.length) {
-          const orgMap: Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }> = {};
-          orgs.forEach((o: { id: string; name: string; slug: string; cover_photo_url: string | null }) => { orgMap[o.id] = o; });
-          setOrgsById(orgMap);
-          setExpandedOrgs(new Set(allOrgIds));
-        }
-      }
-
-      const teamIds = teamList.map((t) => t.id);
-      let allProjects: Project[] = [];
-      if (teamIds.length > 0) {
-        const { data: projectsData } = await supabase
-          .from("projects")
-          .select("id, name, team_id, status, created_at")
-          .in("team_id", teamIds)
-          .order("name");
-        if (projectsData) allProjects = projectsData as Project[];
-      }
-
-      const projectsByTeam = new Map<string, Project[]>();
-      allProjects.forEach((p) => {
-        if (!projectsByTeam.has(p.team_id)) projectsByTeam.set(p.team_id, []);
-        projectsByTeam.get(p.team_id)!.push(p);
-      });
-
-      const teamsWithProjects: TeamWithProjects[] = teamList.map((team) => ({
-        ...team,
-        projects: projectsByTeam.get(team.id) || [],
-      }));
-
-      setTeams(teamsWithProjects);
-    } catch {
-      // Table might not exist yet
-    }
-  }, [supabase, user.id]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
 
   function toggleTeam(teamId: string) {
     setExpandedTeams((prev) => {
@@ -287,6 +293,7 @@ export default function Sidebar({
       setNewTeamName("");
       setNewTeamDesc("");
       setExpandedTeams(new Set([team.id]));
+      void mutate();
     } catch {
       setTeamError("An unexpected error occurred.");
     }
@@ -322,7 +329,7 @@ export default function Sidebar({
 
       setShowCreateOrg(false);
       setNewOrgName("");
-      void loadData();
+      void mutate();
     } catch {
       // ignore
     }
@@ -339,6 +346,7 @@ export default function Sidebar({
     setTeams(teams.filter((t) => t.id !== confirmDeleteTeam.id));
     setConfirmDeleteTeam(null);
     setTeamMenuOpen(null);
+    void mutate();
   }
 
   const primaryNavItems = [

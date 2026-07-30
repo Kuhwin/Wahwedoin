@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown, BarChart3 } from "lucide-react";
 import Link from "next/link";
@@ -69,7 +70,7 @@ export default function ProjectPage() {
   const supabase = createClient();
   const projectId = params.projectId as string;
 
-  const loadData = useCallback(async () => {
+  const projectFetcher = useCallback(async () => {
     const [{ data: { user } }, { data: projectData }] = await Promise.all([
       supabase.auth.getUser(),
       supabase
@@ -79,13 +80,7 @@ export default function ProjectPage() {
         .single(),
     ]);
 
-    if (user) setCurrentUser(user.id);
-
-    if (!projectData) {
-      router.push("/projects");
-      return;
-    }
-    setProject(projectData);
+    if (!projectData) return null;
 
     const [tasksRes, sectionsRes, membersRes, tagsRes, multiHomedRes, allProjectsRes] = await Promise.all([
       supabase
@@ -165,36 +160,57 @@ export default function ProjectPage() {
       });
     }
 
-    if (allTasks.length > 0) setTasks(allTasks);
-
-    if (sectionsRes.data && sectionsRes.data.length > 0) {
-      setSections(sectionsRes.data);
-    } else {
+    let sections = sectionsRes.data || [];
+    if (sections.length === 0) {
       const inserted = await supabase
         .from("sections")
         .insert(DEFAULT_SECTIONS.map((s) => ({ ...s, project_id: projectId })))
         .select();
-      if (inserted.data) setSections(inserted.data);
+      if (inserted.data) sections = inserted.data;
     }
 
-    if (membersRes.data) {
-      setMembers(membersRes.data);
-    }
-
+    const memberProfilesMap: Record<string, string> = {};
     if (profilesResult.data) {
-      const map: Record<string, string> = {};
-      profilesResult.data.forEach((p: { user_id: string; display_name: string }) => { map[p.user_id] = p.display_name; });
-      setMemberProfiles(map);
+      profilesResult.data.forEach((p: { user_id: string; display_name: string }) => { memberProfilesMap[p.user_id] = p.display_name; });
     }
 
-    if (tagsRes.data) setTags(tagsRes.data);
+    return {
+      currentUserId: user?.id || null,
+      project: projectData,
+      tasks: allTasks,
+      sections,
+      members: membersRes.data || [],
+      memberProfiles: memberProfilesMap,
+      tags: tagsRes.data || [],
+    };
+  }, [projectId, supabase]);
 
-    setLoading(false);
-  }, [projectId, supabase, router]);
+  const { data: projectData, mutate: projectMutate } = useSWR(
+    projectId ? `project:${projectId}` : null,
+    projectFetcher,
+    { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
+  );
+
+  const projectLoaded = useRef(false);
+  useEffect(() => {
+    if (projectData && !projectLoaded.current) {
+      projectLoaded.current = true;
+      setCurrentUser(projectData.currentUserId);
+      setProject(projectData.project);
+      setTasks(projectData.tasks);
+      setSections(projectData.sections);
+      setMembers(projectData.members);
+      setMemberProfiles(projectData.memberProfiles);
+      setTags(projectData.tags);
+      setLoading(false);
+    }
+  }, [projectData]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    if (projectData === null) {
+      router.push("/projects");
+    }
+  }, [projectData, router]);
 
   const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     let taskTitle = "task";
