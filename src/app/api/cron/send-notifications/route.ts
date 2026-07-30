@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/security";
 import { sendEmail } from "@/lib/email";
+import { checkDueDatesServer } from "@/lib/dueDateServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
+
+  // Run server-side due date check before dispatching emails
+  const dueDateCount = await checkDueDatesServer();
 
   const { data: notifications } = await supabase
     .from("notifications")
@@ -65,5 +69,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ sent });
+  return NextResponse.json({ dueDateNotifications: dueDateCount, emailSent: sent });
 }
