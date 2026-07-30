@@ -38,10 +38,9 @@ async function refreshAccessToken(account: GoogleAccount): Promise<string | null
 }
 
 async function getValidToken(supabase: ReturnType<typeof getServiceClient>, account: GoogleAccount): Promise<string | null> {
-  if (account.token_expires_at && new Date(account.token_expires_at) > new Date()) {
-    return account.access_token;
-  }
-  if (!account.refresh_token) return account.access_token;
+  if (!account.token_expires_at) return account.access_token;
+  if (new Date(account.token_expires_at) > new Date()) return account.access_token;
+  if (!account.refresh_token) return null;
 
   const newToken = await refreshAccessToken(account);
   if (!newToken) return null;
@@ -168,7 +167,10 @@ export async function GET(
 
       try {
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn(`[calendar] Google API error ${res.status} for ${account.email}`);
+          return;
+        }
         const data = (await res.json()) as { items?: GoogleCalendarItem[] };
         const items = data.items || [];
         for (const e of items) {

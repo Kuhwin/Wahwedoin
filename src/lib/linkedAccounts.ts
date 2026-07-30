@@ -27,12 +27,11 @@ async function refreshAccessToken(account: LinkedGoogleAccount): Promise<string 
   return data.access_token || null;
 }
 
-export async function getValidToken(account: LinkedGoogleAccount): Promise<string> {
-  if (account.token_expires_at && new Date(account.token_expires_at) > new Date()) {
-    return account.access_token;
-  }
-  const refreshed = await refreshAccessToken(account);
-  return refreshed || account.access_token;
+export async function getValidToken(account: LinkedGoogleAccount): Promise<string | null> {
+  if (!account.token_expires_at) return account.access_token;
+  if (new Date(account.token_expires_at) > new Date()) return account.access_token;
+  if (!account.refresh_token) return null;
+  return refreshAccessToken(account);
 }
 
 export async function fetchGoogleAPI<T>(
@@ -40,10 +39,17 @@ export async function fetchGoogleAPI<T>(
   url: string
 ): Promise<T | null> {
   const token = await getValidToken(account);
+  if (!token) {
+    console.warn(`[google] Token expired for ${account.email}, account needs re-linking`);
+    return null;
+  }
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`[google] API error ${res.status} for ${account.email}`);
+    return null;
+  }
   return res.json() as Promise<T>;
 }
 
