@@ -328,12 +328,13 @@ export default function TaskDetailModal({
         (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
       );
       if (mentioned && mentioned.user_id !== user.id) {
-        await supabase.from("notifications").insert({
-          user_id: mentioned.user_id,
-          type: "comment",
-          title: `You were mentioned in a comment on "${task!.title}"`,
-          body: `${getMemberName(user.id)}: ${body}`,
-          link: `/projects/${task!.project_id}`,
+        const title = `You were mentioned in a comment on "${task!.title}"`;
+        const mentionBody = `${getMemberName(user.id)}: ${body}`;
+        const link = `/projects/${task!.project_id}`;
+        await supabase.from("notifications").insert({ user_id: mentioned.user_id, type: "comment", title, body: mentionBody, link });
+        void fetch("/api/notifications/send-assignment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: mentioned.user_id, title, body: mentionBody, link }),
         });
       }
     }
@@ -539,12 +540,13 @@ export default function TaskDetailModal({
       await supabase.from("task_assignees").insert({ task_id: task!.id, user_id: userId });
       setTaskAssignees([...taskAssignees, userId]);
       if (userId !== currentUserId && task) {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          title: `You were assigned to "${task.title}"`,
-          body: `Assigned by ${getMemberName(currentUserId ?? "")}`,
-          type: "task",
-          link: `/projects/${task.project_id}`,
+        const title = `You were assigned to "${task.title}"`;
+        const body = `Assigned by ${getMemberName(currentUserId ?? "")}`;
+        const link = `/projects/${task.project_id}`;
+        await supabase.from("notifications").insert({ user_id: userId, title, body, type: "task", link });
+        void fetch("/api/notifications/send-assignment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, title, body, link }),
         });
       }
     }
@@ -585,7 +587,7 @@ export default function TaskDetailModal({
             <input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full text-lg font-semibold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full text-lg font-semibold text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -611,7 +613,7 @@ export default function TaskDetailModal({
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="Add a description... (Markdown supported)"
-                  className="w-full text-sm text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full text-sm text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent/50"
                   rows={3}
                 />
               )}
@@ -634,7 +636,7 @@ export default function TaskDetailModal({
               </div>
             )}
             <h2
-              className="text-lg font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-indigo-600 transition-colors"
+              className="text-lg font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-accent transition-colors"
               onClick={() => setEditing(true)}
             >
               {task.title}
@@ -673,7 +675,7 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { status: e.target.value as Task["status"] })
               }
-              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
@@ -689,7 +691,7 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { priority: e.target.value as Task["priority"] })
               }
-              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -709,7 +711,7 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { due_date: e.target.value || null })
               }
-              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           </div>
 
@@ -723,7 +725,7 @@ export default function TaskDetailModal({
               onChange={(e) =>
                 onUpdate(task.id, { recurrence: e.target.value || null } as Partial<Task>)
               }
-              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="">Does not repeat</option>
               <option value="daily">Every day</option>
@@ -742,7 +744,7 @@ export default function TaskDetailModal({
                 onChange={(e) =>
                   onUpdate(task.id, { recurrence_end: e.target.value || null } as Partial<Task>)
                 }
-                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
             </div>
           )}
@@ -774,7 +776,7 @@ export default function TaskDetailModal({
                 onChange={(e) =>
                   handleSectionChange(e.target.value || null)
                 }
-                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
               >
                 <option value="">No section</option>
                 {[...sections]
@@ -796,7 +798,7 @@ export default function TaskDetailModal({
             <div className="relative" ref={assigneeDropdownRef}>
               <button
                 onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
-                className="w-full flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-1 focus:ring-accent/50"
               >
                 {taskAssignees.length > 0 ? (
                   <div className="flex items-center -space-x-1.5">
@@ -822,7 +824,7 @@ export default function TaskDetailModal({
                           "w-full flex items-center gap-2 px-3 py-2 text-sm text-left border-b border-slate-100 dark:border-slate-700/50 transition-colors",
                           taskAssignees.includes(currentUserId)
                             ? "text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                            : "text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 font-medium"
+                            : "text-indigo-600 hover:bg-accent/10 font-medium"
                       )}
                     >
                       <User size={14} />
@@ -915,7 +917,7 @@ export default function TaskDetailModal({
                     "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
                     subtask.status === "done"
                       ? "bg-indigo-500 border-indigo-500"
-                      : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                      : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                   )}
                 >
                   {subtask.status === "done" && <Check size={10} className="text-white" />}
@@ -953,7 +955,7 @@ export default function TaskDetailModal({
               placeholder="Add subtask..."
               value={newSubtask}
               onChange={(e) => setNewSubtask(e.target.value)}
-              className="flex-1 text-sm bg-transparent border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-400 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+              className="flex-1 text-sm bg-transparent border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-indigo-400 placeholder:text-slate-400 dark:placeholder:text-slate-500"
             />
             <Button
               type="submit"
@@ -985,7 +987,7 @@ export default function TaskDetailModal({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-               className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50"
+               className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-indigo-600 hover:bg-accent/10 transition-colors disabled:opacity-50"
             >
               <Upload size={12} />
               {uploading ? "Uploading..." : "Upload"}
@@ -1002,7 +1004,7 @@ export default function TaskDetailModal({
                   <File size={14} className="text-slate-400 dark:text-slate-500 shrink-0" />
                   <button
                     onClick={() => void handleDownloadAttachment(att)}
-                    className="flex-1 text-sm text-slate-700 dark:text-slate-300 hover:text-indigo-600 truncate text-left transition-colors"
+                    className="flex-1 text-sm text-slate-700 dark:text-slate-300 hover:text-accent truncate text-left transition-colors"
                   >
                     {att.file_name}
                   </button>
@@ -1048,7 +1050,7 @@ export default function TaskDetailModal({
             <div className="relative" ref={tagDropdownRef}>
               <button
                 onClick={() => setShowTagDropdown(!showTagDropdown)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-accent/50 hover:text-accent transition-colors"
               >
                 <Plus size={12} />
                 Add tag
@@ -1064,7 +1066,7 @@ export default function TaskDetailModal({
                         placeholder="Tag name"
                         value={newTagName}
                         onChange={(e) => setNewTagName(e.target.value)}
-                        className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") void handleCreateTag();
                           if (e.key === "Escape") setCreatingTag(false);
@@ -1134,7 +1136,7 @@ export default function TaskDetailModal({
                       )}
                       <button
                         onClick={() => setCreatingTag(true)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left font-medium"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-indigo-600 hover:bg-accent/10 transition-colors text-left font-medium"
                       >
                         <Plus size={12} />
                         Create new tag
@@ -1185,7 +1187,7 @@ export default function TaskDetailModal({
               <button
                 onClick={() => void loadAllActivities()}
                 disabled={allActivitiesLoading}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
+                className="text-xs font-medium text-accent hover:text-accent/80 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
               >
                 {allActivitiesLoading ? "Loading..." : "Show all activity"}
                 <ChevronRight size={12} />
@@ -1277,7 +1279,7 @@ export default function TaskDetailModal({
               <div className="w-full flex items-center gap-2 mb-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg text-xs text-indigo-700 dark:text-indigo-300">
                 <Reply size={12} />
                 <span className="flex-1 truncate">Replying to <strong>{replyTo.user_name || replyTo.user_email || "someone"}</strong>: &ldquo;{replyTo.body}&rdquo;</span>
-                <button type="button" onClick={() => setReplyTo(null)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200">
+                <button type="button" onClick={() => setReplyTo(null)} className="text-indigo-400 hover:text-accent dark:hover:text-indigo-200">
                   <X size={12} />
                 </button>
               </div>
@@ -1307,7 +1309,7 @@ export default function TaskDetailModal({
                 onKeyDown={(e) => {
                   if (e.key === "Escape") setMentionOpen(false);
                 }}
-                className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-accent/50"
               />
               {mentionOpen && memberProfiles.length > 0 && (
                 <div className="absolute z-50 bottom-full mb-1 left-0 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 max-h-48 overflow-y-auto">
@@ -1477,7 +1479,7 @@ function EventLinker({
       {!open ? (
         <button
           onClick={handleOpen}
-          className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 text-left text-slate-400 dark:text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400 transition-colors"
+          className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-2 py-1.5 text-left text-slate-400 dark:text-slate-500 hover:border-accent/50 hover:text-accent dark:hover:border-accent/50 dark:hover:text-accent transition-colors"
         >
           Link to event...
         </button>

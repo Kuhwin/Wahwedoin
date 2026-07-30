@@ -451,7 +451,7 @@ export default function ImportWizard() {
               <select
                 value={targetProjectId}
                 onChange={(e) => setTargetProjectId(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
               >
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -479,7 +479,7 @@ export default function ImportWizard() {
                 "border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors",
                 csvData.length > 0
                   ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10"
-                  : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  : "border-slate-300 dark:border-slate-600 hover:border-accent/50 dark:hover:border-accent/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
               )}
             >
               <input
@@ -601,7 +601,7 @@ export default function ImportWizard() {
                               [header]: e.target.value as TaskField | "",
                             }))
                           }
-                          className="block w-full max-w-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="block w-full max-w-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                         >
                           <option value="">Don&apos;t import</option>
                           {TASK_FIELDS.map((field) => (

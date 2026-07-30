@@ -65,7 +65,7 @@ export default function ProjectAnalytics({ tasks }: ProjectAnalyticsProps) {
               icon={<ListTodo size={16} />}
               label="Total"
               value={total}
-              accent="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
+              accent="text-accent bg-indigo-50 dark:bg-indigo-900/20"
             />
             <MetricCard
               icon={<CheckCircle2 size={16} />}

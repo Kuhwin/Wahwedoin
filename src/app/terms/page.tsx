@@ -198,7 +198,7 @@ export default function TermsOfService() {
                 If you have any questions about these Terms, please contact us at{" "}
                 <a
                   href="mailto:lathanquinnh@gmail.com"
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-accent hover:underline"
                 >
                   lathanquinnh@gmail.com
                 </a>

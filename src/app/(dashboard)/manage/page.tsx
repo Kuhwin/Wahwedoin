@@ -508,7 +508,7 @@ export default function ManagePage() {
                         <input
                           value={nameInput}
                           onChange={(e) => setNameInput(e.target.value)}
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                           autoFocus
                           onKeyDown={(e) => { if (e.key === "Enter") void handleSaveName(); if (e.key === "Escape") { setNameInput(selectedOrg?.name || ""); setEditingName(false); }}}
                         />
@@ -521,7 +521,7 @@ export default function ManagePage() {
                       <div className="flex items-center gap-2">
                         <p className="text-lg font-medium text-slate-900 dark:text-slate-100">{selectedOrg?.name}</p>
                         {canManage && (
-                          <button onClick={() => setEditingName(true)} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">Edit</button>
+                          <button onClick={() => setEditingName(true)} className="text-xs text-accent hover:text-accent/80 dark:text-indigo-400">Edit</button>
                         )}
                       </div>
                     )}
@@ -537,12 +537,12 @@ export default function ManagePage() {
 
               {/* Quick Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <button onClick={() => setTab("members")} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors">
+                <button onClick={() => setTab("members")} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-left hover:border-accent/30 dark:hover:border-indigo-600 transition-colors">
                   <Users size={20} className="text-indigo-500 mb-2" />
                   <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{members.length}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Members</p>
                 </button>
-                <button onClick={() => setTab("teams")} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-left hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors">
+                <button onClick={() => setTab("teams")} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 text-left hover:border-accent/30 dark:hover:border-indigo-600 transition-colors">
                   <Settings size={20} className="text-indigo-500 mb-2" />
                   <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{teams.length}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Teams</p>
@@ -558,7 +558,7 @@ export default function ManagePage() {
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Members</h3>
-                  <button onClick={() => setTab("members")} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">View all</button>
+                  <button onClick={() => setTab("members")} className="text-xs text-accent hover:text-accent/80 dark:text-indigo-400">View all</button>
                 </div>
                 <div className="space-y-2">
                   {members.slice(0, 5).map((m) => (
@@ -653,7 +653,7 @@ export default function ManagePage() {
                     <div className="flex-1 relative">
                       <input type="text" placeholder="Search by name or email..."
                         value={addEmail} onChange={(e) => void handleSearch(e.target.value)}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
                       />
                       {searchResults.length > 0 && addEmail.length >= 2 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-30 max-h-40 overflow-y-auto">
@@ -671,7 +671,7 @@ export default function ManagePage() {
                       )}
                     </div>
                     <select value={addRole} onChange={(e) => setAddRole(e.target.value as "admin" | "member")}
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                       <option value="member">Member</option>
                       <option value="admin">Admin</option>
                     </select>
@@ -721,7 +721,7 @@ export default function ManagePage() {
                         <Button variant="ghost" size="sm" onClick={() => void loadTeamMembers(team)}>
                           <Settings size={13} /> Manage
                         </Button>
-                        <Link href={`/teams/${team.id}`} className="text-slate-300 hover:text-indigo-600 transition-colors">
+                        <Link href={`/teams/${team.id}`} className="text-slate-300 hover:text-accent transition-colors">
                           <ArrowRight size={14} />
                         </Link>
                       </div>
@@ -742,7 +742,7 @@ export default function ManagePage() {
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
             <textarea placeholder="What does this team do?" value={newTeamDesc}
               onChange={(e) => setNewTeamDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               rows={3} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -816,7 +816,7 @@ export default function ManagePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => copyInviteLink(invite.email)} className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="Copy invite link">
+                      <button onClick={() => copyInviteLink(invite.email)} className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-indigo-50 transition-colors" title="Copy invite link">
                         {copied === invite.email ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                       </button>
                       <button onClick={() => void handleRevokeInvite(invite.id)} className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Revoke">
@@ -837,9 +837,9 @@ export default function ManagePage() {
               <div className="flex gap-2">
                 <input type="email" placeholder="teammate@email.com" value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" required />
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" required />
                 <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
                   <option value="viewer">Viewer</option>

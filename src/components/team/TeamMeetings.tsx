@@ -285,7 +285,7 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
           {meetingType === "recurring" ? (
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700">Day of Week</label>
-              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
                 <option value="">Select a day...</option>
                 {DAYS.map((day, i) => (
                   <option key={i} value={i}>{day}</option>

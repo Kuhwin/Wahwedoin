@@ -262,7 +262,7 @@ export default function PeoplePage() {
         </p>
         <Link
           href="/"
-          className="inline-block mt-4 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+          className="inline-block mt-4 text-sm text-accent hover:underline"
         >
           Go to home
         </Link>
@@ -292,7 +292,7 @@ export default function PeoplePage() {
             placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-64"
+            className="pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 w-64"
           />
         </div>
       </div>
@@ -342,7 +342,7 @@ export default function PeoplePage() {
               <Link
                 key={member.id}
                 href={`/people/${member.user_id}?org=${selectedOrgId}`}
-                className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all"
+                className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 hover:border-accent/50 hover:shadow-md transition-all"
               >
                 <div className="flex items-start gap-3 mb-3">
                   <Avatar
@@ -352,7 +352,7 @@ export default function PeoplePage() {
                     size="md"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-accent dark:group-hover:text-accent transition-colors">
                       {member.display_name || member.email || "Unknown"}
                     </p>
                     {member.email && member.display_name && (

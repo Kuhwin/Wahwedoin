@@ -296,15 +296,15 @@ export default function TeamsPage() {
             <Link
               key={team.id}
               href={`/teams/${team.id}`}
-              className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md transition-all group dark:bg-slate-900 dark:border-slate-700 dark:hover:border-indigo-600"
+              className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-accent/30 hover:shadow-md transition-all group dark:bg-slate-900 dark:border-slate-700 dark:hover:border-indigo-600"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors dark:bg-indigo-900/30 dark:group-hover:bg-indigo-900/50">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-accent/15 transition-colors dark:bg-indigo-900/30 dark:group-hover:bg-indigo-900/50">
                     <Users size={20} className="text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 transition-colors">{team.name}</h3>
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-accent transition-colors">{team.name}</h3>
                     {team.description && (
                       <p className="text-sm text-slate-500 dark:text-slate-400">{team.description}</p>
                     )}
@@ -339,7 +339,7 @@ export default function TeamsPage() {
               placeholder="What does this team do?"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
               rows={3}
             />
           </div>
@@ -418,7 +418,7 @@ export default function TeamsPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => copyInviteLink(invite.email)}
-                        className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:hover:bg-indigo-900/20"
+                        className="p-1.5 rounded text-slate-400 hover:text-accent hover:bg-indigo-50 transition-colors dark:hover:bg-indigo-900/20"
                         title="Copy invite link"
                       >
                         {copied === invite.email ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
@@ -450,13 +450,13 @@ export default function TeamsPage() {
                   placeholder="teammate@email.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
                   required
                 />
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>

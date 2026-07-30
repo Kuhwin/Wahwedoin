@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   toast.undo!();
                   removeToast(toast.id);
                 }}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg bg-indigo-50 text-indigo-700 hover:bg-accent/15 transition-colors"
               >
                 <Undo2 size={12} />
                 Undo

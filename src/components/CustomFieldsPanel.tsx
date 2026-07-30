@@ -93,7 +93,7 @@ export default function CustomFieldsPanel({ projectId, taskId, onFieldValuesChan
           </div>
           <button
             onClick={() => setShowManager(!showManager)}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="text-xs font-medium text-accent hover:text-accent/80 transition-colors"
           >
             {showManager ? "Done" : "Manage"}
           </button>
@@ -161,7 +161,7 @@ export default function CustomFieldsPanel({ projectId, taskId, onFieldValuesChan
               value={fieldValues[field.id] || ""}
               onChange={(e) => void handleValueChange(field.id, e.target.value)}
               placeholder={`Enter ${field.name}...`}
-              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           )}
           {field.field_type === "number" && (
@@ -170,7 +170,7 @@ export default function CustomFieldsPanel({ projectId, taskId, onFieldValuesChan
               value={fieldValues[field.id] || ""}
               onChange={(e) => void handleValueChange(field.id, e.target.value)}
               placeholder="0"
-              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           )}
           {field.field_type === "date" && (
@@ -178,14 +178,14 @@ export default function CustomFieldsPanel({ projectId, taskId, onFieldValuesChan
               type="date"
               value={fieldValues[field.id] || ""}
               onChange={(e) => void handleValueChange(field.id, e.target.value)}
-              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
           )}
           {field.field_type === "dropdown" && (
             <select
               value={fieldValues[field.id] || ""}
               onChange={(e) => void handleValueChange(field.id, e.target.value)}
-              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="">Select...</option>
               {(field.options || []).map((opt) => (

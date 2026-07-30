@@ -185,7 +185,7 @@ export default function MyTasksPage() {
         <select
           value={filters.status}
           onChange={(e) => updateFilter("status", e.target.value)}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Status</option>
           <option value="todo">To Do</option>
@@ -196,7 +196,7 @@ export default function MyTasksPage() {
         <select
           value={filters.priority}
           onChange={(e) => updateFilter("priority", e.target.value)}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Priority</option>
           <option value="urgent">Urgent</option>
@@ -209,7 +209,7 @@ export default function MyTasksPage() {
           <select
             value={filters.project_id}
             onChange={(e) => updateFilter("project_id", e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
             <option value="all">All Projects</option>
             {projects.map((p) => (
@@ -221,7 +221,7 @@ export default function MyTasksPage() {
         <select
           value={filters.due_before}
           onChange={(e) => updateFilter("due_before", e.target.value)}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">Any Due Date</option>
           <option value="overdue">Overdue</option>
@@ -233,7 +233,7 @@ export default function MyTasksPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
             <option value="due_date">Due Date</option>
             <option value="priority">Priority</option>
@@ -259,7 +259,7 @@ export default function MyTasksPage() {
           }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
             groupBy === "project"
-              ? "border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+              ? "border-accent/30 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
               : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
           }`}
         >
@@ -285,7 +285,7 @@ export default function MyTasksPage() {
                 value={viewName}
                 onChange={(e) => setViewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void saveView(); if (e.key === "Escape") setShowSaveInput(false); }}
-                className="w-32 px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-32 px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-accent/50"
                 autoFocus
               />
               <Button size="sm" className="text-xs h-7" onClick={() => void saveView()}>Save</Button>
@@ -365,7 +365,7 @@ export default function MyTasksPage() {
                       {groupTasks.map((task) => (
                         <div
                           key={task.id}
-                          className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-500 transition-all"
+                          className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 transition-all"
                         >
                           <div
                             className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${
@@ -413,7 +413,7 @@ export default function MyTasksPage() {
           {filteredTasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-500 transition-all"
+              className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 transition-all"
             >
               <div
                 className={`h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 ${

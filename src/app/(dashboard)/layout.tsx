@@ -146,7 +146,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   placeholder="First and last name"
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                   required
                 />
                 <p className="text-[11px] text-slate-400 mt-1">Spaces and special characters are allowed</p>

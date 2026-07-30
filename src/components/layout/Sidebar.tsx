@@ -415,7 +415,7 @@ export default function Sidebar({
               <select
                 value={quickAddProjectId}
                 onChange={(e) => setQuickAddProjectId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-accent/50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
               >
                 <option value="">Select project...</option>
                 {teams.flatMap((team) =>
@@ -589,7 +589,7 @@ export default function Sidebar({
                 <p className="text-xs text-slate-500 mb-3 dark:text-slate-400">No teams yet</p>
                 <button
                   onClick={() => { setCreateTeamOrgId(null); setShowCreateTeam(true); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-accent/15 transition-colors"
                 >
                   <Plus size={12} />
                   Create Team
@@ -597,7 +597,7 @@ export default function Sidebar({
               </div>
               <button
                 onClick={() => setShowCreateOrg(true)}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-accent rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
               >
                 <Plus size={12} />
                 New Organization
@@ -607,14 +607,14 @@ export default function Sidebar({
             <div className="px-2 pb-2 flex flex-col items-center gap-1">
               <button
                 onClick={() => { setCreateTeamOrgId(null); setShowCreateTeam(true); }}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-accent transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Team"
               >
                 <Plus size={18} />
               </button>
               <button
                 onClick={() => setShowCreateOrg(true)}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-accent transition-colors dark:text-slate-500 dark:hover:bg-slate-800"
                 title="New Organization"
               >
                 <Building2 size={18} />
@@ -667,7 +667,7 @@ export default function Sidebar({
                       </Link>
                       <button
                         onClick={() => { setCreateTeamOrgId(org.id); setShowCreateTeam(true); }}
-                        className="ml-auto p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
+                        className="ml-auto p-0.5 rounded text-slate-400 hover:text-accent hover:bg-indigo-50 transition-colors dark:text-slate-500"
                         title="New Team"
                       >
                         <Plus size={12} />
@@ -790,7 +790,7 @@ export default function Sidebar({
                                 <Link
                                   href={`/projects?team=${team.id}`}
                                   onClick={onMobileClose}
-                                  className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors dark:text-slate-500"
+                                  className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-accent hover:bg-indigo-50 transition-colors dark:text-slate-500"
                                 >
                                   <Plus size={12} className="shrink-0" />
                                   <span className="text-xs">Add Project</span>
@@ -811,7 +811,7 @@ export default function Sidebar({
           <div className="px-2 pt-2">
             <button
               onClick={() => setShowCreateOrg(true)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
+              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-accent transition-colors dark:text-slate-400 dark:hover:bg-slate-800"
             >
               <Plus size={14} />
               New Organization
@@ -916,7 +916,7 @@ export default function Sidebar({
                     <select
                       value={createTeamOrgId || ""}
                       onChange={(e) => setCreateTeamOrgId(e.target.value || null)}
-                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                     >
                       {Object.values(orgsById).map((o) => (
                         <option key={o.id} value={o.id}>{o.name}</option>
@@ -932,7 +932,7 @@ export default function Sidebar({
                     placeholder="e.g. Nuffinarians"
                     value={newTeamName}
                     onChange={(e) => setNewTeamName(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                     required
                   />
                 </div>
@@ -942,7 +942,7 @@ export default function Sidebar({
                     placeholder="What does this team do?"
                     value={newTeamDesc}
                     onChange={(e) => setNewTeamDesc(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none"
                     rows={3}
                   />
                 </div>
@@ -989,7 +989,7 @@ export default function Sidebar({
                     placeholder="e.g. Acme Corp"
                     value={newOrgName}
                     onChange={(e) => setNewOrgName(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                     required
                   />
                 </div>

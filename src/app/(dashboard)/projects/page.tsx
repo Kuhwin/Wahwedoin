@@ -170,7 +170,7 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 hover:border-accent/50 hover:shadow-md transition-all group relative"
             >
               <Link href={`/projects/${project.id}`} className="block">
                 <div className="flex items-start justify-between mb-3">
@@ -182,7 +182,7 @@ export default function ProjectsPage() {
                   </div>
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
                 </div>
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-accent dark:group-hover:text-accent transition-colors">
                   {project.name}
                 </h3>
                 {project.description && (
@@ -255,7 +255,7 @@ export default function ProjectsPage() {
               placeholder="What is this project about?"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none"
               rows={3}
             />
           </div>
@@ -264,7 +264,7 @@ export default function ProjectsPage() {
             <select
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>

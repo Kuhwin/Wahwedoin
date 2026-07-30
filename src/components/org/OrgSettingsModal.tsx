@@ -207,7 +207,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                 <input
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   autoFocus
                   onKeyDown={(e) => { if (e.key === "Enter") void handleSaveName(); if (e.key === "Escape") { setNameInput(orgName); setEditingName(false); }}}
                 />
@@ -221,7 +221,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{orgName}</span>
                 {canManage && (
-                  <button onClick={() => setEditingName(true)} className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                  <button onClick={() => setEditingName(true)} className="text-xs text-accent hover:text-accent/80 dark:text-indigo-400">
                     Edit
                   </button>
                 )}
@@ -326,7 +326,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                     placeholder="Search by name or email..."
                     value={addEmail}
                     onChange={(e) => void handleSearch(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500"
                   />
                   {searchResults.length > 0 && addEmail.length >= 2 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-30 max-h-40 overflow-y-auto">
@@ -349,7 +349,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                 <select
                   value={addRole}
                   onChange={(e) => setAddRole(e.target.value as "admin" | "member")}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>

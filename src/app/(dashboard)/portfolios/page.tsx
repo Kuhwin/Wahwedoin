@@ -588,15 +588,15 @@ export default function PortfoliosPage() {
               <button
                 key={portfolio.id}
                 onClick={() => void loadPortfolioProjects(portfolio)}
-                className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group relative"
+                className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 hover:border-accent/50 hover:shadow-md transition-all group relative"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 transition-colors">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center group-hover:bg-accent/15 dark:group-hover:bg-indigo-900/50 transition-colors">
                     <Briefcase size={20} className="text-indigo-600" />
                   </div>
                   {getHealthBadge(portfolio)}
                 </div>
-                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 group-hover:text-accent dark:group-hover:text-accent transition-colors">
                   {portfolio.name}
                 </h3>
                 {portfolio.description && (
@@ -661,7 +661,7 @@ export default function PortfoliosPage() {
               placeholder="What projects does this portfolio group?"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none"
               rows={3}
             />
           </div>
@@ -670,7 +670,7 @@ export default function PortfoliosPage() {
             <select
               value={newTeamId}
               onChange={(e) => setNewTeamId(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>

@@ -402,7 +402,7 @@ export default function SettingsPage() {
                               setLinkedAccounts(linkedAccounts.map((a) => a.id === account.id ? { ...a, display_label: val } : a));
                             }
                           }}
-                          className="text-sm font-medium text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:outline-none transition-colors px-0 py-0 w-full max-w-[160px]"
+                          className="text-sm font-medium text-slate-700 dark:text-slate-300 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-accent focus:outline-none transition-colors px-0 py-0 w-full max-w-[160px]"
                           placeholder="Label (e.g. Work, Personal)"
                         />
                       </div>
@@ -493,7 +493,7 @@ export default function SettingsPage() {
                     key={member.user_id}
                     onClick={() => void handleSwitchUser(member.user_email)}
                     disabled={switching}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-accent/30 dark:hover:border-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group"
                   >
                     <Avatar name={member.display_name} email={member.user_email} size="sm" />
                     <div className="flex-1 text-left min-w-0">
@@ -557,7 +557,7 @@ export default function SettingsPage() {
                 <select
                   value={notifPrefs.email_digest}
                   onChange={(e) => setNotifPrefs({ ...notifPrefs, email_digest: e.target.value as "off" | "daily" | "weekly" })}
-                  className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
                 >
                   <option value="off">Off</option>
                   <option value="daily">Daily</option>
@@ -694,7 +694,7 @@ function AppearanceTab() {
           value={timezone}
           onChange={(e) => void handleSetTimezone(e.target.value)}
           disabled={savingTz}
-          className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           {commonTimezones.includes(timezone) ? null : (
             <option value={timezone}>{timezone}</option>
@@ -706,7 +706,7 @@ function AppearanceTab() {
         {detectedTimezone && detectedTimezone !== timezone && (
           <button
             onClick={() => void handleSetTimezone(detectedTimezone)}
-            className="mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="mt-2 text-xs text-accent hover:underline"
           >
             Use detected timezone: {detectedTimezone}
           </button>

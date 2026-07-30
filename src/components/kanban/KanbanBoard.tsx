@@ -259,7 +259,7 @@ function KanbanBoardInner({
                 <select
                   value={bulkMoveSectionId}
                   onChange={(e) => setBulkMoveSectionId(e.target.value)}
-                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-sm border border-accent/30 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-accent/50"
                 >
                   <option value="">Select section...</option>
                   {sortedSections.map((s) => (
@@ -278,7 +278,7 @@ function KanbanBoardInner({
                 <select
                   value={bulkAssignUserId}
                   onChange={(e) => setBulkAssignUserId(e.target.value)}
-                  className="text-sm border border-indigo-300 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-sm border border-accent/30 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-accent/50"
                 >
                   <option value="">Select person...</option>
                   {teamMembers.map((m) => (
@@ -325,7 +325,7 @@ function KanbanBoardInner({
             )}
             <button
               onClick={() => setSelectedTaskIds(new Set())}
-              className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+              className="p-1.5 text-indigo-400 hover:text-accent hover:bg-accent/15 dark:hover:bg-accent/20 rounded-lg transition-colors"
               title="Clear selection"
             >
               <X size={14} />
@@ -354,7 +354,7 @@ function KanbanBoardInner({
                       "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
                       allInSectionSelected
                         ? "bg-indigo-600 border-indigo-600 text-white"
-                        : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                        : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                     )}
                     title={allInSectionSelected ? "Deselect all in section" : "Select all in section"}
                   >
@@ -374,7 +374,7 @@ function KanbanBoardInner({
                           if (e.key === "Enter") handleRenameSection();
                           if (e.key === "Escape") setEditingSectionId(null);
                         }}
-                        className="text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-32"
+                        className="text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50 w-32"
                       />
                       <button
                         onClick={handleRenameSection}
@@ -486,7 +486,7 @@ function KanbanBoardInner({
                                       "mt-0.5 w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
                                       isSelected
                                         ? "bg-indigo-600 border-indigo-600 text-white"
-                                        : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                                        : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                                     )}
                                   >
                                     {isSelected && <Check size={10} />}
@@ -668,7 +668,7 @@ function KanbanBoardInner({
                   }
                 }}
                 placeholder="Section name..."
-                className="w-full text-sm font-medium px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                className="w-full text-sm font-medium px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent/50 placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
               <div className="flex items-center gap-2 mt-2">
                 <button

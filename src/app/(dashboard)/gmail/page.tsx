@@ -100,7 +100,7 @@ export default function GmailPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             Gmail
             {totalUnread > 0 && (
-              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+              <span className="text-sm font-medium text-accent bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
                 {totalUnread} unread
               </span>
             )}
@@ -187,7 +187,7 @@ export default function GmailPage() {
                         href={`https://mail.google.com/mail/u/0/#inbox/${msg.gmailId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                        className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-accent hover:bg-accent/10 transition-colors"
                         title="Open in Gmail"
                       >
                         <ExternalLink size={14} />

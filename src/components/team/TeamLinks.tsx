@@ -183,7 +183,7 @@ export default function TeamLinks({ teamId, currentUser, userRole }: TeamLinksPr
                     {urlInfo?.icon || link.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="font-medium text-slate-900 truncate group-hover:text-indigo-600 transition-colors">{link.name}</h4>
+                    <h4 className="font-medium text-slate-900 truncate group-hover:text-accent transition-colors">{link.name}</h4>
                     <p className="text-xs text-slate-400 truncate mt-0.5">{link.url}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className="text-[10px] text-slate-400 uppercase font-medium">
@@ -216,7 +216,7 @@ export default function TeamLinks({ teamId, currentUser, userRole }: TeamLinksPr
           <Input label="Name" placeholder="Google Drive" value={newName} onChange={(e) => setNewName(e.target.value)} />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">Category</label>
-            <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as TeamLink["category"])} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <select value={newCategory} onChange={(e) => setNewCategory(e.target.value as TeamLink["category"])} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
               {CATEGORIES.map((cat) => (
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}

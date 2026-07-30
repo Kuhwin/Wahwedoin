@@ -544,12 +544,13 @@ export default function ProjectPage() {
       const assigneeName = memberProfiles[userId] || userId;
       logActivity({ project_id: projectId, user_id: currentUser, action: `assigned ${assigneeName} to`, detail: `${taskIds.length} tasks` });
       if (userId !== currentUser) {
-        await supabase.from("notifications").insert({
-          user_id: userId,
-          title: `You were assigned to ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""}`,
-          body: `Assigned by ${memberProfiles[currentUser] || currentUser}`,
-          type: "task",
-          link: `/projects/${projectId}`,
+        const title = `You were assigned to ${taskIds.length} task${taskIds.length !== 1 ? "s" : ""}`;
+        const body = `Assigned by ${memberProfiles[currentUser] || currentUser}`;
+        const link = `/projects/${projectId}`;
+        await supabase.from("notifications").insert({ user_id: userId, title, body, type: "task", link });
+        void fetch("/api/notifications/send-assignment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, title, body, link }),
         });
       }
     }
@@ -713,13 +714,13 @@ export default function ProjectPage() {
           <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
             <button
               onClick={() => setView("board")}
-              className={`p-1.5 rounded-md transition-colors ${view === "board" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}`}
+              className={`p-1.5 rounded-md transition-colors ${view === "board" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setView("list")}
-              className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500"}`}
+              className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
             >
               <List size={16} />
             </button>
@@ -741,7 +742,7 @@ export default function ProjectPage() {
             className={cn(
               "p-1.5 rounded-lg transition-colors",
               showAnalytics
-                ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                ? "bg-indigo-100 dark:bg-indigo-900/30 text-accent"
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
             )}
           >
@@ -790,13 +791,13 @@ export default function ProjectPage() {
             placeholder="Search tasks..."
             value={filterSearch}
             onChange={(e) => setFilterSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-slate-100"
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent/50 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-slate-100"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Status</option>
           <option value="todo">To Do</option>
@@ -806,7 +807,7 @@ export default function ProjectPage() {
         <select
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
-          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Priority</option>
           <option value="low">Low</option>
@@ -817,7 +818,7 @@ export default function ProjectPage() {
         <select
           value={filterAssignee}
           onChange={(e) => setFilterAssignee(e.target.value)}
-          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Assignees</option>
           {members.map((m) => (
@@ -830,7 +831,7 @@ export default function ProjectPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
             <option value="position">Default order</option>
             <option value="title">Title</option>
@@ -918,7 +919,7 @@ export default function ProjectPage() {
             <select
               value={newTaskPriority}
               onChange={(e) => setNewTaskPriority(e.target.value as Task["priority"])}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -931,7 +932,7 @@ export default function ProjectPage() {
             <select
               value={newTaskAssignee}
               onChange={(e) => setNewTaskAssignee(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="">Unassigned</option>
               {members.map((member) => (
@@ -947,7 +948,7 @@ export default function ProjectPage() {
               <select
                 value={newTaskSection}
                 onChange={(e) => setNewTaskSection(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
               >
                 <option value="">No section</option>
                 {[...sections]
@@ -971,7 +972,7 @@ export default function ProjectPage() {
             <select
               value={newTaskRecurrence}
               onChange={(e) => setNewTaskRecurrence(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
               <option value="">Does not repeat</option>
               <option value="daily">Every day</option>

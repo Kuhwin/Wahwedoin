@@ -225,7 +225,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <FolderKanban size={16} className="text-indigo-600 dark:text-indigo-400" />
+            <FolderKanban size={16} className="text-accent" />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Projects</span>
           </div>
           <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{projects.length}</p>
@@ -270,7 +270,7 @@ export default function DashboardPage() {
               <CalendarDays size={14} />
               Upcoming Events ({events.length})
             </h2>
-            <Link href="/calendar" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+            <Link href="/calendar" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
               View calendar
             </Link>
           </div>
@@ -286,7 +286,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={evt.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-sm transition-all"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 hover:border-accent/50 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -411,7 +411,7 @@ export default function DashboardPage() {
                 <TrendingUp size={14} />
                 Project Progress
               </h2>
-              <Link href="/projects" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+              <Link href="/projects" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
                 View all
               </Link>
             </div>
@@ -431,7 +431,7 @@ export default function DashboardPage() {
                     <Link
                       key={project.id}
                       href={`/projects/${project.id}`}
-                      className="flex items-center gap-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-sm transition-all"
+                      className="flex items-center gap-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all"
                     >
                       <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
                       <div className="flex-1 min-w-0">
@@ -478,12 +478,12 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 ))}
-                <button
-                  onClick={handleOpenAllActivities}
-                  className="w-full p-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors flex items-center justify-center gap-1"
+                <Link
+                  href="/activity"
+                  className="w-full p-3 text-sm font-medium text-accent hover:bg-accent/10 transition-colors flex items-center justify-center gap-1"
                 >
                   View all activity <ChevronRight size={14} />
-                </button>
+                </Link>
               </>
             )}
           </div>
@@ -505,7 +505,7 @@ export default function DashboardPage() {
                 <select
                   value={activityFilterAction}
                   onChange={(e) => updateActivityParams({ action: e.target.value })}
-                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
                 >
                   <option value="">All actions</option>
                   {uniqueActions.map((a) => (
@@ -515,7 +515,7 @@ export default function DashboardPage() {
                 <select
                   value={activityFilterProject}
                   onChange={(e) => updateActivityParams({ project: e.target.value })}
-                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50"
                 >
                   <option value="">All projects</option>
                   {projects.map((p) => (
@@ -525,7 +525,7 @@ export default function DashboardPage() {
                 {(activityFilterAction || activityFilterProject) && (
                   <button
                     onClick={() => updateActivityParams({ action: "", project: "" })}
-                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium"
+                    className="text-xs text-accent hover:text-indigo-700 font-medium"
                   >
                     Clear
                   </button>
@@ -550,7 +550,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => { setActivitiesPage((p) => p + 1); void loadAllActivities(activitiesPage + 1, false); }}
                   disabled={activitiesLoading}
-                  className="w-full py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors flex items-center justify-center gap-1"
+                  className="w-full py-3 text-sm font-medium text-accent hover:bg-accent/10 transition-colors flex items-center justify-center gap-1"
                 >
                   {activitiesLoading ? <Loader2 size={14} className="animate-spin" /> : "Load more"}
                 </button>
@@ -565,13 +565,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
           href="/projects"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 transition-colors">
-              <FolderKanban size={20} className="text-indigo-600 dark:text-indigo-400" />
+            <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:bg-accent/15 dark:group-hover:bg-indigo-900/30 transition-colors">
+              <FolderKanban size={20} className="text-accent" />
             </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
           </div>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Projects</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">{projects.length} projects</p>
@@ -579,13 +579,13 @@ export default function DashboardPage() {
 
         <Link
           href="/my-tasks"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
             <div className="h-10 w-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
               <CheckSquare size={20} className="text-green-600 dark:text-green-400" />
             </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
           </div>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">My Tasks</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">{taskStats.inProgress + taskStats.todo} active tasks</p>
@@ -593,13 +593,13 @@ export default function DashboardPage() {
 
         <Link
           href="/calendar"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all group"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">
             <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30 transition-colors">
               <Calendar size={20} className="text-amber-600 dark:text-amber-400" />
             </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
           </div>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Calendar</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">View all events</p>

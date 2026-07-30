@@ -135,7 +135,7 @@ export default function NotificationsBell() {
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                  className="flex items-center gap-1 text-[11px] text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                   title="Mark all as read"
                 >
                   <CheckCheck size={12} />
@@ -145,7 +145,7 @@ export default function NotificationsBell() {
               <Link
                 href="/inbox"
                 onClick={() => setOpen(false)}
-                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-xs text-accent hover:text-accent/80 font-medium"
               >
                 View all
               </Link>

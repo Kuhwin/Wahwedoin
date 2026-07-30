@@ -93,7 +93,7 @@ export default function LoginPage() {
             </p>
             <button
               onClick={() => setMagicLinkSent(false)}
-              className="mt-4 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              className="mt-4 text-sm text-accent hover:text-accent/80 font-medium"
             >
               Back to sign in
             </button>
@@ -156,7 +156,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleMagicLink}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                  className="text-sm text-accent hover:text-accent/80 font-medium"
                 >
                   Sign in with magic link instead
                 </button>
@@ -167,7 +167,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/auth/signup" className="text-indigo-600 hover:text-indigo-700 font-medium">
+          <Link href="/auth/signup" className="text-accent hover:text-accent/80 font-medium">
             Sign up
           </Link>
         </p>

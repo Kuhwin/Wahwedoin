@@ -117,7 +117,7 @@ export default function TeamBoard({ teamId, members, memberProfiles }: TeamBoard
           <select
             value={filterProject}
             onChange={(e) => setFilterProject(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
           >
             <option value="all">All Projects</option>
             {projects.map((p) => (
@@ -128,7 +128,7 @@ export default function TeamBoard({ teamId, members, memberProfiles }: TeamBoard
         <select
           value={filterAssignee}
           onChange={(e) => setFilterAssignee(e.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
         >
           <option value="all">All Members</option>
           {members.map((m) => (

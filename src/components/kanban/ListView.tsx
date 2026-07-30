@@ -150,7 +150,7 @@ function ListViewInner({
                     {s === "todo" ? "To Do" : s === "in_progress" ? "In Progress" : "Done"}
                   </button>
                 ))}
-                <button onClick={() => setShowBulkStatus(false)} className="p-1 text-indigo-400 hover:text-indigo-600"><X size={12} /></button>
+                <button onClick={() => setShowBulkStatus(false)} className="p-1 text-indigo-400 hover:text-accent"><X size={12} /></button>
               </div>
             ) : showBulkPriority ? (
               <div className="flex items-center gap-2">
@@ -159,7 +159,7 @@ function ListViewInner({
                     {p}
                   </button>
                 ))}
-                <button onClick={() => setShowBulkPriority(false)} className="p-1 text-indigo-400 hover:text-indigo-600"><X size={12} /></button>
+                <button onClick={() => setShowBulkPriority(false)} className="p-1 text-indigo-400 hover:text-accent"><X size={12} /></button>
               </div>
             ) : (
               <>
@@ -176,7 +176,7 @@ function ListViewInner({
                 )}
               </>
             )}
-            <button onClick={() => setSelectedIds(new Set())} className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Clear selection">
+            <button onClick={() => setSelectedIds(new Set())} className="p-1.5 text-indigo-400 hover:text-accent hover:bg-accent/15 dark:hover:bg-accent/20 rounded-lg transition-colors" title="Clear selection">
               <X size={14} />
             </button>
           </div>
@@ -190,7 +190,7 @@ function ListViewInner({
             onClick={toggleSelectAll}
             className={cn(
               "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
-              allSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+              allSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
             )}
           >
             {allSelected && <Check size={10} />}
@@ -241,7 +241,7 @@ function ListViewInner({
                                 onClick={(e) => toggleSelect(task.id, e)}
                                 className={cn(
                                   "h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
-                                  isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                                  isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                                 )}
                               >
                                 {isSelected && <Check size={8} />}
@@ -314,7 +314,7 @@ function ListViewInner({
                               onClick={(e) => toggleSelect(task.id, e)}
                               className={cn(
                                 "h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
-                                isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-indigo-400"
+                                isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                               )}
                             >
                               {isSelected && <Check size={10} />}
@@ -381,7 +381,7 @@ function ListViewInner({
                               value={task.status}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => onUpdateTask(task.id, { status: e.target.value as Task["status"] })}
-                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50 w-full"
                             >
                               <option value="todo">To Do</option>
                               <option value="in_progress">In Progress</option>
@@ -395,7 +395,7 @@ function ListViewInner({
                               value={task.priority}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as Task["priority"] })}
-                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                              className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50 w-full"
                             >
                               <option value="low">Low</option>
                               <option value="medium">Medium</option>
@@ -411,7 +411,7 @@ function ListViewInner({
                               value={task.due_date || ""}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => onUpdateTask(task.id, { due_date: e.target.value || null })}
-                              className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                              className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-accent/50 w-full"
                             />
                           </div>
 

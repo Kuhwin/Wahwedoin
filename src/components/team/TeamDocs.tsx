@@ -199,7 +199,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
           <Input label="Title" placeholder="Document title" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} required />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700">Category</label>
-            <select value={docCategory} onChange={(e) => setDocCategory(e.target.value as TeamDoc["category"])} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <select value={docCategory} onChange={(e) => setDocCategory(e.target.value as TeamDoc["category"])} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
               {CATEGORIES.map((cat) => (
                 <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
@@ -222,7 +222,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
                 placeholder="Write your document content here... (Markdown supported: **bold**, *italic*, # headings, - lists, `code`)"
                 value={docContent}
                 onChange={(e) => setDocContent(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none font-mono"
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none font-mono"
                 rows={14}
               />
             ) : (
@@ -271,7 +271,7 @@ function DocCard({ doc, onEdit, onPin, onDelete, canManage }: { doc: TeamDoc; on
         </div>
         {canManage && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <button onClick={() => onPin(doc)} className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={doc.pinned ? "Unpin" : "Pin"}>
+            <button onClick={() => onPin(doc)} className="p-1 rounded text-slate-400 hover:text-accent hover:bg-indigo-50" title={doc.pinned ? "Unpin" : "Pin"}>
               {doc.pinned ? <PinOff size={14} /> : <Pin size={14} />}
             </button>
             <button onClick={() => onDelete(doc.id)} className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50" title="Delete">

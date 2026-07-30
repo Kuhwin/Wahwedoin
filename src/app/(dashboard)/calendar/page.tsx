@@ -1058,14 +1058,14 @@ export default function CalendarPage() {
             <div className="space-y-1">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
               <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={2}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Start Date" type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} required />
               <Input label="End Date" type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} required />
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="editAllDay" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <input type="checkbox" id="editAllDay" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
               <label htmlFor="editAllDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
             </div>
             {!editAllDay && (
@@ -1073,12 +1073,12 @@ export default function CalendarPage() {
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start Time</label>
                   <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                 </div>
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
                   <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                 </div>
               </div>
             )}
@@ -1116,7 +1116,7 @@ export default function CalendarPage() {
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
             <textarea placeholder="Event details..." value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500" rows={2} />
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500" rows={2} />
           </div>
           <MultiSelectCheckbox label="Teams" items={teams} selected={newTeamIds} onToggle={toggleTeamId} />
           {projects.length > 0 && (
@@ -1127,7 +1127,7 @@ export default function CalendarPage() {
             <Input label="End Date" type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} required />
           </div>
           <div className="flex items-center gap-2">
-            <input type="checkbox" id="allDay" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+            <input type="checkbox" id="allDay" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
             <label htmlFor="allDay" className="text-sm text-slate-700 dark:text-slate-300">All day event</label>
           </div>
           {!newAllDay && (
@@ -1135,19 +1135,19 @@ export default function CalendarPage() {
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Start Time</label>
                 <input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
                 <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>
             </div>
           )}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Repeat</label>
             <select value={newRecurrence} onChange={(e) => setNewRecurrence(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
               {RECURRENCE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
@@ -1170,7 +1170,7 @@ export default function CalendarPage() {
           {linkedAccounts.length > 0 && (
             <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
               <label className="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" checked={syncToGoogle} onChange={(e) => { setSyncToGoogle(e.target.checked); if (e.target.checked && !syncAccountId && linkedAccounts.length > 0) setSyncAccountId(linkedAccounts[0].id); }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <input type="checkbox" checked={syncToGoogle} onChange={(e) => { setSyncToGoogle(e.target.checked); if (e.target.checked && !syncAccountId && linkedAccounts.length > 0) setSyncAccountId(linkedAccounts[0].id); }} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
                 <div>
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sync to Google Calendar</span>
                   <p className="text-xs text-slate-400 dark:text-slate-500">Event will appear in your connected Google Calendar</p>
@@ -1178,7 +1178,7 @@ export default function CalendarPage() {
               </label>
               {syncToGoogle && (
                 <select value={syncAccountId} onChange={(e) => setSyncAccountId(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                   {linkedAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>{acc.email}</option>
                   ))}

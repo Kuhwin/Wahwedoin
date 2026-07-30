@@ -281,7 +281,7 @@ export default function MemberDetailPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           You need to be an organization owner or admin to view member details.
         </p>
-        <Link href="/people" className="inline-block mt-4 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+        <Link href="/people" className="inline-block mt-4 text-sm text-accent hover:underline">
           Back to People
         </Link>
       </div>
@@ -556,7 +556,7 @@ export default function MemberDetailPage() {
                     >
                       <FolderKanban size={14} style={{ color: p.color }} className="shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-accent dark:group-hover:text-accent">
                           {p.name}
                         </p>
                         {p.team_name && (
@@ -617,7 +617,7 @@ function TaskRowItem({ task }: { task: TaskRow }) {
       className="flex items-center gap-2 p-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
     >
       <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", STATUS_COLORS[task.status])} />
-      <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+      <span className="text-xs text-slate-700 dark:text-slate-300 truncate flex-1 group-hover:text-accent dark:group-hover:text-accent">
         {task.title}
       </span>
       {task.due_date && (

@@ -87,7 +87,7 @@ export default function SignupPage() {
 
         {inviteEmail && (
           <div className="mb-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 flex items-start gap-2">
-            <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 text-accent mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <div className="text-xs text-indigo-700 dark:text-indigo-300">
@@ -109,11 +109,11 @@ export default function SignupPage() {
               We sent a confirmation link to <strong>{email}</strong>
             </p>
             {inviteEmail && (
-              <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
+              <p className="text-xs text-accent mt-2">
                 After confirming, you&apos;ll be added to the team automatically.
               </p>
             )}
-            <Link href="/auth/login" className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+            <Link href="/auth/login" className="mt-4 inline-block text-sm text-accent hover:text-accent/80 font-medium">
               Go to sign in
             </Link>
           </div>
@@ -183,7 +183,7 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
+          <Link href="/auth/login" className="text-accent hover:text-accent/80 font-medium">
             Sign in
           </Link>
         </p>

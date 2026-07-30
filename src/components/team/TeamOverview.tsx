@@ -166,7 +166,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
             <h3 className="text-sm font-semibold text-slate-700">Projects</h3>
             <Link
               href={`/projects?team=${teamId}`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+              className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
             >
               <Plus size={12} />
               Add Project
@@ -177,7 +177,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
               <p className="mb-3">No projects yet</p>
               <Link
                 href={`/projects?team=${teamId}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-accent/15 transition-colors"
               >
                 <Plus size={12} />
                 Create Project
@@ -195,7 +195,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
                   <Link
                     key={project.id}
                     href={`/projects/${project.id}`}
-                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-sm transition-all"
+                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-accent/30 hover:shadow-sm transition-all"
                   >
                     <div className="flex items-center gap-3">
                       <div

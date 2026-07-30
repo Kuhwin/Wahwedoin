@@ -169,7 +169,7 @@ export default function PrivacyPolicy() {
                   href="https://developers.google.com/terms/api-services-user-data-policy"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-accent hover:underline"
                 >
                   Google API Services User Data Policy
                 </a>
@@ -208,7 +208,7 @@ export default function PrivacyPolicy() {
                 If you have any questions about this Privacy Policy, please contact us at{" "}
                 <a
                   href="mailto:lathanquinnh@gmail.com"
-                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                  className="text-accent hover:underline"
                 >
                   lathanquinnh@gmail.com
                 </a>

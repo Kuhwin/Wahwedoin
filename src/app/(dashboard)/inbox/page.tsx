@@ -178,7 +178,7 @@ export default function InboxPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             Inbox
             {unreadCount > 0 && (
-              <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+              <span className="text-sm font-medium text-accent bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
                 {unreadCount} unread
               </span>
             )}
@@ -188,7 +188,7 @@ export default function InboxPage() {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+            className="flex items-center gap-1.5 text-sm text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
           >
             <CheckCheck size={16} />
             Mark all as read
@@ -248,7 +248,7 @@ export default function InboxPage() {
                   if (!n.read) handleMarkAsRead(n.id);
                 }}
                 className={`flex items-start gap-3 px-5 py-4 transition-colors cursor-pointer ${
-                  !n.read ? "bg-indigo-50/40 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                  !n.read ? "bg-indigo-50/40 dark:bg-indigo-900/10 hover:bg-accent/10" : "hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
               >
                 <div className="mt-0.5 flex-shrink-0">
@@ -272,7 +272,7 @@ export default function InboxPage() {
                       <Link
                         href={n.link}
                         onClick={(e) => e.stopPropagation()}
-                        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                        className="text-[11px] text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                       >
                         View
                       </Link>
@@ -288,7 +288,7 @@ export default function InboxPage() {
               <button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
-                className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-accent hover:text-indigo-700 dark:hover:text-indigo-300 disabled:opacity-50"
               >
                 {loadingMore ? (
                   <span className="flex items-center gap-2">
