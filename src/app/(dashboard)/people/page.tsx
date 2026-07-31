@@ -130,14 +130,10 @@ export default function PeoplePage() {
 
       const today = new Date().toISOString();
 
-      const [tasksRes, teamMembersRes, activitiesRes] = await Promise.all([
+      const [tasksRes, activitiesRes, meetingsRes] = await Promise.all([
         supabase
           .from("task_assignees")
           .select("user_id, tasks!inner(status, due_date)")
-          .in("user_id", userIds),
-        supabase
-          .from("team_members")
-          .select("user_id, team_id")
           .in("user_id", userIds),
         supabase
           .from("activities")
@@ -145,6 +141,7 @@ export default function PeoplePage() {
           .in("user_id", userIds)
           .order("created_at", { ascending: false })
           .limit(200),
+        fetch(`/api/people/meetings?org_id=${orgId}`),
       ]);
 
       const taskStats: Record<string, { active: number; overdue: number }> = {};
@@ -157,54 +154,14 @@ export default function PeoplePage() {
         if (row.tasks.due_date && row.tasks.due_date < today.split("T")[0] && row.tasks.status !== "done") s.overdue++;
       });
 
-      const teamIds = (teamMembersRes.data || []).map((t: { team_id: string }) => t.team_id);
-      const eventsMap: Record<string, number> = {};
-      userIds.forEach((id) => { eventsMap[id] = 0 });
-
-      const { data: googleAccounts } = await supabase
-        .from("user_google_accounts")
-        .select("id, user_id")
-        .in("user_id", userIds);
-
-      const userAccountSet: Record<string, Set<string>> = {};
-      userIds.forEach((id) => { userAccountSet[id] = new Set(); });
-      (googleAccounts || []).forEach((a: { id: string; user_id: string }) => {
-        userAccountSet[a.user_id]?.add(a.id);
-      });
-      const allAccountIds = [...new Set((googleAccounts || []).map((a: { id: string }) => a.id))] as string[];
-
-      const orFilters: string[] = [];
-      if (teamIds.length > 0) orFilters.push(`team_id.in.(${teamIds.join(",")})`);
-      if (allAccountIds.length > 0) orFilters.push(`google_account_id.in.(${allAccountIds.join(",")})`);
-
-      if (orFilters.length > 0) {
-        const { data: events } = await supabase
-          .from("events")
-          .select("team_id, start_date, google_account_id")
-          .or(orFilters.join(","))
-          .gte("start_date", today)
-          .lte("start_date", new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString());
-
-        const userTeamSet: Record<string, Set<string>> = {};
-        userIds.forEach((id) => { userTeamSet[id] = new Set(); });
-        (teamMembersRes.data || []).forEach((tm: { user_id: string; team_id: string }) => {
-          userTeamSet[tm.user_id]?.add(tm.team_id);
-        });
-
-        (events || []).forEach((ev: { team_id: string; google_account_id: string | null }) => {
-          Object.entries(userTeamSet).forEach(([uid, teamSet]) => {
-            if (teamSet.has(ev.team_id)) {
-              eventsMap[uid] = (eventsMap[uid] || 0) + 1;
-            }
-          });
-          if (ev.google_account_id) {
-            Object.entries(userAccountSet).forEach(([uid, accountSet]) => {
-              if (accountSet.has(ev.google_account_id!)) {
-                eventsMap[uid] = (eventsMap[uid] || 0) + 1;
-              }
-            });
-          }
-        });
+      let meetingsCounts: Record<string, number> = {};
+      try {
+        if (meetingsRes.ok) {
+          const data = await meetingsRes.json();
+          meetingsCounts = data.counts || {};
+        }
+      } catch {
+        // ignore
       }
 
       const lastActivity: Record<string, string | null> = {};
@@ -219,7 +176,7 @@ export default function PeoplePage() {
           user_id: id,
           activeTasks: taskStats[id]?.active || 0,
           overdueTasks: taskStats[id]?.overdue || 0,
-          upcomingEvents: eventsMap[id] || 0,
+          upcomingEvents: meetingsCounts[id] || 0,
           lastActivity: lastActivity[id] || null,
         };
       });

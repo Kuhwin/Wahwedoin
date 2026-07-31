@@ -296,6 +296,7 @@ export default function MemberDetailPage() {
   const todoTasks = tasks.filter((t) => t.status === "todo" && (!t.due_date || t.due_date >= today));
 
   const upcomingEvents = events.slice(0, 8);
+  const meetingCount = events.length;
 
   function timeAgo(iso: string): string {
     const diff = nowMs - new Date(iso).getTime();
@@ -399,7 +400,7 @@ export default function MemberDetailPage() {
             <Video size={14} className="text-indigo-500" />
             <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Meetings</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{upcomingEvents.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{meetingCount}</p>
           <p className="text-[10px] text-slate-400 dark:text-slate-500">next 14d</p>
         </div>
       </div>
@@ -495,7 +496,7 @@ export default function MemberDetailPage() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
             <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Calendar size={12} />
-              Upcoming Meetings ({upcomingEvents.length})
+              Upcoming Meetings ({meetingCount})
             </h3>
             {upcomingEvents.length === 0 ? (
               <p className="text-xs text-slate-400 dark:text-slate-500 py-2">No meetings in the next 14 days</p>
