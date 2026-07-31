@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown, BarChart3 } from "lucide-react";
+import { ArrowLeft, Plus, LayoutGrid, List, Archive, Trash2, MoreVertical, Search, X, ArrowUpDown, BarChart3, GanttChart, CalendarDays, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import CustomFieldsPanel from "@/components/CustomFieldsPanel";
@@ -23,6 +23,8 @@ import ExportButton from "@/components/ExportButton";
 
 const KanbanBoard = dynamic(() => import("@/components/kanban/KanbanBoard"), { ssr: false });
 const ListView = dynamic(() => import("@/components/kanban/ListView"), { ssr: false });
+const GanttView = dynamic(() => import("@/components/kanban/GanttView"), { ssr: false });
+const ProjectEvents = dynamic(() => import("@/components/project/ProjectEvents"), { ssr: false });
 const TaskDetailModal = dynamic(() => import("@/components/tasks/TaskDetailModal"), { ssr: false });
 
 const DEFAULT_SECTIONS = [
@@ -39,18 +41,23 @@ export default function ProjectPage() {
   const [sections, setSections] = useState<Section[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"board" | "list" | "gantt" | "events">("board");
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<Task["priority"]>("medium");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskStartDate, setNewTaskStartDate] = useState("");
   const [newTaskSection, setNewTaskSection] = useState("");
   const [newTaskRecurrence, setNewTaskRecurrence] = useState("");
   const [newTaskRecurrenceEnd, setNewTaskRecurrenceEnd] = useState("");
   const [newTaskMilestone, setNewTaskMilestone] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showKeyDates, setShowKeyDates] = useState(false);
+  const [keyStart, setKeyStart] = useState("");
+  const [keyDue, setKeyDue] = useState("");
+  const [savingKeyDates, setSavingKeyDates] = useState(false);
   const { addToast } = useToast();
 
   const selectedTaskRef = useRef(selectedTask);
@@ -76,7 +83,7 @@ export default function ProjectPage() {
       supabase.auth.getUser(),
       supabase
         .from("projects")
-        .select("id, name, team_id, status, created_at, description, drive_account_id, drive_folder_id, drive_folder_name")
+        .select("id, name, team_id, status, created_at, description, drive_account_id, drive_folder_id, drive_folder_name, start_date, due_date")
         .eq("id", projectId)
         .single(),
     ]);
@@ -327,6 +334,7 @@ export default function ProjectPage() {
         priority: newTaskPriority,
         assignee_id: newTaskAssignee || null,
         due_date: newTaskDueDate || null,
+        start_date: newTaskStartDate || null,
         section_id: newTaskSection || null,
         position: maxPos,
         created_by: user?.id,
@@ -343,6 +351,7 @@ export default function ProjectPage() {
       setNewTaskPriority("medium");
       setNewTaskAssignee("");
       setNewTaskDueDate("");
+      setNewTaskStartDate("");
       setNewTaskSection("");
       setNewTaskRecurrence("");
       setNewTaskRecurrenceEnd("");
@@ -471,6 +480,36 @@ export default function ProjectPage() {
     if (!error) {
       router.push("/projects");
     }
+  }
+
+  function openKeyDates() {
+    setKeyStart(project?.start_date || "");
+    setKeyDue(project?.due_date || "");
+    setShowKeyDates(true);
+  }
+
+  async function handleSaveKeyDates() {
+    if (!project) return;
+    setSavingKeyDates(true);
+    const start = keyStart || null;
+    const due = keyDue || null;
+    if (start && due && start > due) {
+      addToast("Start date must be before the due date", "error");
+      setSavingKeyDates(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("projects")
+      .update({ start_date: start, due_date: due })
+      .eq("id", projectId);
+    if (error) {
+      addToast(error.message, "error");
+    } else {
+      setProject({ ...project, start_date: start, due_date: due });
+      setShowKeyDates(false);
+      addToast("Key dates saved", "success");
+    }
+    setSavingKeyDates(false);
   }
 
   const handleBulkDelete = useCallback(async (taskIds: string[]) => {
@@ -675,6 +714,20 @@ export default function ProjectPage() {
                 ◆ {tasks.filter((t) => t.is_milestone && t.status === "done").length}/{tasks.filter((t) => t.is_milestone).length} milestones
               </span>
             )}
+            <button
+              onClick={openKeyDates}
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 transition-colors"
+              title="Edit key dates"
+            >
+              <CalendarClock size={12} />
+              {project.start_date && project.due_date
+                ? `${project.start_date} → ${project.due_date}`
+                : project.start_date
+                  ? `Starts ${project.start_date}`
+                  : project.due_date
+                    ? `Due ${project.due_date}`
+                    : "Set key dates"}
+            </button>
             {sections.length > 0 && (
               <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
                 {sections.map((s) => (
@@ -716,14 +769,30 @@ export default function ProjectPage() {
             <button
               onClick={() => setView("board")}
               className={`p-1.5 rounded-md transition-colors ${view === "board" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
+              title="Board"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setView("list")}
               className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
+              title="List"
             >
               <List size={16} />
+            </button>
+            <button
+              onClick={() => setView("gantt")}
+              className={`p-1.5 rounded-md transition-colors ${view === "gantt" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
+              title="Timeline (Gantt)"
+            >
+              <GanttChart size={16} />
+            </button>
+            <button
+              onClick={() => setView("events")}
+              className={`p-1.5 rounded-md transition-colors ${view === "events" ? "bg-white dark:bg-slate-700 shadow-sm text-accent" : "text-slate-400 dark:text-slate-500"}`}
+              title="Events"
+            >
+              <CalendarDays size={16} />
             </button>
           </div>
           <ExportButton
@@ -885,8 +954,8 @@ export default function ProjectPage() {
       {/* Analytics */}
       {showAnalytics && <ProjectAnalytics tasks={tasks} />}
 
-      {/* Board / List */}
-      {view === "board" ? (
+      {/* Board / List / Gantt / Events */}
+      {view === "board" && (
         <KanbanBoard
           tasks={filteredTasks}
           sections={sections}
@@ -904,7 +973,8 @@ export default function ProjectPage() {
           onBulkMove={handleBulkMove}
           onBulkAssign={handleBulkAssign}
         />
-      ) : (
+      )}
+      {view === "list" && (
         <ListView
           tasks={allFilteredTasks}
           onUpdateTask={handleUpdateTask}
@@ -915,6 +985,18 @@ export default function ProjectPage() {
           onBulkAssign={handleBulkAssign}
           subtaskCounts={subtaskCounts}
         />
+      )}
+      {view === "gantt" && (
+        <GanttView
+          tasks={allFilteredTasks}
+          onTaskClick={setSelectedTask}
+          projectStart={project.start_date}
+          projectDue={project.due_date}
+          projectColor={project.color}
+        />
+      )}
+      {view === "events" && (
+        <ProjectEvents projectId={projectId} teamId={project.team_id} projectColor={project.color} />
       )}
 
       {/* Add Task Modal */}
@@ -980,6 +1062,12 @@ export default function ProjectPage() {
             value={newTaskDueDate}
             onChange={(e) => setNewTaskDueDate(e.target.value)}
           />
+          <Input
+            label="Start Date (for timeline)"
+            type="date"
+            value={newTaskStartDate}
+            onChange={(e) => setNewTaskStartDate(e.target.value)}
+          />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Repeat</label>
             <select
@@ -1033,6 +1121,23 @@ export default function ProjectPage() {
         teamMembers={members}
         sections={sections}
       />
+
+      {/* Key Dates Modal */}
+      <Modal open={showKeyDates} onClose={() => setShowKeyDates(false)} title="Key Dates">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Key dates are project-level start and due dates — they show in the project header and on the timeline.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Start Date" type="date" value={keyStart} onChange={(e) => setKeyStart(e.target.value)} />
+            <Input label="Due Date" type="date" value={keyDue} onChange={(e) => setKeyDue(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowKeyDates(false)}>Cancel</Button>
+            <Button onClick={() => void handleSaveKeyDates()} disabled={savingKeyDates}>{savingKeyDates ? "Saving..." : "Save"}</Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Delete Project Confirmation */}
       <Modal open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete Project">

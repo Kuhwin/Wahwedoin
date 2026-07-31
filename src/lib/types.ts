@@ -46,6 +46,8 @@ export interface Project {
   drive_folder_name?: string | null;
   task_count?: number;
   completed_count?: number;
+  start_date?: string | null;
+  due_date?: string | null;
 }
 
 export interface ProjectSummary {
@@ -86,6 +88,8 @@ export interface Task {
   assignee_email?: string;
   assignee_name?: string;
   assignee_ids?: string[];
+  follower_ids?: string[];
+  start_date?: string | null;
   projects?: ProjectSummary[];
   task_projects?: { project_id: string }[];
 }
@@ -312,6 +316,32 @@ export interface SavedView {
   sort_by: string;
   sort_order: string;
   created_at: string;
+}
+
+export interface TaskFollower {
+  id: string;
+  task_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface Goal {
+  id: string;
+  organization_id: string | null;
+  team_id: string | null;
+  name: string;
+  description: string | null;
+  owner_id: string | null;
+  status: "on_track" | "at_risk" | "behind" | "complete";
+  due_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  owner_name?: string;
+  project_ids?: string[];
+  project_count?: number;
+  total_tasks?: number;
+  completed_tasks?: number;
 }
 
 export interface Portfolio {

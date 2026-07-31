@@ -100,6 +100,8 @@ export default function TaskDetailModal({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [taskAssignees, setTaskAssignees] = useState<string[]>([]);
+  const [taskFollowers, setTaskFollowers] = useState<string[]>([]);
+  const [showFollowerDropdown, setShowFollowerDropdown] = useState(false);
   const [parentTask, setParentTask] = useState<Task | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
@@ -120,7 +122,7 @@ export default function TaskDetailModal({
       } = await supabase.auth.getUser();
       if (user) setCurrentUserId(user.id);
 
-      const [commentsRes, subtasksRes, tagLinksRes, activityRes, attachRes, assigneeRes] = await Promise.all([
+      const [commentsRes, subtasksRes, tagLinksRes, activityRes, attachRes, assigneeRes, followerRes] = await Promise.all([
         supabase
           .from("task_comments")
           .select("id, task_id, user_id, body, parent_id, created_at")
@@ -150,6 +152,10 @@ export default function TaskDetailModal({
           .from("task_assignees")
           .select("user_id")
           .eq("task_id", task!.id),
+        supabase
+          .from("task_followers")
+          .select("user_id")
+          .eq("task_id", task!.id),
       ]);
 
       if (commentsRes.data) setComments(commentsRes.data);
@@ -171,6 +177,7 @@ export default function TaskDetailModal({
       }
       if (attachRes.data) setAttachments(attachRes.data as TaskAttachment[]);
       if (assigneeRes.data) setTaskAssignees(assigneeRes.data.map((a: { user_id: string }) => a.user_id));
+      if (followerRes.data) setTaskFollowers(followerRes.data.map((f: { user_id: string }) => f.user_id));
 
       if (tagLinksRes.data && tagLinksRes.data.length > 0) {
         const tagIds = tagLinksRes.data.map((l: { tag_id: string }) => l.tag_id);
@@ -235,6 +242,13 @@ export default function TaskDetailModal({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  useEffect(() => {
+    function handleClickOutside() {
+      if (showFollowerDropdown) setShowFollowerDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFollowerDropdown]);
 
   if (!task) return null;
 
@@ -335,6 +349,29 @@ export default function TaskDetailModal({
         void fetch("/api/notifications/send-assignment", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: mentioned.user_id, title, body: mentionBody, link }),
+        });
+      }
+    }
+
+    // Notify followers (excluding comment author, mentioned users, and assignees)
+    if (taskFollowers.length > 0) {
+      const mentionedIds = new Set(
+        body.split(/\s+/).map((w) => w.startsWith("@") ? w.slice(1).toLowerCase() : "").filter(Boolean)
+      );
+      const title = `New comment on "${task!.title}"`;
+      const commentBody = `${getMemberName(user.id)}: ${body}`;
+      const link = `/projects/${task!.project_id}`;
+      const targets = taskFollowers.filter((fid) => {
+        if (fid === user.id) return false;
+        const mp = memberProfiles.find((p) => p.user_id === fid);
+        const name = (mp?.display_name || "").toLowerCase();
+        return !(name && mentionedIds.has(name));
+      });
+      for (const fid of targets) {
+        await supabase.from("notifications").insert({ user_id: fid, type: "comment", title, body: commentBody, link });
+        void fetch("/api/notifications/send-assignment", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: fid, title, body: commentBody, link }),
         });
       }
     }
@@ -559,6 +596,31 @@ export default function TaskDetailModal({
     setTaskAssignees([...taskAssignees, currentUserId]);
   }
 
+  async function handleFollowerToggle(userId: string) {
+    const isFollowing = taskFollowers.includes(userId);
+    if (isFollowing) {
+      await supabase.from("task_followers").delete().eq("task_id", task!.id).eq("user_id", userId);
+      setTaskFollowers(taskFollowers.filter((id) => id !== userId));
+    } else {
+      await supabase.from("task_followers").insert({ task_id: task!.id, user_id: userId });
+      setTaskFollowers([...taskFollowers, userId]);
+    }
+  }
+
+  async function handleFollowMyself() {
+    if (!currentUserId) return;
+    if (taskFollowers.includes(currentUserId)) return;
+    await supabase.from("task_followers").insert({ task_id: task!.id, user_id: currentUserId });
+    setTaskFollowers([...taskFollowers, currentUserId]);
+  }
+
+  function getFollowerName(userId: string) {
+    const profile = memberProfiles.find((p) => p.user_id === userId);
+    if (profile?.display_name) return profile.display_name;
+    if (profile?.user_email) return profile.user_email.split("@")[0];
+    return userId.slice(0, 8);
+  }
+
   async function handleSectionChange(sectionId: string | null) {
     const status = sectionId
       ? getSectionStatus(sectionId)
@@ -715,6 +777,21 @@ export default function TaskDetailModal({
             />
           </div>
 
+          {/* Start Date */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Calendar size={12} /> Start Date
+            </label>
+            <input
+              type="date"
+              value={task.start_date || ""}
+              onChange={(e) =>
+                onUpdate(task.id, { start_date: e.target.value || null } as Partial<Task>)
+              }
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+          </div>
+
           {/* Recurrence */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -861,6 +938,69 @@ export default function TaskDetailModal({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Followers */}
+          <div className="col-span-2 space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Users size={12} /> Followers
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              {taskFollowers.length > 0 && (
+                <div className="flex items-center -space-x-1.5">
+                  {taskFollowers.slice(0, 5).map((uid) => (
+                    <Avatar key={uid} name={getFollowerName(uid)} email={uid} size="sm" className="ring-2 ring-slate-50 dark:ring-slate-900" />
+                  ))}
+                </div>
+              )}
+              {currentUserId && (
+                <button
+                  onClick={() => (taskFollowers.includes(currentUserId) ? void handleFollowerToggle(currentUserId) : void handleFollowMyself())}
+                  className={cn(
+                    "text-xs font-medium rounded-full border px-2.5 py-1 transition-colors",
+                    taskFollowers.includes(currentUserId)
+                      ? "text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20"
+                      : "text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  )}
+                >
+                  {taskFollowers.includes(currentUserId) ? "Following" : "Follow"}
+                </button>
+              )}
+              <button
+                onClick={() => setShowFollowerDropdown(!showFollowerDropdown)}
+                className="text-xs font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-full px-2.5 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
+              >
+                <Plus size={12} /> Add
+              </button>
+              {showFollowerDropdown && (
+                <div className="relative">
+                  <div className="absolute z-50 mt-1 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg py-1 max-h-64 overflow-y-auto">
+                    {memberProfiles
+                      .filter((m) => !taskFollowers.includes(m.user_id))
+                      .map((member) => (
+                        <button
+                          key={member.user_id}
+                          onClick={() => void handleFollowerToggle(member.user_id)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                        >
+                          <Avatar name={member.display_name} email={member.user_email || member.user_id} size="sm" />
+                          <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                            {member.display_name || member.user_email || "Unknown"}
+                          </span>
+                        </button>
+                      ))}
+                    {memberProfiles.filter((m) => !taskFollowers.includes(m.user_id)).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500 italic">Everyone&apos;s following</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            {taskFollowers.length > 5 && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                +{taskFollowers.length - 5} more follower{taskFollowers.length - 5 === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
         </div>
 

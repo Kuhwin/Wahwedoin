@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
+import CountdownTimer from "@/components/CountdownTimer";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
 import { cn } from "@/lib/utils";
 
@@ -510,12 +511,13 @@ export default function MemberDetailPage() {
               <p className="text-xs text-slate-400 dark:text-slate-500 py-2">No meetings in the next 14 days</p>
             ) : (
               <div className="space-y-2">
-                {upcomingEvents.map((e) => {
+                {upcomingEvents.map((e, index) => {
                   const start = new Date(e.start_date);
                   const dayLabel = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
                   const timeLabel = e.all_day
                     ? "All day"
                     : start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                  const showCountdown = index === 0 && !e.all_day && start.getTime() > nowMs && start.getTime() - nowMs <= 7 * 86400000;
                   return (
                     <button
                       key={e.id}
@@ -543,6 +545,9 @@ export default function MemberDetailPage() {
                           {dayLabel} · {timeLabel}
                           {e.team_name && ` · ${e.team_name}`}
                         </p>
+                        {showCountdown && (
+                          <CountdownTimer target={start.getTime()} className="text-[11px] font-semibold text-accent mt-0.5" />
+                        )}
                       </div>
                       {e.meet_link && (
                         <span

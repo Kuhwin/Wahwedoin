@@ -83,6 +83,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     projects: "Projects",
     settings: "Settings",
     portfolios: "Portfolios",
+    goals: "Goals",
     import: "Import",
     appearance: "Appearance",
     privacy: "Privacy",

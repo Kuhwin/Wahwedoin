@@ -27,6 +27,7 @@ import {
   Briefcase,
   Building2,
   Users,
+  Target,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -106,7 +107,7 @@ export default function Sidebar({
       ]),
     ] as string[];
 
-    let orgMap: Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }> = {};
+    const orgMap: Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }> = {};
     if (allOrgIds.length > 0) {
       const { data: orgs } = await supabase
         .from("organizations")
@@ -362,6 +363,7 @@ export default function Sidebar({
     { href: "/manage", icon: Building2, label: "Manage" },
     { href: "/people", icon: Users, label: "People" },
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
+    { href: "/goals", icon: Target, label: "Goals" },
   ];
 
   const isMoreActive = moreNavItems.some(

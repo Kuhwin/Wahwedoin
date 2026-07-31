@@ -219,6 +219,8 @@ export default function CalendarPage() {
 
   const [filterTeamIds, setFilterTeamIds] = useState<string[]>([]);
   const [filterProjectIds, setFilterProjectIds] = useState<string[]>([]);
+  const [eventProjectMap, setEventProjectMap] = useState<Record<string, string[]>>({});
+  const [eventTeamMap, setEventTeamMap] = useState<Record<string, string[]>>({});
 
   const [linkedAccounts, setLinkedAccounts] = useState<{ id: string; email: string; display_name: string | null; color: string | null }[]>([]);
   const [syncToGoogle, setSyncToGoogle] = useState(false);
@@ -263,6 +265,22 @@ export default function CalendarPage() {
       .lte("start_date", oneYearFromNow)
       .order("start_date", { ascending: true });
 
+    const [epRes, etRes] = await Promise.all([
+      supabase.from("event_projects").select("event_id, project_id"),
+      supabase.from("event_teams").select("event_id, team_id"),
+    ]);
+
+    const projectMap: Record<string, string[]> = {};
+    for (const row of (epRes.data || []) as { event_id: string; project_id: string }[]) {
+      if (!projectMap[row.event_id]) projectMap[row.event_id] = [];
+      projectMap[row.event_id].push(row.project_id);
+    }
+    const teamMap: Record<string, string[]> = {};
+    for (const row of (etRes.data || []) as { event_id: string; team_id: string }[]) {
+      if (!teamMap[row.event_id]) teamMap[row.event_id] = [];
+      teamMap[row.event_id].push(row.team_id);
+    }
+
     const allExternal: ExternalEvent[] = [];
 
     const now = new Date();
@@ -301,7 +319,7 @@ export default function CalendarPage() {
 
     const googleAccounts = accounts as { id: string; email: string; display_name: string | null; color: string | null }[] | null;
 
-    return { teamList, projectsData: projectsData || [], eventsData: eventsData || [], calLinksData, googleAccounts: googleAccounts || [], user };
+    return { teamList, projectsData: projectsData || [], eventsData: eventsData || [], calLinksData, googleAccounts: googleAccounts || [], eventProjectMap: projectMap, eventTeamMap: teamMap, user };
   }, [supabase]);
 
   const { data: calData, mutate: calMutate } = useSWR(
@@ -319,6 +337,8 @@ export default function CalendarPage() {
       if (calData.eventsData) setEvents(calData.eventsData);
       setCalLinks(calData.calLinksData);
       if (calData.googleAccounts) setLinkedAccounts(calData.googleAccounts);
+      if (calData.eventProjectMap) setEventProjectMap(calData.eventProjectMap);
+      if (calData.eventTeamMap) setEventTeamMap(calData.eventTeamMap);
 
       if (calData.teamList.length > 0) {
         setNewTeamIds((prev) => prev.length > 0 ? prev : [calData.teamList[0].id]);
@@ -477,8 +497,12 @@ export default function CalendarPage() {
 
     const internal = expandedEvents.filter((event) => {
       const ev = event.originalEvent;
-      if (ev && filterTeamIds.length > 0 && !filterTeamIds.includes(ev.team_id)) return false;
-      if (ev && filterProjectIds.length > 0 && ev.project_id && !filterProjectIds.includes(ev.project_id)) return false;
+      if (ev) {
+        const evTeamIds = (eventTeamMap[ev.id] && eventTeamMap[ev.id].length > 0 ? eventTeamMap[ev.id] : [ev.team_id]).filter(Boolean);
+        if (filterTeamIds.length > 0 && !evTeamIds.some((tid) => filterTeamIds.includes(tid))) return false;
+        const evProjectIds = eventProjectMap[ev.id] || [];
+        if (filterProjectIds.length > 0 && !evProjectIds.some((pid) => filterProjectIds.includes(pid))) return false;
+      }
       if (event.allDay) {
         const start = event.start.split("T")[0];
         const end = event.end.split("T")[0];
@@ -965,31 +989,41 @@ export default function CalendarPage() {
             </div>
 
             {/* Team & Project (internal events) */}
-            {selectedEvent.originalEvent && (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {selectedEvent.originalEvent.team_id && (() => {
-                  const team = teams.find((t) => t.id === selectedEvent.originalEvent!.team_id);
-                  return team ? (
+            {selectedEvent.originalEvent && (() => {
+              const orig = selectedEvent.originalEvent;
+              const teamIds = eventTeamMap[orig.id] && eventTeamMap[orig.id].length > 0 ? eventTeamMap[orig.id] : [orig.team_id].filter(Boolean);
+              const projectIds = eventProjectMap[orig.id] || [];
+              const shownTeams = teamIds.map((tid) => teams.find((t) => t.id === tid)).filter(Boolean);
+              const shownProjects = projectIds.map((pid) => projects.find((p) => p.id === pid)).filter(Boolean);
+              if (shownTeams.length === 0 && shownProjects.length === 0) return null;
+              return (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {shownTeams.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Team</span>
-                      <p className="text-slate-900 dark:text-slate-100">{team.name}</p>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Team{shownTeams.length > 1 ? "s" : ""}</span>
+                      <div className="space-y-0.5">
+                        {shownTeams.map((t) => (
+                          <p key={t!.id} className="text-slate-900 dark:text-slate-100">{t!.name}</p>
+                        ))}
+                      </div>
                     </div>
-                  ) : null;
-                })()}
-                {selectedEvent.originalEvent.project_id && (() => {
-                  const project = projects.find((p) => p.id === selectedEvent.originalEvent!.project_id);
-                  return project ? (
+                  )}
+                  {shownProjects.length > 0 && (
                     <div>
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Project</span>
-                      <p className="text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
-                        {project.name}
-                      </p>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Project{shownProjects.length > 1 ? "s" : ""}</span>
+                      <div className="space-y-0.5">
+                        {shownProjects.map((p) => (
+                          <p key={p!.id} className="text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: p!.color }} />
+                            {p!.name}
+                          </p>
+                        ))}
+                      </div>
                     </div>
-                  ) : null;
-                })()}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Badges & Links */}
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

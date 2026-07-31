@@ -25,6 +25,7 @@ import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
 import { formatRelativeTime } from "@/lib/utils";
 import { useDashboardData } from "@/lib/hooks";
+import CountdownTimer from "@/components/CountdownTimer";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
@@ -49,6 +50,8 @@ export default function DashboardPage() {
   const ACTIVITIES_PER_PAGE = 20;
   const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
   const displayEvents = events.slice(0, 6);
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = useMemo(() => Date.now(), []);
 
   useEffect(() => {
     setTasks(swrTasks);
@@ -132,10 +135,9 @@ export default function DashboardPage() {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "todo" as const } : t));
     }
   }
-
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
-  const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split("T")[0]);
 
+  const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split("T")[0]);
   const taskStats = useMemo(() => {
     const result = {
       total: tasks.length,
@@ -279,13 +281,14 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {displayEvents.map((evt) => {
+            {displayEvents.map((evt, index) => {
               const evtDate = new Date(evt.start_date || evt.created_at);
               const isToday = evtDate.toISOString().split("T")[0] === today;
               const isTomorrow = evtDate.toISOString().split("T")[0] === tomorrow;
               const isHoliday = String(evt.id).startsWith("holiday-");
               const isExternal = String(evt.id).startsWith("external-");
               const dateLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : evtDate.toLocaleDateString("en-GB", { weekday: "short", month: "short", day: "numeric" });
+              const showCountdown = index === 0 && !evt.all_day && evtDate.getTime() > nowMs && evtDate.getTime() - nowMs <= 7 * 86400000;
 
               return (
                 <button
@@ -319,6 +322,11 @@ export default function DashboardPage() {
                         {isExternal && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">External</span>}
                         {evt.recurrence && evt.recurrence !== "none" && <span className="text-[10px]">🔁</span>}
                       </div>
+                      {showCountdown && (
+                        <div className="mt-1.5">
+                          <CountdownTimer target={evtDate.getTime()} className="text-xs font-semibold text-accent" />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </button>
