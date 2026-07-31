@@ -1,8 +1,17 @@
 import { createClient } from "@/lib/supabase/client";
 import { checkRecurringTasks } from "@/lib/recurringTaskChecker";
 
+let lastRunAt = 0;
+
 export async function checkDueDateNotifications() {
   try {
+    // Throttle: this can be called on every dashboard data refresh, which
+    // caused a request storm of auth/notification_preferences/tasks queries.
+    // At most once per 5 minutes per tab is plenty for due-date alerts.
+    const now = Date.now();
+    if (now - lastRunAt < 5 * 60_000) return;
+    lastRunAt = now;
+
     void checkRecurringTasks();
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();

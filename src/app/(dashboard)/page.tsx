@@ -57,8 +57,14 @@ export default function DashboardPage() {
     setTasks(swrTasks);
     setActivities(swrActivities);
     setUserNames(swrUserNames);
-    void checkDueDateNotifications();
   }, [swrTasks, swrActivities, swrUserNames]);
+
+  // Due-date notification check runs once on mount; checkDueDateNotifications
+  // throttles itself to once per 5 minutes so frequent data refreshes can't
+  // trigger a request storm.
+  useEffect(() => {
+    void checkDueDateNotifications();
+  }, []);
 
   function updateActivityParams(next: { open?: boolean; action?: string; project?: string }) {
     const params = new URLSearchParams(searchParams.toString());

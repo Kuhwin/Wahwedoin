@@ -275,7 +275,7 @@ export async function createGoogleCalendarEvent(
     attendees?: { email: string }[];
     timezone?: string;
   }
-): Promise<{ googleEventId: string } | null> {
+): Promise<{ googleEventId: string; hangoutLink?: string | null } | null> {
   const supabase = createClient();
   const { data } = await supabase
     .from("user_google_accounts")
@@ -296,8 +296,10 @@ export async function createGoogleCalendarEvent(
       : { dateTime: eventData.end, timeZone: eventData.timezone ?? "America/Barbados" },
   };
 
+  // Note: hangoutLink is a read-only field on the Google API — sending it
+  // alongside conferenceDataVersion=1 makes Google return 400. We request a
+  // Google Meet conference instead and read the generated link back.
   if (eventData.meetLink) {
-    googleEvent.hangoutLink = eventData.meetLink;
     googleEvent.conferenceData = {
       createRequest: {
         requestId: crypto.randomUUID(),
@@ -310,7 +312,7 @@ export async function createGoogleCalendarEvent(
     googleEvent.attendees = eventData.attendees.map((a) => ({ email: a.email }));
   }
 
-  const result = await callGoogleAPI<{ id: string }>(
+  const result = await callGoogleAPI<{ id: string; hangoutLink?: string }>(
     account,
     "POST",
     "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
@@ -318,7 +320,7 @@ export async function createGoogleCalendarEvent(
   );
 
   if (!result?.id) return null;
-  return { googleEventId: result.id };
+  return { googleEventId: result.id, hangoutLink: result.hangoutLink || null };
 }
 
 export async function updateGoogleCalendarEvent(
@@ -354,10 +356,6 @@ export async function updateGoogleCalendarEvent(
       ? { date: eventData.end.split("T")[0] }
       : { dateTime: eventData.end, timeZone: eventData.timezone ?? "America/Barbados" },
   };
-
-  if (eventData.meetLink) {
-    googleEvent.hangoutLink = eventData.meetLink;
-  }
 
   if (eventData.attendees && eventData.attendees.length > 0) {
     googleEvent.attendees = eventData.attendees.map((a) => ({ email: a.email }));

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Trash2, CalendarDays, Video, Loader2, Clock } from "lucide-react";
+import { Plus, Trash2, Pencil, CalendarDays, Video, Loader2, Clock } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { createGoogleCalendarEvent } from "@/lib/linkedAccounts";
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "@/lib/linkedAccounts";
 import { useTimezone } from "@/lib/useTimezone";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
 
@@ -29,10 +29,12 @@ interface ProjectEvent {
   all_day: boolean;
   color: string;
   recurrence: string | null;
+  recurrence_end: string | null;
   meet_link: string | null;
   attendees: { email: string; name?: string; status?: string }[] | null;
   created_by: string | null;
   google_account_id: string | null;
+  google_event_id: string | null;
 }
 
 export default function ProjectEvents({
@@ -49,6 +51,7 @@ export default function ProjectEvents({
   const [events, setEvents] = useState<ProjectEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<ProjectEvent | null>(null);
   const [selected, setSelected] = useState<EventDetailData | null>(null);
 
   const [title, setTitle] = useState("");
@@ -66,12 +69,13 @@ export default function ProjectEvents({
   const [accounts, setAccounts] = useState<{ id: string; email: string }[]>([]);
   const [syncAccountId, setSyncAccountId] = useState("");
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
     const { data } = await supabase
       .from("event_projects")
-      .select("events(id, title, description, start_date, end_date, all_day, color, recurrence, meet_link, attendees, created_by, google_account_id)")
+      .select("events(id, title, description, start_date, end_date, all_day, color, recurrence, recurrence_end, meet_link, attendees, created_by, google_account_id, google_event_id)")
       .eq("project_id", projectId);
     const rows = ((data as { events: ProjectEvent }[] | null) || [])
       .map((r) => r.events)
@@ -103,8 +107,15 @@ export default function ProjectEvents({
     if (!title.trim() || !startDate) return;
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
+    const effEndDate = endDate || startDate;
+    const effEndTime = allDay ? "" : endTime || (() => {
+      const [h, m] = (startTime || "09:00").split(":").map(Number);
+      const d = new Date();
+      d.setHours((h + 1) % 24, m, 0, 0);
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    })();
     const startDateTime = allDay ? startDate + "T00:00:00Z" : startDate + "T" + startTime + ":00Z";
-    const endDateTime = allDay ? endDate + "T23:59:59Z" : endDate + "T" + endTime + ":00Z";
+    const endDateTime = allDay ? effEndDate + "T23:59:59Z" : effEndDate + "T" + effEndTime + ":00Z";
 
     const { data, error } = await supabase
       .from("events")
@@ -144,7 +155,13 @@ export default function ProjectEvents({
           timezone,
         });
         if (googleEvent) {
-          await supabase.from("events").update({ google_event_id: googleEvent.googleEventId }).eq("id", data.id);
+          const generatedMeetLink = googleEvent.hangoutLink || meetLink.trim() || null;
+          await supabase.from("events").update({
+            google_event_id: googleEvent.googleEventId,
+            meet_link: generatedMeetLink,
+          }).eq("id", data.id);
+          data.google_event_id = googleEvent.googleEventId;
+          data.meet_link = generatedMeetLink;
         }
       }
 
@@ -165,8 +182,87 @@ export default function ProjectEvents({
     setCreating(false);
   }
 
+  function handleEdit(evt: ProjectEvent) {
+    setEditing(evt);
+    setTitle(evt.title);
+    setDesc(evt.description || "");
+    setStartDate(evt.start_date.split("T")[0]);
+    setEndDate(evt.end_date ? evt.end_date.split("T")[0] : "");
+    setAllDay(evt.all_day);
+    if (evt.all_day) {
+      setStartTime("09:00");
+      setEndTime("10:00");
+    } else {
+      setStartTime(evt.start_date.slice(11, 16));
+      setEndTime(evt.end_date ? evt.end_date.slice(11, 16) : "10:00");
+    }
+    setColor(evt.color || projectColor || COLORS[0]);
+    setRecurrence(evt.recurrence || "");
+    setRecurrenceEnd(evt.recurrence_end || "");
+    setMeetLink(evt.meet_link || "");
+    setSyncToGoogle(!!evt.google_account_id);
+    setSyncAccountId(evt.google_account_id || "");
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing || !title.trim() || !startDate) return;
+    setSaving(true);
+    const effEndDate = endDate || startDate;
+    const effEndTime = allDay ? "" : endTime || (() => {
+      const [h, m] = (startTime || "09:00").split(":").map(Number);
+      const d = new Date();
+      d.setHours((h + 1) % 24, m, 0, 0);
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    })();
+    const startDateTime = allDay ? startDate + "T00:00:00Z" : startDate + "T" + startTime + ":00Z";
+    const endDateTime = allDay ? effEndDate + "T23:59:59Z" : effEndDate + "T" + effEndTime + ":00Z";
+
+    await supabase.from("events").update({
+      title: title.trim(),
+      description: desc.trim() || null,
+      start_date: startDateTime,
+      end_date: endDateTime,
+      all_day: allDay,
+      color,
+      recurrence: recurrence || null,
+      recurrence_end: recurrenceEnd || null,
+      meet_link: meetLink.trim() || null,
+    }).eq("id", editing.id);
+
+    if (editing.google_account_id) {
+      await updateGoogleCalendarEvent(editing.google_account_id, editing.google_event_id!, {
+        title: title.trim(),
+        description: desc.trim() || null,
+        start: startDateTime,
+        end: endDateTime,
+        allDay,
+        meetLink: meetLink.trim() || null,
+        timezone,
+      });
+    }
+
+    const updated: ProjectEvent = {
+      ...editing,
+      title: title.trim(),
+      description: desc.trim() || null,
+      start_date: startDateTime,
+      end_date: endDateTime,
+      all_day: allDay,
+      color,
+      recurrence: recurrence || null,
+      meet_link: meetLink.trim() || null,
+    };
+    setEvents(events.map((x) => (x.id === editing.id ? updated : x)).sort((a, b) => a.start_date.localeCompare(b.start_date)));
+    setEditing(null);
+    setSaving(false);
+  }
+
   async function handleDelete(evt: ProjectEvent) {
     if (!window.confirm(`Delete "${evt.title}"?`)) return;
+    if (evt.google_account_id && evt.google_event_id) {
+      await deleteGoogleCalendarEvent(evt.google_account_id, evt.google_event_id);
+    }
     await supabase.from("events").delete().eq("id", evt.id);
     setEvents(events.filter((e) => e.id !== evt.id));
     setSelected(null);
@@ -241,6 +337,13 @@ export default function ProjectEvents({
                   </span>
                 )}
                 <span
+                  onClick={(e) => { e.stopPropagation(); handleEdit(evt); }}
+                  className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Edit event"
+                >
+                  <Pencil size={14} />
+                </span>
+                <span
                   onClick={(e) => { e.stopPropagation(); void handleDelete(evt); }}
                   className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
                   title="Delete event"
@@ -253,9 +356,9 @@ export default function ProjectEvents({
         </div>
       )}
 
-      {/* Create event modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Project Event">
-        <form onSubmit={handleCreate} className="space-y-4">
+      {/* Create/Edit event modal */}
+      <Modal open={showCreate || !!editing} onClose={() => { setShowCreate(false); setEditing(null); }} title={editing ? "Edit Project Event" : "New Project Event"}>
+        <form onSubmit={editing ? handleSaveEdit : handleCreate} className="space-y-4">
           <Input label="Event Title" placeholder="e.g. Kickoff call" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
@@ -264,7 +367,7 @@ export default function ProjectEvents({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Start Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-            <Input label="End Date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+            <Input label="End Date (optional)" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="pe-allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
@@ -278,7 +381,7 @@ export default function ProjectEvents({
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time (optional)</label>
                 <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>
@@ -320,8 +423,10 @@ export default function ProjectEvents({
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button type="submit" disabled={creating || !title.trim()}>{creating ? "Creating..." : "Create Event"}</Button>
+            <Button variant="secondary" type="button" onClick={() => { setShowCreate(false); setEditing(null); }}>Cancel</Button>
+            <Button type="submit" disabled={creating || saving || !title.trim()}>
+              {creating ? "Creating..." : saving ? "Saving..." : editing ? "Save Changes" : "Create Event"}
+            </Button>
           </div>
         </form>
       </Modal>

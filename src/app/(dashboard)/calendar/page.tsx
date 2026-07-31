@@ -604,8 +604,15 @@ export default function CalendarPage() {
     setSaving(true);
     const ev = editingEvent.originalEvent;
     if (ev) {
+      const effEndDate = editEndDate || editStartDate;
+      const effEndTime = editAllDay ? "" : editEndTime || (() => {
+        const [h, m] = (editStartTime || "09:00").split(":").map(Number);
+        const d = new Date();
+        d.setHours((h + 1) % 24, m, 0, 0);
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      })();
       const startDateTime = editAllDay ? editStartDate + "T00:00:00Z" : editStartDate + "T" + editStartTime + ":00Z";
-      const endDateTime = editAllDay ? editEndDate + "T23:59:59Z" : editEndDate + "T" + editEndTime + ":00Z";
+      const endDateTime = editAllDay ? effEndDate + "T23:59:59Z" : effEndDate + "T" + effEndTime + ":00Z";
       await supabase.from("events").update({
         title: editTitle.trim(),
         description: editDesc.trim() || null,
@@ -711,8 +718,15 @@ export default function CalendarPage() {
     if (!newTitle.trim() || newTeamIds.length === 0) return;
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
+    const effEndDate = newEndDate || newStartDate;
+    const effEndTime = newAllDay ? "" : newEndTime || (() => {
+      const [h, m] = (newStartTime || "09:00").split(":").map(Number);
+      const d = new Date();
+      d.setHours((h + 1) % 24, m, 0, 0);
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    })();
     const startDateTime = newAllDay ? newStartDate + "T00:00:00Z" : newStartDate + "T" + newStartTime + ":00Z";
-    const endDateTime = newAllDay ? newEndDate + "T23:59:59Z" : newEndDate + "T" + newEndTime + ":00Z";
+    const endDateTime = newAllDay ? effEndDate + "T23:59:59Z" : effEndDate + "T" + effEndTime + ":00Z";
     const { data, error } = await supabase.from("events").insert({
       title: newTitle.trim(),
       description: newDesc.trim() || null,
@@ -748,8 +762,13 @@ export default function CalendarPage() {
           timezone,
         });
         if (googleEvent) {
-          await supabase.from("events").update({ google_event_id: googleEvent.googleEventId }).eq("id", data.id);
+          const generatedMeetLink = googleEvent.hangoutLink || newMeetLink.trim() || null;
+          await supabase.from("events").update({
+            google_event_id: googleEvent.googleEventId,
+            meet_link: generatedMeetLink,
+          }).eq("id", data.id);
           data.google_event_id = googleEvent.googleEventId;
+          data.meet_link = generatedMeetLink;
         }
       }
 
@@ -764,6 +783,7 @@ export default function CalendarPage() {
       setNewMeetLink("");
       setNewStartTime("09:00");
       setNewEndTime("10:00");
+      setNewEndDate("");
       setSyncToGoogle(false);
       setSyncAccountId("");
     }
@@ -1108,7 +1128,7 @@ export default function CalendarPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Start Date" type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} required />
-              <Input label="End Date" type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} required />
+              <Input label="End Date (optional)" type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} />
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="editAllDay" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
@@ -1122,7 +1142,7 @@ export default function CalendarPage() {
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time (optional)</label>
                   <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)}
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                 </div>
@@ -1170,7 +1190,7 @@ export default function CalendarPage() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Start Date" type="date" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} required />
-            <Input label="End Date" type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} required />
+            <Input label="End Date (optional)" type="date" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="allDay" checked={newAllDay} onChange={(e) => setNewAllDay(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-accent/50" />
@@ -1184,7 +1204,7 @@ export default function CalendarPage() {
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">End Time (optional)</label>
                 <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               </div>

@@ -236,12 +236,22 @@ export function useDashboardData() {
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   );
 
+  // Stable references: while `data` is undefined (initial load), `?? []` would
+  // otherwise create a fresh array/object on every render, which breaks
+  // effect dependency identity and causes an infinite render -> setState loop
+  // (and a request storm) in pages that copy these into local state.
+  const EMPTY_PROJECTS: Project[] = [];
+  const EMPTY_TASKS: Task[] = [];
+  const EMPTY_ACTIVITIES: Activity[] = [];
+  const EMPTY_EVENTS: Event[] = [];
+  const EMPTY_USERNAMES: Record<string, string> = {};
+
   return {
-    projects: data?.projects ?? [],
-    tasks: data?.tasks ?? [],
-    activities: data?.activities ?? [],
-    events: data?.events ?? [],
-    userNames: data?.userNames ?? {},
+    projects: data?.projects ?? EMPTY_PROJECTS,
+    tasks: data?.tasks ?? EMPTY_TASKS,
+    activities: data?.activities ?? EMPTY_ACTIVITIES,
+    events: data?.events ?? EMPTY_EVENTS,
+    userNames: data?.userNames ?? EMPTY_USERNAMES,
     loading: isLoading,
     refresh: mutate,
   };
