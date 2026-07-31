@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const supabase = createClient();
   const ACTIVITIES_PER_PAGE = 20;
   const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
+  const displayEvents = events.slice(0, 6);
 
   useEffect(() => {
     setTasks(swrTasks);
@@ -266,19 +267,19 @@ export default function DashboardPage() {
       </div>
 
       {/* Upcoming Events */}
-      {events.length > 0 && (
+      {displayEvents.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
               <CalendarDays size={14} />
-              Upcoming Events ({events.length})
+              Upcoming Events ({displayEvents.length})
             </h2>
             <Link href="/calendar" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
               View calendar
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {events.slice(0, 6).map((evt) => {
+            {displayEvents.map((evt) => {
               const evtDate = new Date(evt.start_date || evt.created_at);
               const isToday = evtDate.toISOString().split("T")[0] === today;
               const isTomorrow = evtDate.toISOString().split("T")[0] === tomorrow;

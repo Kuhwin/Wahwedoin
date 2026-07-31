@@ -479,6 +479,11 @@ export default function CalendarPage() {
       const ev = event.originalEvent;
       if (ev && filterTeamIds.length > 0 && !filterTeamIds.includes(ev.team_id)) return false;
       if (ev && filterProjectIds.length > 0 && ev.project_id && !filterProjectIds.includes(ev.project_id)) return false;
+      if (event.allDay) {
+        const start = event.start.split("T")[0];
+        const end = event.end.split("T")[0];
+        return dateStr >= start && dateStr <= end;
+      }
       const start = utcIsoToLocalDateStr(event.start, timezone);
       const end = utcIsoToLocalDateStr(event.end, timezone);
       return dateStr >= start && dateStr <= end;
