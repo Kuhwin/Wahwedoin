@@ -175,6 +175,59 @@ export function useDashboardData() {
         upcoming.push(evt);
       }
 
+      try {
+        const gcalRes = await fetch("/api/calendar/google?days=30");
+        if (gcalRes.ok) {
+          const gcalData = (await gcalRes.json()) as {
+            events?: Array<{
+              accountColor: string;
+              events: Array<{
+                id: string;
+                title: string;
+                start: string;
+                end: string;
+                allDay: boolean;
+                source: string;
+                meetLink: string | null;
+              }>;
+            }>;
+          };
+          for (const result of gcalData.events || []) {
+            for (const g of result.events) {
+              if (!g.start) continue;
+              const startMs = new Date(g.start).getTime();
+              if (Number.isNaN(startMs)) continue;
+              if (startMs < now.getTime()) continue;
+              if (startMs > sevenDaysFromNow.getTime()) continue;
+              upcoming.push({
+                id: `external-gcal:${g.id}`,
+                team_id: "",
+                project_id: null,
+                title: g.title,
+                description: "",
+                start_date: g.start,
+                end_date: g.end,
+                all_day: g.allDay,
+                color: result.accountColor || "#4285F4",
+                created_by: null,
+                created_at: g.start,
+                recurrence: null,
+                recurrence_end: null,
+                meet_link: g.meetLink,
+                attendees: null,
+                google_event_id: null,
+                google_account_id: null,
+              });
+            }
+          }
+          upcoming.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+        } else {
+          console.warn("[dashboard] Google events fetch failed", gcalRes.status);
+        }
+      } catch {
+        // ignore Google fetch errors
+      }
+
       return { projects, tasks, activities, events: upcoming, userNames };
     },
     { revalidateOnFocus: false, dedupingInterval: 30000 }
