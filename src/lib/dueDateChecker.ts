@@ -14,7 +14,7 @@ export async function checkDueDateNotifications() {
       .from("notification_preferences")
       .select("task_due_soon")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
     if (!prefsErr && prefs) taskDueSoonEnabled = prefs.task_due_soon !== false;
     if (!taskDueSoonEnabled) return;
 

@@ -8,7 +8,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { type Event, type Team, type Project, type CalendarLink } from "@/lib/types";
-import { fetchAllAccountsCalendar, createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "@/lib/linkedAccounts";
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "@/lib/linkedAccounts";
 import { getHolidaysForYear } from "@/lib/holidays";
 import { useTimezone } from "@/lib/useTimezone";
 import { nextOccurrence, utcIsoToLocalDateStr } from "@/lib/recurrence";
@@ -366,24 +366,31 @@ export default function CalendarPage() {
 
         if (calData.user?.id) {
           try {
-            const googleResults = await fetchAllAccountsCalendar(calData.user.id);
-            for (const result of googleResults) {
-              for (const event of result.events) {
-                allExternal.push({
-                  id: event.id,
-                  title: event.title,
-                  start: event.start,
-                  end: event.end,
-                  description: event.description,
-                  allDay: event.allDay,
-                  color: result.accountColor || "#4285F4",
-                  source: result.accountEmail,
-                  meetLink: event.meetLink || null,
-                  attendees: event.attendees || [],
-                });
+            const res = await fetch(`/api/calendar/google?days=90`, { cache: "no-store" });
+            if (res.ok) {
+              const googleData = await res.json();
+              for (const result of googleData.events || []) {
+                for (const event of result.events) {
+                  allExternal.push({
+                    id: event.id,
+                    title: event.title,
+                    start: event.start,
+                    end: event.end,
+                    description: event.description,
+                    allDay: event.allDay,
+                    color: result.accountColor || "#4285F4",
+                    source: result.accountEmail,
+                    meetLink: event.meetLink || null,
+                    attendees: event.attendees || [],
+                  });
+                }
               }
+            } else {
+              console.warn("[calendar] Google events fetch failed", res.status);
             }
-          } catch { /* skip */ }
+          } catch (e) {
+            console.warn("[calendar] Google events fetch error", e);
+          }
         }
 
         setExternalEvents(allExternal);
