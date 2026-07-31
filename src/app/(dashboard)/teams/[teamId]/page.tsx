@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Users, FileText, Calendar, Link2, LayoutGrid, UserPlus } from "lucide-react";
+import { ArrowLeft, Users, FileText, Calendar, Link2, LayoutGrid, UserPlus, FolderOpen } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
+import DriveLinkPanel from "@/components/DriveLinkPanel";
 import TeamOverview from "@/components/team/TeamOverview";
 import TeamDocs from "@/components/team/TeamDocs";
 import TeamMeetings from "@/components/team/TeamMeetings";
@@ -15,13 +16,14 @@ import TeamBoard from "@/components/team/TeamBoard";
 import { type Team, type TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "docs" | "meetings" | "links" | "board";
+type Tab = "overview" | "docs" | "meetings" | "links" | "board" | "drive";
 
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "overview", label: "Overview", icon: Users },
   { id: "docs", label: "Docs", icon: FileText },
   { id: "meetings", label: "Meetings", icon: Calendar },
   { id: "links", label: "Links", icon: Link2 },
+  { id: "drive", label: "Drive", icon: FolderOpen },
   { id: "board", label: "Board", icon: LayoutGrid },
 ];
 
@@ -183,6 +185,16 @@ export default function TeamWorkspacePage() {
       )}
       {activeTab === "links" && (
         <TeamLinks teamId={teamId} currentUser={currentUser} userRole={userRole} />
+      )}
+      {activeTab === "drive" && (
+        <DriveLinkPanel
+          tableName="teams"
+          recordId={teamId}
+          accountId={team.drive_account_id}
+          folderId={team.drive_folder_id}
+          folderName={team.drive_folder_name}
+          onLinked={() => void loadData()}
+        />
       )}
       {activeTab === "board" && (
         <TeamBoard teamId={teamId} members={members} memberProfiles={memberProfiles} />

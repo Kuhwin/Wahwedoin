@@ -21,7 +21,8 @@ interface DriveFile {
 }
 
 interface DriveLinkPanelProps {
-  projectId: string;
+  tableName: "teams" | "projects";
+  recordId: string;
   accountId?: string | null;
   folderId?: string | null;
   folderName?: string | null;
@@ -63,7 +64,7 @@ function sortFiles(files: DriveFile[]) {
   });
 }
 
-export default function DriveLinkPanel({ projectId, accountId, folderId, folderName, onLinked }: DriveLinkPanelProps) {
+export default function DriveLinkPanel({ tableName, recordId, accountId, folderId, folderName, onLinked }: DriveLinkPanelProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [accounts, setAccounts] = useState<LinkedGoogleAccount[]>([]);
   const [linkedAccount, setLinkedAccount] = useState<LinkedGoogleAccount | null>(null);
@@ -136,14 +137,14 @@ export default function DriveLinkPanel({ projectId, accountId, folderId, folderN
     if (!linkedAccount || !currentFolder.id || !currentFolder.name) return;
     setSaving(true);
     const { error } = await supabase
-      .from("projects")
+      .from(tableName)
       .update({
         drive_account_id: linkedAccount.id,
         drive_folder_id: currentFolder.id,
         drive_folder_name: currentFolder.name,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", projectId);
+      .eq("id", recordId);
     setSaving(false);
     if (error) {
       addToast(error.message || "Failed to link folder", "error");
@@ -152,21 +153,21 @@ export default function DriveLinkPanel({ projectId, accountId, folderId, folderN
     addToast(`Linked "${currentFolder.name}"`, "success");
     setShowPicker(false);
     onLinked();
-  }, [linkedAccount, currentFolder, projectId, supabase, addToast, onLinked]);
+  }, [linkedAccount, currentFolder, tableName, recordId, supabase, addToast, onLinked]);
 
   const unlinkFolder = useCallback(async () => {
-    if (!window.confirm("Unlink this Drive folder from the project?")) return;
+    if (!window.confirm("Unlink this Drive folder?")) return;
     const { error } = await supabase
-      .from("projects")
+      .from(tableName)
       .update({ drive_account_id: null, drive_folder_id: null, drive_folder_name: null, updated_at: new Date().toISOString() })
-      .eq("id", projectId);
+      .eq("id", recordId);
     if (error) {
       addToast(error.message || "Failed to unlink folder", "error");
       return;
     }
     addToast("Drive folder unlinked", "success");
     onLinked();
-  }, [projectId, supabase, addToast, onLinked]);
+  }, [tableName, recordId, supabase, addToast, onLinked]);
 
   const [folderFiles, setFolderFiles] = useState<DriveFile[] | null>(null);
   const [loadingFolderFiles, setLoadingFolderFiles] = useState(false);

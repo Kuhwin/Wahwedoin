@@ -15,6 +15,9 @@ export interface Team {
   parent_team_id: string | null;
   cover_photo_url: string | null;
   created_at: string;
+  drive_account_id?: string | null;
+  drive_folder_id?: string | null;
+  drive_folder_name?: string | null;
 }
 
 export interface TeamMember {

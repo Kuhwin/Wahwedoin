@@ -873,7 +873,8 @@ export default function ProjectPage() {
       {/* Google Drive Folder */}
       <div className="mb-4">
         <DriveLinkPanel
-          projectId={projectId}
+          tableName="projects"
+          recordId={projectId}
           accountId={project.drive_account_id}
           folderId={project.drive_folder_id}
           folderName={project.drive_folder_name}
