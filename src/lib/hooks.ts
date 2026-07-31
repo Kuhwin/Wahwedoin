@@ -184,11 +184,13 @@ export function useDashboardData() {
               events: Array<{
                 id: string;
                 title: string;
+                description: string;
                 start: string;
                 end: string;
                 allDay: boolean;
                 source: string;
                 meetLink: string | null;
+                attendees: Array<{ email: string; name: string; status: string }>;
               }>;
             }>;
           };
@@ -204,7 +206,7 @@ export function useDashboardData() {
                 team_id: "",
                 project_id: null,
                 title: g.title,
-                description: "",
+                description: g.description,
                 start_date: g.start,
                 end_date: g.end,
                 all_day: g.allDay,
@@ -214,9 +216,10 @@ export function useDashboardData() {
                 recurrence: null,
                 recurrence_end: null,
                 meet_link: g.meetLink,
-                attendees: null,
+                attendees: g.attendees || null,
                 google_event_id: null,
                 google_account_id: null,
+                source: g.source,
               });
             }
           }

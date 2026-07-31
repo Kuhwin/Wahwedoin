@@ -27,6 +27,8 @@ import { formatRelativeTime } from "@/lib/utils";
 import { useDashboardData } from "@/lib/hooks";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
+import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
+import type { Event } from "@/lib/types";
 
 export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading } = useDashboardData();
@@ -45,6 +47,7 @@ export default function DashboardPage() {
   const [activityFilterProject, setActivityFilterProject] = useState("");
   const supabase = createClient();
   const ACTIVITIES_PER_PAGE = 20;
+  const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
 
   useEffect(() => {
     setTasks(swrTasks);
@@ -284,9 +287,23 @@ export default function DashboardPage() {
               const dateLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : evtDate.toLocaleDateString("en-GB", { weekday: "short", month: "short", day: "numeric" });
 
               return (
-                <div
+                <button
                   key={evt.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 hover:border-accent/50 hover:shadow-sm transition-all"
+                  onClick={() => setSelectedEvent({
+                    id: evt.id,
+                    title: evt.title,
+                    description: evt.description,
+                    start: evt.start_date || evt.created_at,
+                    end: evt.end_date,
+                    allDay: evt.all_day,
+                    color: evt.color || "#6366f1",
+                    source: isExternal ? (evt.source || "External") : null,
+                    meetLink: evt.meet_link,
+                    attendees: evt.attendees,
+                    recurrence: evt.recurrence,
+                    external: isExternal,
+                  })}
+                  className="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 hover:border-accent/50 hover:shadow-sm transition-all cursor-pointer group"
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -294,7 +311,7 @@ export default function DashboardPage() {
                       style={{ backgroundColor: evt.color || "#6366f1" }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{evt.title}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-accent dark:group-hover:text-accent">{evt.title}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-slate-500 dark:text-slate-400">{dateLabel}</span>
                         {isHoliday && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">Holiday</span>}
@@ -303,7 +320,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -605,6 +622,8 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-500 dark:text-slate-400">View all events</p>
         </Link>
       </div>
+
+      <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
   );
 }

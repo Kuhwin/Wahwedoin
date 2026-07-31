@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
+import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
 import { cn } from "@/lib/utils";
 
 interface MemberProfile {
@@ -38,12 +39,14 @@ interface TaskRow {
 interface EventRow {
   id: string;
   title: string;
+  description?: string | null;
   start_date: string;
   end_date: string;
   color: string;
   all_day: boolean;
   meet_link: string | null;
   team_name?: string;
+  attendees?: Array<{ email: string; name?: string; status?: string }> | null;
 }
 
 interface ActivityRow {
@@ -85,6 +88,7 @@ export default function MemberDetailPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
   // eslint-disable-next-line react-hooks/purity
@@ -197,24 +201,28 @@ export default function MemberDetailPage() {
           const apiEvents: Array<{
             id: string;
             title: string;
+            description?: string;
             start: string;
             end: string;
             allDay: boolean;
             color: string;
             source: string;
             meetLink: string | null;
+            attendees?: Array<{ email: string; name?: string; status?: string }>;
           }> = data.events || [];
 
           setEvents(
             apiEvents.map((e) => ({
               id: e.id,
               title: e.title,
+              description: e.description || null,
               start_date: e.start,
               end_date: e.end,
               color: e.color,
               all_day: e.allDay,
               meet_link: e.meetLink,
               team_name: e.source,
+              attendees: e.attendees || null,
             }))
           );
         } else {
@@ -509,30 +517,43 @@ export default function MemberDetailPage() {
                     ? "All day"
                     : start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
                   return (
-                    <div key={e.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <button
+                      key={e.id}
+                      onClick={() => setSelectedEvent({
+                        id: e.id,
+                        title: e.title,
+                        description: e.description,
+                        start: e.start_date,
+                        end: e.end_date,
+                        allDay: e.all_day,
+                        color: e.color,
+                        source: e.team_name || null,
+                        meetLink: e.meet_link,
+                        attendees: e.attendees,
+                      })}
+                      className="w-full text-left flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                    >
                       <div
                         className="w-1 h-10 rounded-full shrink-0"
                         style={{ backgroundColor: e.color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{e.title}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-accent dark:group-hover:text-accent">{e.title}</p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {dayLabel} · {timeLabel}
                           {e.team_name && ` · ${e.team_name}`}
                         </p>
                       </div>
                       {e.meet_link && (
-                        <a
-                          href={e.meet_link}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <span
+                          onClick={(ev) => { ev.stopPropagation(); window.open(e.meet_link!, "_blank"); }}
                           className="p-1.5 rounded text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
                           title="Join meeting"
                         >
                           <Video size={14} />
-                        </a>
+                        </span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -607,6 +628,8 @@ export default function MemberDetailPage() {
           </div>
         </div>
       </div>
+
+      <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
   );
 }

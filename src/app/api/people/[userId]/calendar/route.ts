@@ -124,6 +124,7 @@ export async function GET(
   let internalEvents: Array<{
     id: string;
     title: string;
+    description: string | null;
     start_date: string;
     end_date: string;
     color: string;
@@ -132,12 +133,13 @@ export async function GET(
     team_id: string;
     google_event_id: string | null;
     google_account_id: string | null;
+    attendees: Array<{ email: string; name?: string; status?: string }> | null;
   }> = [];
 
   if (orFilters.length > 0) {
     const { data } = await supabase
       .from("events")
-      .select("id, title, start_date, end_date, color, all_day, meet_link, team_id, google_event_id, google_account_id")
+      .select("id, title, description, start_date, end_date, color, all_day, meet_link, team_id, google_event_id, google_account_id, attendees")
       .or(orFilters.join(","))
       .gte("start_date", startISO)
       .lte("start_date", endISO)
@@ -149,12 +151,14 @@ export async function GET(
   const externalEvents: Array<{
     id: string;
     title: string;
+    description: string;
     start: string;
     end: string;
     allDay: boolean;
     color: string;
     source: string;
     meetLink: string | null;
+    attendees: Array<{ email: string; name?: string; status?: string }>;
   }> = [];
 
   await Promise.all(
@@ -177,12 +181,18 @@ export async function GET(
           externalEvents.push({
             id: `gcal:${account.google_user_id}:${e.id}`,
             title: e.summary || "(No title)",
+            description: e.description || "",
             start: e.start.dateTime || e.start.date || "",
             end: e.end.dateTime || e.end.date || "",
             allDay: !!e.start.date,
             color: account.color || "#6366f1",
             source: account.email,
             meetLink: e.hangoutLink || null,
+            attendees: (e.attendees || []).map((att) => ({
+              email: att.email,
+              name: att.displayName || att.email,
+              status: att.responseStatus || "needsAction",
+            })),
           });
         }
       } catch {
@@ -197,23 +207,27 @@ export async function GET(
     ...internalEvents.map((e) => ({
       id: `db:${e.id}`,
       title: e.title,
+      description: e.description || "",
       start: e.start_date,
       end: e.end_date,
       allDay: e.all_day,
       color: e.color,
       source: e.google_account_id ? accountEmailMap.get(e.google_account_id) || "Google Calendar" : "Internal",
       meetLink: e.meet_link,
+      attendees: e.attendees || [],
       _sort: new Date(e.start_date).getTime(),
     })),
     ...externalEvents.map((e) => ({
       id: e.id,
       title: e.title,
+      description: e.description,
       start: e.start,
       end: e.end,
       allDay: e.allDay,
       color: e.color,
       source: e.source,
       meetLink: e.meetLink,
+      attendees: e.attendees,
       _sort: new Date(e.start).getTime(),
     })),
   ];
