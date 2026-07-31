@@ -9,6 +9,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import CustomFieldsPanel from "@/components/CustomFieldsPanel";
 import ProjectAnalytics from "@/components/ProjectAnalytics";
+import DriveLinkPanel from "@/components/DriveLinkPanel";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -75,7 +76,7 @@ export default function ProjectPage() {
       supabase.auth.getUser(),
       supabase
         .from("projects")
-        .select("id, name, team_id, status, created_at, description")
+        .select("id, name, team_id, status, created_at, description, drive_account_id, drive_folder_id, drive_folder_name")
         .eq("id", projectId)
         .single(),
     ]);
@@ -867,6 +868,17 @@ export default function ProjectPage() {
       {/* Custom Fields Manager */}
       <div className="mb-4">
         <CustomFieldsPanel projectId={projectId} />
+      </div>
+
+      {/* Google Drive Folder */}
+      <div className="mb-4">
+        <DriveLinkPanel
+          projectId={projectId}
+          accountId={project.drive_account_id}
+          folderId={project.drive_folder_id}
+          folderName={project.drive_folder_name}
+          onLinked={() => void projectMutate()}
+        />
       </div>
 
       {/* Analytics */}

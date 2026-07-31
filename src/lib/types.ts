@@ -38,6 +38,9 @@ export interface Project {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  drive_account_id?: string | null;
+  drive_folder_id?: string | null;
+  drive_folder_name?: string | null;
   task_count?: number;
   completed_count?: number;
 }
