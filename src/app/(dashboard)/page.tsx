@@ -29,7 +29,6 @@ import CountdownTimer from "@/components/CountdownTimer";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
-import type { Event } from "@/lib/types";
 
 export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading } = useDashboardData();
@@ -107,15 +106,6 @@ export default function DashboardPage() {
     }
     setActivitiesLoading(false);
   }, [supabase]);
-
-  function handleOpenAllActivities() {
-    setShowAllActivities(true);
-    setActivitiesPage(0);
-    setHasMoreActivities(true);
-    setAllActivities([]);
-    updateActivityParams({ open: true });
-    void loadAllActivities(0, true);
-  }
 
   useEffect(() => {
     const open = searchParams.get("activity") === "all";

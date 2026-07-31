@@ -8,6 +8,19 @@ function getSupabase() {
   return createClient();
 }
 
+// Stable references: while SWR `data` is undefined (initial load), `data ?? []`
+// would otherwise create a fresh array/object on every render, which breaks
+// effect dependency identity and can cause infinite render -> setState loops
+// (and request storms) in pages that copy these into local state.
+const EMPTY_TEAMS: Team[] = [];
+const EMPTY_PROJECTS: Project[] = [];
+const EMPTY_TASKS: Task[] = [];
+const EMPTY_SECTIONS: Section[] = [];
+const EMPTY_MEMBERS: TeamMember[] = [];
+const EMPTY_ACTIVITIES: Activity[] = [];
+const EMPTY_EVENTS: Event[] = [];
+const EMPTY_USERNAMES: Record<string, string> = {};
+
 export function useTeams(userId: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
     userId ? `teams:${userId}` : null,
@@ -22,7 +35,7 @@ export function useTeams(userId: string | null) {
     },
     { revalidateOnFocus: false }
   );
-  return { teams: data ?? [], teamsLoading: isLoading, teamsError: error, mutateTeams: mutate };
+  return { teams: data ?? EMPTY_TEAMS, teamsLoading: isLoading, teamsError: error, mutateTeams: mutate };
 }
 
 export function useTeamProjects(teamId: string | null) {
@@ -39,7 +52,7 @@ export function useTeamProjects(teamId: string | null) {
     },
     { revalidateOnFocus: false }
   );
-  return { projects: data ?? [], projectsLoading: isLoading, mutateProjects: mutate };
+  return { projects: data ?? EMPTY_PROJECTS, projectsLoading: isLoading, mutateProjects: mutate };
 }
 
 export function useProjectTasks(projectId: string | null) {
@@ -56,7 +69,7 @@ export function useProjectTasks(projectId: string | null) {
     },
     { revalidateOnFocus: false }
   );
-  return { tasks: data ?? [], tasksLoading: isLoading, mutateTasks: mutate };
+  return { tasks: data ?? EMPTY_TASKS, tasksLoading: isLoading, mutateTasks: mutate };
 }
 
 export function useProjectSections(projectId: string | null) {
@@ -73,7 +86,7 @@ export function useProjectSections(projectId: string | null) {
     },
     { revalidateOnFocus: false }
   );
-  return { sections: data ?? [], sectionsLoading: isLoading, mutateSections: mutate };
+  return { sections: data ?? EMPTY_SECTIONS, sectionsLoading: isLoading, mutateSections: mutate };
 }
 
 export function useTeamMembers(teamId: string | null) {
@@ -89,7 +102,7 @@ export function useTeamMembers(teamId: string | null) {
     },
     { revalidateOnFocus: false }
   );
-  return { members: data ?? [], membersLoading: isLoading, mutateMembers: mutate };
+  return { members: data ?? EMPTY_MEMBERS, membersLoading: isLoading, mutateMembers: mutate };
 }
 
 export function useRecentActivity(limit = 20) {
@@ -106,7 +119,7 @@ export function useRecentActivity(limit = 20) {
     },
     { revalidateOnFocus: false, refreshInterval: 30000 }
   );
-  return { activities: data ?? [], activitiesLoading: isLoading, mutateActivities: mutate };
+  return { activities: data ?? EMPTY_ACTIVITIES, activitiesLoading: isLoading, mutateActivities: mutate };
 }
 
 export function useDashboardData() {
@@ -233,18 +246,8 @@ export function useDashboardData() {
 
       return { projects, tasks, activities, events: upcoming, userNames };
     },
-    { revalidateOnFocus: false, dedupingInterval: 30000 }
+    { revalidateOnFocus: false, dedupingInterval: 30000, revalidateOnReconnect: false }
   );
-
-  // Stable references: while `data` is undefined (initial load), `?? []` would
-  // otherwise create a fresh array/object on every render, which breaks
-  // effect dependency identity and causes an infinite render -> setState loop
-  // (and a request storm) in pages that copy these into local state.
-  const EMPTY_PROJECTS: Project[] = [];
-  const EMPTY_TASKS: Task[] = [];
-  const EMPTY_ACTIVITIES: Activity[] = [];
-  const EMPTY_EVENTS: Event[] = [];
-  const EMPTY_USERNAMES: Record<string, string> = {};
 
   return {
     projects: data?.projects ?? EMPTY_PROJECTS,
