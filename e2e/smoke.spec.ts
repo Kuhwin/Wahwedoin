@@ -15,7 +15,7 @@ test("login page has link to signup", async ({ page }) => {
 
 test("signup page loads", async ({ page }) => {
   await page.goto("/auth/signup");
-  await expect(page.getByText("Create account")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
   await expect(page.getByText("Continue with Google")).toBeVisible();
 });
 
