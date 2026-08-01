@@ -90,26 +90,30 @@ export async function GET(request: Request) {
       .lte("start_date", endISO);
 
     (events || []).forEach((ev: { team_id: string; google_account_id: string | null }) => {
+      // Count each event once per user, even when it matches via both the
+      // team and a linked Google account (previously double-counted).
+      const affected = new Set<string>();
       Object.entries(userTeamSet).forEach(([uid, teamSet]) => {
-        if (teamSet.has(ev.team_id)) counts[uid] = (counts[uid] || 0) + 1;
+        if (teamSet.has(ev.team_id)) affected.add(uid);
       });
       if (ev.google_account_id) {
         Object.entries(userAccountSet).forEach(([uid, accountSet]) => {
-          if (accountSet.has(ev.google_account_id!)) counts[uid] = (counts[uid] || 0) + 1;
+          if (accountSet.has(ev.google_account_id!)) affected.add(uid);
         });
       }
+      affected.forEach((uid) => { counts[uid] = (counts[uid] || 0) + 1; });
     });
   }
 
   await Promise.all(
     googleAccounts.map(async (account) => {
-      if (!account.scope?.includes("calendar")) return;
-      const token = await getValidGoogleToken(supabase, account);
-      if (!token) return;
-
-      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=100`;
-
       try {
+        if (!account.scope?.includes("calendar")) return;
+        const token = await getValidGoogleToken(supabase, account);
+        if (!token) return;
+
+        const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=100`;
+
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
           console.warn(`[meetings] Google API error ${res.status} for ${account.email}`);

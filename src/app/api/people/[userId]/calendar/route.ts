@@ -33,16 +33,31 @@ export async function GET(
 
   const supabase = getServiceClient();
 
-  const { data: adminMemberships } = await supabase
+  const { data: callerOrgs } = await supabase
     .from("org_members")
     .select("org_id, role")
     .eq("user_id", auth.user.id);
 
-  const isAdmin = (adminMemberships || []).some(
-    (m: { role: string }) => m.role === "owner" || m.role === "admin"
+  const adminOrgIds = new Set(
+    (callerOrgs || [])
+      .filter((m: { role: string }) => m.role === "owner" || m.role === "admin")
+      .map((m: { org_id: string }) => m.org_id)
   );
-  if (!isAdmin) {
+  if (adminOrgIds.size === 0) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
+
+  // The target user must belong to an org where the caller is an admin —
+  // being an admin of any org should not grant access to everyone's calendar.
+  const { data: targetOrgs } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", userId);
+  const targetOrgIds = new Set((targetOrgs || []).map((m: { org_id: string }) => m.org_id));
+
+  const sharesOrg = [...adminOrgIds].some((orgId) => targetOrgIds.has(orgId));
+  if (!sharesOrg) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { data: teamMemberships } = await supabase
@@ -108,13 +123,13 @@ export async function GET(
 
   await Promise.all(
     googleAccounts.map(async (account) => {
-      if (!account.scope?.includes("calendar")) return;
-      const token = await getValidGoogleToken(supabase, account);
-      if (!token) return;
-
-      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=50`;
-
       try {
+        if (!account.scope?.includes("calendar")) return;
+        const token = await getValidGoogleToken(supabase, account);
+        if (!token) return;
+
+        const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=50`;
+
         const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) {
           console.warn(`[calendar] Google API error ${res.status} for ${account.email}`);

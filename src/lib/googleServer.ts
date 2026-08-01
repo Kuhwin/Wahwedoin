@@ -49,7 +49,11 @@ export async function getValidGoogleToken(
   account: GoogleAccount
 ): Promise<string | null> {
   if (!account.token_expires_at) return account.access_token;
-  if (new Date(account.token_expires_at) > new Date()) return account.access_token;
+  // Refresh 5 minutes early — an access token that is about to expire is
+  // likely to be rejected by Google mid-request.
+  if (new Date(account.token_expires_at) > new Date(Date.now() + 5 * 60_000)) {
+    return account.access_token;
+  }
   if (!account.refresh_token) return null;
 
   const token = await refreshGoogleAccessToken(account);

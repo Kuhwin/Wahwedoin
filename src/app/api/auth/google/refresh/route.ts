@@ -5,13 +5,20 @@ import { refreshGoogleAccessToken } from "@/lib/googleServer";
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
-  if (auth.error) return auth.error;
+  if (auth.error || !auth.user) return auth.error ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!(await rateLimit(`google-refresh:${auth.user!.id}`, 20, 60_000))) {
+  if (!(await rateLimit(`google-refresh:${auth.user.id}`, 20, 60_000))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
-  const { account_id, refresh_token } = await request.json();
+  let body: { account_id?: string; refresh_token?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  const { account_id, refresh_token } = body;
 
   if (!refresh_token || !account_id) {
     return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
@@ -25,7 +32,7 @@ export async function POST(request: Request) {
     .eq("id", account_id)
     .single();
 
-  if (!account || account.user_id !== auth.user!.id) {
+  if (!account || account.user_id !== auth.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
