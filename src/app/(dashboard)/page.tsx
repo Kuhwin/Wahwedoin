@@ -34,9 +34,6 @@ export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading, refresh } = useDashboardData();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [activities, setActivities] = useState<ActivityType[]>([]);
-  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [allActivities, setAllActivities] = useState<ActivityType[]>([]);
   const [allUserNames, setAllUserNames] = useState<Record<string, string>>({});
@@ -51,12 +48,6 @@ export default function DashboardPage() {
   const displayEvents = events.slice(0, 6);
   // eslint-disable-next-line react-hooks/purity
   const nowMs = useMemo(() => Date.now(), []);
-
-  useEffect(() => {
-    setTasks(swrTasks);
-    setActivities(swrActivities);
-    setUserNames(swrUserNames);
-  }, [swrTasks, swrActivities, swrUserNames]);
 
   // Due-date notification check runs once on mount; checkDueDateNotifications
   // throttles itself to once per 5 minutes so frequent data refreshes can't
@@ -125,20 +116,24 @@ export default function DashboardPage() {
   }, [searchParams]);
 
   async function handleQuickComplete(taskId: string) {
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "done" as const } : t));
+    const optimistic = {
+      projects,
+      tasks: swrTasks.map((t) => (t.id === taskId ? { ...t, status: "done" as const } : t)),
+      activities: swrActivities,
+      events,
+      userNames: swrUserNames,
+    };
+    refresh(optimistic, { revalidate: false });
     const { error } = await supabase.from("tasks").update({ status: "done" }).eq("id", taskId);
-    if (error) {
-      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "todo" as const } : t));
-      return;
-    }
     void refresh();
+    if (error) return;
   }
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
 
   const [tomorrow] = useState(() => new Date(Date.now() + 86400000).toISOString().split("T")[0]);
   const taskStats = useMemo(() => {
     const result = {
-      total: tasks.length,
+      total: swrTasks.length,
       done: 0,
       inProgress: 0,
       todo: 0,
@@ -147,7 +142,7 @@ export default function DashboardPage() {
       dueSoon: [] as Task[],
     };
 
-    for (const t of tasks) {
+    for (const t of swrTasks) {
       if (t.status === "done") result.done++;
       else if (t.status === "in_progress") result.inProgress++;
       else result.todo++;
@@ -164,18 +159,18 @@ export default function DashboardPage() {
       }
     }
     return result;
-  }, [tasks, today]);
+  }, [swrTasks, today]);
 
   const projectTaskCounts = useMemo(() => {
     const counts = new Map<string, { total: number; done: number }>();
-    for (const t of tasks) {
+    for (const t of swrTasks) {
       if (!counts.has(t.project_id)) counts.set(t.project_id, { total: 0, done: 0 });
       const c = counts.get(t.project_id)!;
       c.total++;
       if (t.status === "done") c.done++;
     }
     return counts;
-  }, [tasks]);
+  }, [swrTasks]);
 
   const uniqueActions = [...new Set(allActivities.map((a) => a.action))].sort();
   const filteredActivities = allActivities.filter((a) => {
@@ -486,14 +481,14 @@ export default function DashboardPage() {
             Recent Activity
           </h2>
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl divide-y divide-slate-100 dark:divide-slate-700/50">
-            {activities.length === 0 ? (
+            {swrActivities.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">No activity yet</p>
             ) : (
               <>
-                {activities.map((act) => (
+                {swrActivities.map((act) => (
                   <div key={act.id} className="p-3">
                     <p className="text-sm text-slate-700 dark:text-slate-300">
-                      <span className="font-medium">{userNames[act.user_id] || "Someone"}</span>
+                      <span className="font-medium">{swrUserNames[act.user_id] || "Someone"}</span>
                       {" "}{act.action}
                       {act.detail && <span className="font-medium"> {act.detail}</span>}
                     </p>
@@ -561,7 +556,7 @@ export default function DashboardPage() {
                 ) : filteredActivities.map((act) => (
                 <div key={act.id} className="py-3 first:pt-0 last:pb-0">
                   <p className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-medium">{allUserNames[act.user_id] || userNames[act.user_id] || "Someone"}</span>
+                    <span className="font-medium">{allUserNames[act.user_id] || swrUserNames[act.user_id] || "Someone"}</span>
                     {" "}{act.action}
                     {act.detail && <span className="font-medium"> {act.detail}</span>}
                   </p>

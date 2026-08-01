@@ -2,125 +2,17 @@
 
 import useSWR from "swr";
 import { createClient } from "./supabase/client";
-import type { Task, Team, Project, Section, TeamMember, Activity, Event } from "./types";
+import type { Task, Project, Activity, Event } from "./types";
 
 function getSupabase() {
   return createClient();
 }
 
-// Stable references: while SWR `data` is undefined (initial load), `data ?? []`
-// would otherwise create a fresh array/object on every render, which breaks
-// effect dependency identity and can cause infinite render -> setState loops
-// (and request storms) in pages that copy these into local state.
-const EMPTY_TEAMS: Team[] = [];
 const EMPTY_PROJECTS: Project[] = [];
 const EMPTY_TASKS: Task[] = [];
-const EMPTY_SECTIONS: Section[] = [];
-const EMPTY_MEMBERS: TeamMember[] = [];
 const EMPTY_ACTIVITIES: Activity[] = [];
 const EMPTY_EVENTS: Event[] = [];
 const EMPTY_USERNAMES: Record<string, string> = {};
-
-export function useTeams(userId: string | null) {
-  const { data, error, isLoading, mutate } = useSWR(
-    userId ? `teams:${userId}` : null,
-    async () => {
-      const supabase = getSupabase();
-      const { data: memberships } = await supabase
-        .from("team_members")
-        .select("team_id, teams(id, name, description, created_at)")
-        .eq("user_id", userId!);
-      if (!memberships) return [];
-      return (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
-    },
-    { revalidateOnFocus: false }
-  );
-  return { teams: data ?? EMPTY_TEAMS, teamsLoading: isLoading, teamsError: error, mutateTeams: mutate };
-}
-
-export function useTeamProjects(teamId: string | null) {
-  const { data, isLoading, mutate } = useSWR(
-    teamId ? `projects:${teamId}` : null,
-    async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from("projects")
-        .select("id, name, team_id, status, created_at")
-        .eq("team_id", teamId!)
-        .order("name");
-      return (data ?? []) as Project[];
-    },
-    { revalidateOnFocus: false }
-  );
-  return { projects: data ?? EMPTY_PROJECTS, projectsLoading: isLoading, mutateProjects: mutate };
-}
-
-export function useProjectTasks(projectId: string | null) {
-  const { data, isLoading, mutate } = useSWR(
-    projectId ? `tasks:${projectId}` : null,
-    async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("project_id", projectId!)
-        .order("position");
-      return (data ?? []) as Task[];
-    },
-    { revalidateOnFocus: false }
-  );
-  return { tasks: data ?? EMPTY_TASKS, tasksLoading: isLoading, mutateTasks: mutate };
-}
-
-export function useProjectSections(projectId: string | null) {
-  const { data, isLoading, mutate } = useSWR(
-    projectId ? `sections:${projectId}` : null,
-    async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from("sections")
-        .select("*")
-        .eq("project_id", projectId!)
-        .order("position");
-      return (data ?? []) as Section[];
-    },
-    { revalidateOnFocus: false }
-  );
-  return { sections: data ?? EMPTY_SECTIONS, sectionsLoading: isLoading, mutateSections: mutate };
-}
-
-export function useTeamMembers(teamId: string | null) {
-  const { data, isLoading, mutate } = useSWR(
-    teamId ? `members:${teamId}` : null,
-    async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from("team_members")
-        .select("user_id, role")
-        .eq("team_id", teamId!);
-      return (data ?? []) as TeamMember[];
-    },
-    { revalidateOnFocus: false }
-  );
-  return { members: data ?? EMPTY_MEMBERS, membersLoading: isLoading, mutateMembers: mutate };
-}
-
-export function useRecentActivity(limit = 20) {
-  const { data, isLoading, mutate } = useSWR(
-    `activity:${limit}`,
-    async () => {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from("activities")
-        .select("*, users(name, avatar_url)")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      return (data ?? []) as Activity[];
-    },
-    { revalidateOnFocus: false, refreshInterval: 30000 }
-  );
-  return { activities: data ?? EMPTY_ACTIVITIES, activitiesLoading: isLoading, mutateActivities: mutate };
-}
 
 export function useDashboardData() {
   const { data, isLoading, mutate } = useSWR(
