@@ -24,6 +24,19 @@ export async function sendEmail({ to, subject, body, link }: EmailPayload) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://wahwedoin.com";
 
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const htmlBody = escapeHtml(body).replace(/\n/g, "<br>");
+  const htmlSubject = escapeHtml(subject);
+  const href = link ? `${appUrl}${escapeHtml(link)}` : "";
+  const appUrlHtml = escapeHtml(appUrl);
+
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
@@ -32,10 +45,10 @@ export async function sendEmail({ to, subject, body, link }: EmailPayload) {
     <div style="border-bottom:2px solid #6366f1;padding-bottom:12px;margin-bottom:20px;">
       <span style="font-size:20px;font-weight:600;color:#6366f1;">Wah We Doin</span>
     </div>
-    <p style="font-size:15px;line-height:1.6;">${body.replace(/\n/g, "<br>")}</p>
-    ${link ? `<p><a href="${appUrl}${link}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;">View on Wah We Doin</a></p>` : ""}
+    <p style="font-size:15px;line-height:1.6;">${htmlBody}</p>
+    ${href ? `<p><a href="${href}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;text-decoration:none;border-radius:6px;font-size:14px;">View on Wah We Doin</a></p>` : ""}
     <div style="border-top:1px solid #e2e8f0;margin-top:24px;padding-top:12px;font-size:12px;color:#94a3b8;">
-      <p>Sent from <a href="${appUrl}" style="color:#6366f1;">Wah We Doin</a></p>
+      <p>Sent from <a href="${appUrlHtml}" style="color:#6366f1;">Wah We Doin</a></p>
     </div>
   </div>
 </body>
@@ -47,7 +60,7 @@ export async function sendEmail({ to, subject, body, link }: EmailPayload) {
   const { error } = await resend.emails.send({
     from,
     to,
-    subject,
+    subject: htmlSubject,
     html,
   });
 

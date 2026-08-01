@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatDate, formatRelativeTime, generateSlug, getInitials, expandRecurrence } from "../utils";
+import { cn, formatDate, formatRelativeTime, generateSlug, getInitials, expandRecurrence, dateInTimezone, addDaysToDate } from "../utils";
 
 describe("cn", () => {
   it("merges class names", () => {
@@ -141,5 +141,28 @@ describe("expandRecurrence", () => {
     const outNy = expandRecurrence(evt, start, end, "r", "America/New_York");
     expect(outUtc.length).toBeGreaterThan(0);
     expect(outNy.length).toBeGreaterThan(0);
+  });
+});
+
+describe("dateInTimezone", () => {
+  it("returns the local calendar day for a timezone ahead of UTC", () => {
+    const d = new Date("2026-07-28T22:30:00Z");
+    expect(dateInTimezone("Asia/Kolkata", d)).toBe("2026-07-29");
+  });
+
+  it("returns the local calendar day for a timezone behind UTC", () => {
+    const d = new Date("2026-07-28T02:30:00Z");
+    expect(dateInTimezone("America/Barbados", d)).toBe("2026-07-27");
+  });
+});
+
+describe("addDaysToDate", () => {
+  it("adds days across month and year boundaries", () => {
+    expect(addDaysToDate("2026-01-31", 1)).toBe("2026-02-01");
+    expect(addDaysToDate("2026-12-31", 1)).toBe("2027-01-01");
+  });
+
+  it("handles negative days", () => {
+    expect(addDaysToDate("2026-03-01", -1)).toBe("2026-02-28");
   });
 });

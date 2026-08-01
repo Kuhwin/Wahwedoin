@@ -4,6 +4,24 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+export const DEFAULT_TIMEZONE = "America/Barbados";
+
+export function dateInTimezone(tz: string, d: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+export function addDaysToDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  t.setUTCDate(t.getUTCDate() + days);
+  return t.toISOString().split("T")[0];
+}
+
 export function formatDate(date: string | Date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",

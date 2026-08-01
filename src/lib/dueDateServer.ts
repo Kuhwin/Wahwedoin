@@ -1,10 +1,25 @@
 import { getServiceClient } from "@/lib/security";
+import { addDaysToDate, dateInTimezone, DEFAULT_TIMEZONE } from "@/lib/utils";
 
 export async function checkDueDatesServer() {
   const supabase = getServiceClient();
 
-  const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+  const { data: profiles } = await supabase
+    .from("user_profiles")
+    .select("user_id, timezone");
+  const tzMap = new Map((profiles || []).map((p) => [p.user_id, p.timezone || DEFAULT_TIMEZONE]));
+
+  // Cache "today"/"tomorrow" per timezone so we only compute once per zone
+  const tzDates = new Map<string, { today: string; tomorrow: string }>();
+  function getTzDates(tz: string) {
+    let entry = tzDates.get(tz);
+    if (!entry) {
+      const today = dateInTimezone(tz);
+      entry = { today, tomorrow: addDaysToDate(today, 1) };
+      tzDates.set(tz, entry);
+    }
+    return entry;
+  }
 
   const { data: tasks } = await supabase
     .from("tasks")
@@ -26,6 +41,8 @@ export async function checkDueDatesServer() {
 
   for (const task of tasks) {
     if (!task.due_date || !task.assignee_id) continue;
+
+    const { today, tomorrow } = getTzDates(tzMap.get(task.assignee_id) || DEFAULT_TIMEZONE);
 
     let title: string;
     let body: string;

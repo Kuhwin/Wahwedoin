@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { checkRecurringTasks } from "@/lib/recurringTaskChecker";
+import { addDaysToDate, dateInTimezone, DEFAULT_TIMEZONE } from "@/lib/utils";
 
 let lastRunAt = 0;
 
@@ -27,8 +28,15 @@ export async function checkDueDateNotifications() {
     if (!prefsErr && prefs) taskDueSoonEnabled = prefs.task_due_soon !== false;
     if (!taskDueSoonEnabled) return;
 
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    // Compare against the user's own calendar day, not UTC
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("timezone")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const tz = profile?.timezone || DEFAULT_TIMEZONE;
+    const today = dateInTimezone(tz);
+    const tomorrow = addDaysToDate(today, 1);
 
     const { data: tasks } = await supabase
       .from("tasks")
