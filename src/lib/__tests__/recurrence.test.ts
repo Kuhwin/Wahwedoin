@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getLocalParts, tzLocalToUtc, nextOccurrence, utcIsoToLocalDateStr, getTimezoneOffsetMs } from "../recurrence";
+import { getLocalParts, tzLocalToUtc, nextOccurrence, utcIsoToLocalDateStr, getTimezoneOffsetMs, addRecurrenceInterval } from "../recurrence";
 
 describe("getLocalParts", () => {
   it("returns the local date parts in the given timezone", () => {
@@ -94,5 +94,37 @@ describe("utcIsoToLocalDateStr", () => {
   it("returns the UTC date for UTC timezone", () => {
     const iso = "2026-07-28T22:00:00.000Z";
     expect(utcIsoToLocalDateStr(iso, "UTC")).toBe("2026-07-28");
+  });
+});
+
+describe("addRecurrenceInterval", () => {
+  it("advances daily by one day", () => {
+    expect(addRecurrenceInterval("2026-07-28", "daily")).toBe("2026-07-29");
+  });
+
+  it("advances weekly by 7 days", () => {
+    expect(addRecurrenceInterval("2026-07-28", "weekly")).toBe("2026-08-04");
+  });
+
+  it("advances biweekly by 14 days", () => {
+    expect(addRecurrenceInterval("2026-07-28", "biweekly")).toBe("2026-08-11");
+  });
+
+  it("clamps monthly recurrence to the last day of shorter months", () => {
+    expect(addRecurrenceInterval("2026-01-31", "monthly")).toBe("2026-02-28");
+    expect(addRecurrenceInterval("2026-03-31", "monthly")).toBe("2026-04-30");
+  });
+
+  it("rolls monthly recurrence over the year boundary", () => {
+    expect(addRecurrenceInterval("2026-12-15", "monthly")).toBe("2027-01-15");
+  });
+
+  it("clamps yearly recurrence on Feb 29 to Feb 28 in non-leap years", () => {
+    expect(addRecurrenceInterval("2024-02-29", "yearly")).toBe("2025-02-28");
+  });
+
+  it("returns null for an unknown recurrence or a malformed date", () => {
+    expect(addRecurrenceInterval("2026-07-28", "fortnightly")).toBeNull();
+    expect(addRecurrenceInterval("not-a-date", "daily")).toBeNull();
   });
 });

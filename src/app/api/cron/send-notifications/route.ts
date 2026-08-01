@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/security";
 import { sendEmail } from "@/lib/email";
 import { checkDueDatesServer } from "@/lib/dueDateServer";
+import { checkRecurringTasksServer } from "@/lib/recurringTaskServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,8 +17,10 @@ export async function GET(req: NextRequest) {
 
   const supabase = getServiceClient();
 
-  // Run server-side due date check before dispatching emails
+  // Run server-side due date check and recurring task generation
+  // before dispatching emails
   const dueDateCount = await checkDueDatesServer();
+  const recurringCount = await checkRecurringTasksServer();
 
   const { data: notifications } = await supabase
     .from("notifications")
@@ -31,14 +34,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sent: 0 });
   }
 
-  const userIds = [...new Set(notifications.map((n) => n.user_id))];
-
-  const { data: profiles } = await supabase
-    .from("user_profiles")
-    .select("user_id, display_name");
-
-  const profileMap = new Map((profiles || []).map((p) => [p.user_id, p.display_name || "there"]));
-
   const { data: authUsers } = await supabase.auth.admin.listUsers();
 
   const userEmailMap = new Map<string, string>();
@@ -51,8 +46,6 @@ export async function GET(req: NextRequest) {
   for (const notif of notifications) {
     const email = userEmailMap.get(notif.user_id);
     if (!email) continue;
-
-    const name = profileMap.get(notif.user_id) || "there";
 
     await sendEmail({
       to: email,
@@ -69,5 +62,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ dueDateNotifications: dueDateCount, emailSent: sent });
+  return NextResponse.json({ dueDateNotifications: dueDateCount, recurringTasksCreated: recurringCount, emailSent: sent });
 }
