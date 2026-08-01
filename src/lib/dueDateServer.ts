@@ -1,5 +1,6 @@
 import { getServiceClient } from "@/lib/security";
 import { addDaysToDate, dateInTimezone, DEFAULT_TIMEZONE } from "@/lib/utils";
+import { buildDueDateNotifications, type DueDateTaskInput } from "@/lib/dueDateLogic";
 
 export async function checkDueDatesServer() {
   const supabase = getServiceClient();
@@ -37,44 +38,11 @@ export async function checkDueDatesServer() {
 
   const existingKeys = new Set((existingNotifs || []).map((n) => `${n.user_id}:${n.title}`));
 
-  const notifications: { user_id: string; title: string; body: string; type: string; link: string }[] = [];
-
-  for (const task of tasks) {
-    if (!task.due_date || !task.assignee_id) continue;
-
-    const { today, tomorrow } = getTzDates(tzMap.get(task.assignee_id) || DEFAULT_TIMEZONE);
-
-    let title: string;
-    let body: string;
-    let type: string;
-
-    if (task.due_date < today) {
-      title = `Task overdue: ${task.title}`;
-      body = `was due ${task.due_date}. Please update or complete this task.`;
-      type = "warning";
-    } else if (task.due_date === today) {
-      title = `Task due today: ${task.title}`;
-      body = "This task is due today. Make sure it gets done!";
-      type = "warning";
-    } else if (task.due_date === tomorrow) {
-      title = `Task due tomorrow: ${task.title}`;
-      body = "This task is due tomorrow.";
-      type = "info";
-    } else {
-      continue;
-    }
-
-    const key = `${task.assignee_id}:${title}`;
-    if (!existingKeys.has(key)) {
-      notifications.push({
-        user_id: task.assignee_id,
-        title,
-        body,
-        type,
-        link: task.project_id ? `/projects/${task.project_id}` : "/my-tasks",
-      });
-    }
-  }
+  const notifications = buildDueDateNotifications(
+    tasks as DueDateTaskInput[],
+    existingKeys,
+    (task) => getTzDates(tzMap.get(task.assignee_id!) || DEFAULT_TIMEZONE),
+  );
 
   if (notifications.length === 0) return 0;
 

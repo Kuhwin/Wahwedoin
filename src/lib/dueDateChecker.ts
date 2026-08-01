@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { checkRecurringTasks } from "@/lib/recurringTaskChecker";
 import { addDaysToDate, dateInTimezone, DEFAULT_TIMEZONE } from "@/lib/utils";
+import { buildDueDateNotifications, type DueDateTaskInput } from "@/lib/dueDateLogic";
 
 let lastRunAt = 0;
 
@@ -53,47 +54,16 @@ export async function checkDueDateNotifications() {
       .eq("user_id", user.id)
       .gte("created_at", new Date(Date.now() - 86400000).toISOString());
 
-    const existingTitles = new Set((existingNotifs || []).map((n: { title: string }) => n.title));
-    const notifications: { user_id: string; title: string; body: string; type: string; link: string }[] = [];
+    const existingNotifsData = (existingNotifs || []) as Array<{ title: string }>;
+    const existingKeys = new Set(
+      existingNotifsData.map((n) => `${user.id}:${n.title}`),
+    );
 
-    for (const task of tasks) {
-      const dueDate = task.due_date!;
-
-      if (dueDate < today) {
-        const title = `Task overdue: ${task.title}`;
-        if (!existingTitles.has(title)) {
-          notifications.push({
-            user_id: user.id,
-            title,
-            body: `was due ${dueDate}. Please update or complete this task.`,
-            type: "warning",
-            link: task.project_id ? `/projects/${task.project_id}` : "/my-tasks",
-          });
-        }
-      } else if (dueDate === today) {
-        const title = `Task due today: ${task.title}`;
-        if (!existingTitles.has(title)) {
-          notifications.push({
-            user_id: user.id,
-            title,
-            body: "This task is due today. Make sure it gets done!",
-            type: "warning",
-            link: task.project_id ? `/projects/${task.project_id}` : "/my-tasks",
-          });
-        }
-      } else if (dueDate === tomorrow) {
-        const title = `Task due tomorrow: ${task.title}`;
-        if (!existingTitles.has(title)) {
-          notifications.push({
-            user_id: user.id,
-            title,
-            body: "This task is due tomorrow.",
-            type: "info",
-            link: task.project_id ? `/projects/${task.project_id}` : "/my-tasks",
-          });
-        }
-      }
-    }
+    const notifications = buildDueDateNotifications(
+      tasks as DueDateTaskInput[],
+      existingKeys,
+      () => ({ today, tomorrow }),
+    );
 
     if (notifications.length > 0) {
       await supabase.from("notifications").insert(notifications);
