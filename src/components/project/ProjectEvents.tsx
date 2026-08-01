@@ -237,7 +237,6 @@ export default function ProjectEvents({
         start: startDateTime,
         end: endDateTime,
         allDay,
-        meetLink: meetLink.trim() || null,
         timezone,
       });
     }

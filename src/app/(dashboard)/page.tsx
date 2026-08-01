@@ -31,7 +31,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
 
 export default function DashboardPage() {
-  const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading } = useDashboardData();
+  const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading, refresh } = useDashboardData();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -129,7 +129,9 @@ export default function DashboardPage() {
     const { error } = await supabase.from("tasks").update({ status: "done" }).eq("id", taskId);
     if (error) {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: "todo" as const } : t));
+      return;
     }
+    void refresh();
   }
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
 

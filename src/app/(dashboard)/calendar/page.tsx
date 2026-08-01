@@ -630,7 +630,6 @@ export default function CalendarPage() {
           start: startDateTime,
           end: endDateTime,
           allDay: editAllDay,
-          meetLink: editMeetLink.trim() || null,
           timezone,
         });
       }

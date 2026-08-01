@@ -332,7 +332,6 @@ export async function updateGoogleCalendarEvent(
     start: string;
     end: string;
     allDay: boolean;
-    meetLink?: string | null;
     attendees?: { email: string }[];
     timezone?: string;
   }
