@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { parseCSV } from "@/lib/csv";
 import { type Project } from "@/lib/types";
 
 const TASK_FIELDS = [
@@ -29,69 +30,6 @@ type TaskField = (typeof TASK_FIELDS)[number]["value"];
 
 const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
 const VALID_STATUSES = ["todo", "in_progress", "done"];
-
-function parseCSVRow(text: string): string[] {
-  const row: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let i = 0;
-
-  while (i < text.length) {
-    const ch = text[i];
-
-    if (inQuotes) {
-      if (ch === '"') {
-        if (i + 1 < text.length && text[i + 1] === '"') {
-          current += '"';
-          i += 2;
-        } else {
-          inQuotes = false;
-          i++;
-        }
-      } else {
-        current += ch;
-        i++;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-        i++;
-      } else if (ch === ",") {
-        row.push(current);
-        current = "";
-        i++;
-      } else {
-        current += ch;
-        i++;
-      }
-    }
-  }
-  row.push(current);
-  return row;
-}
-
-function parseCSV(text: string): string[][] {
-  const lines: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-      current += ch;
-    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
-      if (current.trim()) lines.push(current);
-      current = "";
-      if (ch === "\r" && i + 1 < text.length && text[i + 1] === "\n") i++;
-    } else {
-      current += ch;
-    }
-  }
-  if (current.trim()) lines.push(current);
-
-  return lines.map(parseCSVRow);
-}
 
 const STEPS = [
   { num: 1, label: "Upload" },
@@ -267,6 +205,13 @@ export default function ImportWizard() {
     setImportTotal(csvData.length);
     setImportResult(null);
 
+    const { data: targetProject } = await supabase
+      .from("projects")
+      .select("team_id")
+      .eq("id", targetProjectId)
+      .maybeSingle();
+    const projectTeamId = targetProject?.team_id || null;
+
     let imported = 0;
     let failed = 0;
     const importErrors: string[] = [];
@@ -330,13 +275,31 @@ export default function ImportWizard() {
       let assigneeId: string | null = null;
       if (assigneeEmail) {
         const { data: member } = await supabase
-          .from("team_members")
+          .from("user_profiles")
           .select("user_id")
-          .eq("user_email", assigneeEmail.trim())
+          .ilike("user_email", assigneeEmail.trim())
           .limit(1)
-          .single();
-        if (member) {
+          .maybeSingle();
+
+        if (member && projectTeamId) {
+          const { data: membership } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("team_id", projectTeamId)
+            .eq("user_id", member.user_id)
+            .maybeSingle();
+          if (membership) {
+            assigneeId = member.user_id;
+          }
+        } else if (member) {
           assigneeId = member.user_id;
+        }
+
+        if (!assigneeId) {
+          failed++;
+          importErrors.push(`Row ${i + 2}: Assignee email "${assigneeEmail}" not found in this project's team.`);
+          setImportProgress(i + 1);
+          continue;
         }
       }
 
