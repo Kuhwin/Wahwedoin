@@ -275,10 +275,12 @@ export default function ProjectEvents({
 
   async function handleDelete(evt: ProjectEvent) {
     if (!window.confirm(`Delete "${evt.title}"?`)) return;
+    const { error } = await supabase.from("events").delete().eq("id", evt.id);
+    if (error) return;
     if (evt.google_account_id && evt.google_event_id) {
-      await deleteGoogleCalendarEvent(evt.google_account_id, evt.google_event_id);
+      const ok = await deleteGoogleCalendarEvent(evt.google_account_id, evt.google_event_id);
+      if (!ok) console.warn("[project-events] Google event delete failed, event may still exist in Google", evt.google_event_id);
     }
-    await supabase.from("events").delete().eq("id", evt.id);
     setEvents(events.filter((e) => e.id !== evt.id));
     setSelected(null);
   }

@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+import { getValidGoogleToken, type GoogleAccount } from "@/lib/googleServer";
 
 export async function GET(request: Request) {
   const auth = await requireAuth();
@@ -19,7 +17,7 @@ export async function GET(request: Request) {
   const supabase = getServiceClient();
   const { data: accounts } = await supabase
     .from("user_google_accounts")
-    .select("id, email, google_user_id, access_token, refresh_token, token_expires_at, scope, color")
+    .select("id, user_id, email, google_user_id, access_token, refresh_token, token_expires_at, scope, color")
     .eq("user_id", auth.user.id);
 
   if (!accounts || accounts.length === 0) {
@@ -34,34 +32,8 @@ export async function GET(request: Request) {
     accounts.map(async (a) => {
       if (!a.scope?.includes("calendar")) return null;
 
-      let token = a.access_token;
-      if (a.token_expires_at && new Date(a.token_expires_at) <= new Date()) {
-        if (!a.refresh_token) return null;
-        const refreshRes = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({
-            client_id: GOOGLE_CLIENT_ID,
-            client_secret: GOOGLE_CLIENT_SECRET,
-            refresh_token: a.refresh_token,
-            grant_type: "refresh_token",
-          }),
-        });
-        const refreshData = await refreshRes.json();
-        if (!refreshRes.ok || refreshData.error) {
-          console.warn(`[calendar] refresh failed for ${a.email}: ${refreshData.error || refreshRes.status}`);
-          return null;
-        }
-        token = refreshData.access_token;
-        await supabase
-          .from("user_google_accounts")
-          .update({
-            access_token: token,
-            token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", a.id);
-      }
+      const token = await getValidGoogleToken(supabase, a as GoogleAccount);
+      if (!token) return null;
 
       const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=100`;
 

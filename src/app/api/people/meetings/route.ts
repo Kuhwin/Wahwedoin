@@ -1,67 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-
-interface GoogleAccount {
-  id: string;
-  user_id: string;
-  email: string;
-  google_user_id: string;
-  access_token: string;
-  refresh_token: string | null;
-  token_expires_at: string | null;
-  scope: string;
-  color: string | null;
-}
+import { getValidGoogleToken, type GoogleAccount } from "@/lib/googleServer";
 
 interface GoogleCalendarItem {
   id: string;
   summary: string;
   start: { date?: string; dateTime?: string };
-}
-
-async function refreshAccessToken(account: GoogleAccount): Promise<string | null> {
-  if (!account.refresh_token) return null;
-
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      refresh_token: account.refresh_token,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  const tokens = await res.json();
-  if (tokens.error || !tokens.access_token) return null;
-
-  return tokens.access_token as string;
-}
-
-async function getValidToken(supabase: ReturnType<typeof getServiceClient>, account: GoogleAccount): Promise<string | null> {
-  if (!account.token_expires_at) return account.access_token;
-  if (new Date(account.token_expires_at) > new Date()) return account.access_token;
-  if (!account.refresh_token) return null;
-
-  const newToken = await refreshAccessToken(account);
-  if (!newToken) return null;
-
-  const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-  await supabase
-    .from("user_google_accounts")
-    .update({
-      access_token: newToken,
-      token_expires_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", account.id);
-
-  return newToken;
 }
 
 const DAYS = 14;
@@ -159,7 +104,7 @@ export async function GET(request: Request) {
   await Promise.all(
     googleAccounts.map(async (account) => {
       if (!account.scope?.includes("calendar")) return;
-      const token = await getValidToken(supabase, account);
+      const token = await getValidGoogleToken(supabase, account);
       if (!token) return;
 
       const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startISO}&timeMax=${endISO}&singleEvents=true&orderBy=startTime&maxResults=100`;

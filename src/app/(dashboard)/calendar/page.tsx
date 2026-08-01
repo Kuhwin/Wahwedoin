@@ -657,10 +657,12 @@ export default function CalendarPage() {
     if (!window.confirm("Delete this event?")) return;
     const ev = event.originalEvent;
     if (ev) {
+      const { error } = await supabase.from("events").delete().eq("id", ev.id);
+      if (error) return;
       if (ev.google_account_id && ev.google_event_id) {
-        await deleteGoogleCalendarEvent(ev.google_account_id, ev.google_event_id);
+        const ok = await deleteGoogleCalendarEvent(ev.google_account_id, ev.google_event_id);
+        if (!ok) console.warn("[calendar] Google event delete failed, event may still exist in Google", ev.google_event_id);
       }
-      await supabase.from("events").delete().eq("id", ev.id);
     }
     setSelectedEvent(null);
     setEditingEvent(null);

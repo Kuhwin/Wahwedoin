@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+import { refreshGoogleAccessToken } from "@/lib/googleServer";
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
@@ -31,19 +29,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      refresh_token,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  const tokens = await res.json();
-  if (tokens.error) {
+  const tokens = await refreshGoogleAccessToken({ refresh_token });
+  if (!tokens) {
     return NextResponse.json({ error: "Token refresh failed" }, { status: 400 });
   }
 
