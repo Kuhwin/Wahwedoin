@@ -162,6 +162,8 @@ export default function ProjectEvents({
           }).eq("id", data.id);
           data.google_event_id = googleEvent.googleEventId;
           data.meet_link = generatedMeetLink;
+        } else {
+          console.warn("[project-events] Google event creation failed", data.id);
         }
       }
 
@@ -231,14 +233,28 @@ export default function ProjectEvents({
     }).eq("id", editing.id);
 
     if (editing.google_account_id) {
-      await updateGoogleCalendarEvent(editing.google_account_id, editing.google_event_id!, {
+      const gcalArgs = {
         title: title.trim(),
         description: desc.trim() || null,
         start: startDateTime,
         end: endDateTime,
         allDay,
+        meetLink: meetLink.trim() || null,
         timezone,
-      });
+      };
+      if (editing.google_event_id) {
+        await updateGoogleCalendarEvent(editing.google_account_id, editing.google_event_id, gcalArgs);
+      } else {
+        const googleEvent = await createGoogleCalendarEvent(editing.google_account_id, gcalArgs);
+        if (googleEvent) {
+          await supabase.from("events").update({
+            google_event_id: googleEvent.googleEventId,
+            meet_link: googleEvent.hangoutLink || meetLink.trim() || null,
+          }).eq("id", editing.id);
+        } else {
+          console.warn("[project-events] Google sync failed while self-healing event", editing.id);
+        }
+      }
     }
 
     const updated: ProjectEvent = {

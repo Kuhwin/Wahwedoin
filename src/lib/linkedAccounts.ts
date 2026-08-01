@@ -53,59 +53,6 @@ export async function fetchGoogleAPI<T>(
   return res.json() as Promise<T>;
 }
 
-export async function fetchAllAccountsCalendar(userId: string) {
-  const accounts = await getLinkedAccounts(userId);
-  const calendarAccounts = accounts.filter((a) => a.scope.includes("calendar"));
-
-  const results = await Promise.all(
-    calendarAccounts.map(async (account) => {
-      const now = new Date();
-      const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const timeMax = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).toISOString();
-
-      const data = await fetchGoogleAPI<{
-        items: Array<{
-          id: string;
-          summary: string;
-          description?: string;
-          start: { date?: string; dateTime?: string };
-          end: { date?: string; dateTime?: string };
-          htmlLink: string;
-          hangoutLink?: string;
-          attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
-        }>;
-      }>(
-        account,
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`
-      );
-
-      return {
-        accountEmail: account.email,
-        accountName: account.display_name || account.email,
-        accountColor: account.color || "#6366f1",
-        events: (data?.items || []).map((e) => ({
-          id: `${account.google_user_id}:${e.id}`,
-          title: e.summary,
-          start: e.start.dateTime || e.start.date || "",
-          end: e.end.dateTime || e.end.date || "",
-          description: e.description || "",
-          allDay: !!e.start.date,
-          source: account.email,
-          color: account.color || "#6366f1",
-          meetLink: e.hangoutLink || null,
-          attendees: (e.attendees || []).map((a) => ({
-            email: a.email,
-            name: a.displayName || a.email,
-            status: a.responseStatus || "needsAction",
-          })),
-        })),
-      };
-    })
-  );
-
-  return results;
-}
-
 export async function fetchAllAccountsDrive(userId: string) {
   const accounts = await getLinkedAccounts(userId);
   const driveAccounts = accounts.filter((a) => a.scope.includes("drive"));
@@ -250,6 +197,10 @@ async function callGoogleAPI<T>(
   body?: unknown
 ): Promise<T | null> {
   const token = await getValidToken(account);
+  if (!token) {
+    console.warn(`[google] No valid token for ${account.email}, account needs re-linking`);
+    return null;
+  }
   const res = await fetch(url, {
     method,
     headers: {
@@ -258,7 +209,10 @@ async function callGoogleAPI<T>(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`[google] API error ${res.status} for ${account.email}`);
+    return null;
+  }
   if (method === "DELETE") return {} as T;
   return res.json() as Promise<T>;
 }
@@ -296,10 +250,13 @@ export async function createGoogleCalendarEvent(
       : { dateTime: eventData.end, timeZone: eventData.timezone ?? "America/Barbados" },
   };
 
-  // Note: hangoutLink is a read-only field on the Google API — sending it
+  // hangoutLink is a read-only field on the Google API — sending it
   // alongside conferenceDataVersion=1 makes Google return 400. We request a
-  // Google Meet conference instead and read the generated link back.
-  if (eventData.meetLink) {
+  // Google Meet conference instead and read the generated link back. Only do
+  // that when the user has no link or already a Meet link; a custom link
+  // (Zoom/Teams/etc.) is kept as-is so it doesn't get clobbered.
+  const wantsMeet = !eventData.meetLink || eventData.meetLink.startsWith("https://meet.google.com/");
+  if (wantsMeet) {
     googleEvent.conferenceData = {
       createRequest: {
         requestId: crypto.randomUUID(),

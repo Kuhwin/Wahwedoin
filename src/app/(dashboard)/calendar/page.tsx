@@ -623,15 +623,29 @@ export default function CalendarPage() {
         meet_link: editMeetLink.trim() || null,
       }).eq("id", ev.id);
 
-      if (ev.google_account_id && ev.google_event_id) {
-        await updateGoogleCalendarEvent(ev.google_account_id, ev.google_event_id, {
+      if (ev.google_account_id) {
+        const gcalArgs = {
           title: editTitle.trim(),
           description: editDesc.trim() || null,
           start: startDateTime,
           end: endDateTime,
           allDay: editAllDay,
+          meetLink: editMeetLink.trim() || null,
           timezone,
-        });
+        };
+        if (ev.google_event_id) {
+          await updateGoogleCalendarEvent(ev.google_account_id, ev.google_event_id, gcalArgs);
+        } else {
+          const googleEvent = await createGoogleCalendarEvent(ev.google_account_id, gcalArgs);
+          if (googleEvent) {
+            await supabase.from("events").update({
+              google_event_id: googleEvent.googleEventId,
+              meet_link: googleEvent.hangoutLink || ev.meet_link || null,
+            }).eq("id", ev.id);
+          } else {
+            console.warn("[calendar] Google sync failed while self-healing event", ev.id);
+          }
+        }
       }
     }
     setEditingEvent(null);
@@ -768,6 +782,8 @@ export default function CalendarPage() {
           }).eq("id", data.id);
           data.google_event_id = googleEvent.googleEventId;
           data.meet_link = generatedMeetLink;
+        } else {
+          console.warn("[calendar] Google event creation failed", data.id);
         }
       }
 
