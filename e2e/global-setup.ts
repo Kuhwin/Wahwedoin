@@ -5,7 +5,10 @@ import * as path from "path";
 const E2E_EMAIL = "e2e-tests@wahwedoin.test";
 const E2E_PASSWORD = "E2e-Pass-2026!";
 const E2E_DISPLAY_NAME = "E2E Test User";
+const ORG_NAME = "E2E Test Org";
+const ORG_SLUG = "e2e-test-org";
 const TEAM_NAME = "E2E Test Team";
+const TEAM_SLUG = "e2e-test-team";
 const PROJECT_NAME = "E2E Test Project";
 
 // Next.js loads .env.local for build/start; mirror that so the setup talks to
@@ -66,7 +69,30 @@ export default async function globalSetup() {
     userId = created.user.id;
   }
 
-  // Ensure the team exists.
+  // Ensure the organization exists (the app's /manage page and /teams redirect
+  // both need the user to belong to an organization).
+  const { data: orgs } = await admin
+    .from("organizations")
+    .select("id")
+    .eq("slug", ORG_SLUG)
+    .limit(1);
+  let orgId = orgs?.[0]?.id ?? null;
+  if (!orgId) {
+    const { data: org, error } = await admin
+      .from("organizations")
+      .insert({ name: ORG_NAME, slug: ORG_SLUG })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Failed to create e2e org: ${error.message}`);
+    orgId = org.id;
+  }
+
+  await admin.from("org_members").upsert(
+    { org_id: orgId, user_id: userId, role: "owner" },
+    { onConflict: "org_id,user_id" },
+  );
+
+  // Ensure the team exists and belongs to that organization.
   const { data: teams } = await admin
     .from("teams")
     .select("id")
@@ -76,28 +102,32 @@ export default async function globalSetup() {
   if (!teamId) {
     const { data: team, error } = await admin
       .from("teams")
-      .insert({ name: TEAM_NAME })
+      .insert({ name: TEAM_NAME, slug: TEAM_SLUG, org_id: orgId })
       .select("id")
       .single();
     if (error) throw new Error(`Failed to create e2e team: ${error.message}`);
     teamId = team.id;
+  } else {
+    const { error } = await admin.from("teams").update({ org_id: orgId }).eq("id", teamId);
+    if (error) throw new Error(`Failed to attach e2e team to org: ${error.message}`);
   }
 
-  await admin.from("team_members").upsert(
+  const { error: membershipError } = await admin.from("team_members").upsert(
     { team_id: teamId, user_id: userId, role: "owner", joined_at: new Date().toISOString() },
     { onConflict: "team_id,user_id" },
   );
+  if (membershipError) throw new Error(`Failed to add e2e team member: ${membershipError.message}`);
 
-  await admin.from("user_profiles").upsert(
+  const { error: profileError } = await admin.from("user_profiles").upsert(
     {
       user_id: userId,
       display_name: E2E_DISPLAY_NAME,
-      user_email: E2E_EMAIL,
       timezone: "America/Barbados",
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" },
   );
+  if (profileError) throw new Error(`Failed to seed e2e user profile: ${profileError.message}`);
 
   // Ensure the project exists in that team.
   const { data: projects } = await admin

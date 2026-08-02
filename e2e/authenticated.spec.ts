@@ -7,7 +7,7 @@ async function login(page: Page) {
   await page.goto("/auth/login");
   await page.locator('input[type="email"]').fill(E2E_EMAIL);
   await page.locator('input[type="password"]').fill(E2E_PASSWORD);
-  await page.getByRole("button", { name: "Sign In" }).click();
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/auth/login"), { timeout: 20000 });
 }
 
@@ -29,10 +29,12 @@ test.describe("authenticated pages", () => {
     await expect(page.getByText("E2E Test Project")).toBeVisible({ timeout: 15000 });
   });
 
-  test("teams page loads", async ({ page }) => {
+  test("teams page redirects to manage", async ({ page }) => {
     await login(page);
     await page.goto("/teams");
-    await expect(page.getByRole("heading", { name: "Teams" })).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL(/\/manage/, { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Manage" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "E2E Test Org" })).toBeVisible({ timeout: 15000 });
   });
 
   test("settings page loads", async ({ page }) => {
