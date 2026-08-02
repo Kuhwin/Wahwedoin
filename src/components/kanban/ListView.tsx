@@ -7,9 +7,14 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { Trash2, Check, X, CheckSquare, ChevronRight, ChevronDown } from "lucide-react";
+import { Trash2, Check, X, CheckSquare, ChevronRight, ChevronDown, UserPlus } from "lucide-react";
 import { type Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+interface AssigneeOption {
+  id: string;
+  name: string;
+}
 
 interface ListViewProps {
   tasks: Task[];
@@ -19,6 +24,7 @@ interface ListViewProps {
   onBulkDelete?: (taskIds: string[]) => Promise<void>;
   onBulkMove?: (taskIds: string[], sectionId: string) => Promise<void>;
   onBulkAssign?: (taskIds: string[], userId: string) => Promise<void>;
+  assignees?: AssigneeOption[];
   subtaskCounts?: Record<string, { total: number; done: number }>;
 }
 
@@ -28,11 +34,14 @@ function ListViewInner({
   onDeleteTask,
   onTaskClick,
   onBulkDelete,
+  onBulkAssign,
+  assignees = [],
   subtaskCounts = {},
 }: ListViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkStatus, setShowBulkStatus] = useState(false);
   const [showBulkPriority, setShowBulkPriority] = useState(false);
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
 
   const allSelected = tasks.length > 0 && tasks.every((t) => selectedIds.has(t.id));
@@ -113,6 +122,13 @@ function ListViewInner({
     setSelectedIds(new Set());
   }
 
+  async function handleBulkAssign(userId: string) {
+    if (!onBulkAssign || !userId) return;
+    await onBulkAssign(Array.from(selectedIds), userId);
+    setSelectedIds(new Set());
+    setShowBulkAssign(false);
+  }
+
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
     const destIndex = result.destination.index;
@@ -161,6 +177,22 @@ function ListViewInner({
                 ))}
                 <button onClick={() => setShowBulkPriority(false)} className="p-1 text-indigo-400 hover:text-accent"><X size={12} /></button>
               </div>
+            ) : showBulkAssign ? (
+              <div className="flex items-center gap-2">
+                <select
+                  autoFocus
+                  value=""
+                  onChange={(e) => { if (e.target.value) void handleBulkAssign(e.target.value); }}
+                  onBlur={() => setShowBulkAssign(false)}
+                  className="text-xs font-medium bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-2 py-1 text-indigo-700 dark:text-indigo-400 focus:outline-none focus:ring-1 focus:ring-accent/50"
+                >
+                  <option value="" disabled>Assign to...</option>
+                  {assignees.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <button onClick={() => setShowBulkAssign(false)} className="p-1 text-indigo-400 hover:text-accent"><X size={12} /></button>
+              </div>
             ) : (
               <>
                 <button onClick={() => setShowBulkStatus(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
@@ -169,6 +201,11 @@ function ListViewInner({
                 <button onClick={() => setShowBulkPriority(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
                   Priority...
                 </button>
+                {onBulkAssign && assignees.length > 0 && (
+                  <button onClick={() => setShowBulkAssign(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors">
+                    <UserPlus size={12} /> Assign...
+                  </button>
+                )}
                 {onBulkDelete && (
                   <button onClick={() => void handleBulkDeleteAction()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-white dark:bg-slate-900 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
                     <Trash2 size={12} /> Delete
