@@ -21,25 +21,40 @@ jobs:
       - run: npm test
 
   # Runs only when the real service role key is available as a repo secret.
-  # Until then this job is skipped and the check job above still guards main.
+  # The `secrets` context is not allowed in job-level `if:` expressions, so we
+  # detect the key in a step and skip the heavy e2e steps when it is absent.
+  # Until then the check job above still guards main.
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
-    if: secrets.SUPABASE_SERVICE_ROLE_KEY != ''
     needs: check
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
+      - name: Detect e2e credentials
+        id: creds
+        run: |
+          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Install dependencies
+        if: steps.creds.outputs.available == 'true'
+        run: npm ci
+      - name: Install Playwright browsers
+        if: steps.creds.outputs.available == 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e tests
+        if: steps.creds.outputs.available == 'true'
+        run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
