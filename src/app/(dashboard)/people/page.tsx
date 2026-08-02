@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Users, Search, Building2, Mail, ShieldCheck, ShieldAlert,
+  Users, Search, Building2, Mail, ShieldCheck, ShieldAlert, BarChart3,
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -36,6 +36,13 @@ interface MemberStats {
   lastActivity: string | null;
 }
 
+interface WorkloadStats {
+  user_id: string;
+  open: number;
+  in_progress: number;
+  overdue: number;
+}
+
 export default function PeoplePage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
@@ -44,6 +51,7 @@ export default function PeoplePage() {
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [stats, setStats] = useState<Record<string, MemberStats>>({});
+  const [workload, setWorkload] = useState<Record<string, WorkloadStats>>({});
   const [search, setSearch] = useState("");
   const [orgLoading, setOrgLoading] = useState(false);
 
@@ -98,6 +106,7 @@ export default function PeoplePage() {
       if (!orgMembers) {
         setMembers([]);
         setStats({});
+        setWorkload({});
         setOrgLoading(false);
         return;
       }
@@ -124,13 +133,14 @@ export default function PeoplePage() {
       const userIds = enriched.map((m) => m.user_id);
       if (userIds.length === 0) {
         setStats({});
+        setWorkload({});
         setOrgLoading(false);
         return;
       }
 
       const today = new Date().toISOString();
 
-      const [tasksRes, activitiesRes, meetingsRes] = await Promise.all([
+      const [tasksRes, activitiesRes, meetingsRes, workloadRes] = await Promise.all([
         supabase
           .from("task_assignees")
           .select("user_id, tasks!inner(status, due_date)")
@@ -142,6 +152,7 @@ export default function PeoplePage() {
           .order("created_at", { ascending: false })
           .limit(200),
         fetch(`/api/people/meetings?org_id=${orgId}`),
+        fetch(`/api/people/workload?org_id=${orgId}`),
       ]);
 
       const taskStats: Record<string, { active: number; overdue: number }> = {};
@@ -163,6 +174,17 @@ export default function PeoplePage() {
       } catch {
         // ignore
       }
+
+      const workloadCounts: Record<string, WorkloadStats> = {};
+      try {
+        if (workloadRes.ok) {
+          const data = await workloadRes.json();
+          (data.members || []).forEach((w: WorkloadStats) => { workloadCounts[w.user_id] = w; });
+        }
+      } catch {
+        // ignore
+      }
+      setWorkload(workloadCounts);
 
       const lastActivity: Record<string, string | null> = {};
       userIds.forEach((id) => { lastActivity[id] = null; });
@@ -272,6 +294,80 @@ export default function PeoplePage() {
               {org.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Workload summary */}
+      {!orgLoading && Object.keys(workload).length > 0 && (
+        <div className="mb-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <BarChart3 size={14} className="text-indigo-600" />
+              Workload
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Open, in-progress, and overdue tasks per member
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-5 py-2.5 font-medium">Member</th>
+                  <th className="px-3 py-2.5 font-medium">Open</th>
+                  <th className="px-3 py-2.5 font-medium">In Progress</th>
+                  <th className="px-3 py-2.5 font-medium">Overdue</th>
+                  <th className="px-5 py-2.5 font-medium w-2/5">Open tasks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMembers.map((member) => {
+                  const w = workload[member.user_id];
+                  if (!w) return null;
+                  const maxOpen = Math.max(1, ...Object.values(workload).map((x) => x.open));
+                  return (
+                    <tr key={member.user_id} className="border-b border-slate-50 dark:border-slate-800/60 last:border-0">
+                      <td className="px-5 py-2.5 text-slate-900 dark:text-slate-100 font-medium whitespace-nowrap">
+                        {member.display_name || member.email || "Unknown"}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-900 dark:text-slate-100">{w.open}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          w.in_progress > 0
+                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                            : "text-slate-400"
+                        )}>
+                          {w.in_progress}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          w.overdue > 0
+                            ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+                            : "text-slate-400"
+                        )}>
+                          {w.overdue}
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5">
+                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              w.overdue > 0 ? "bg-red-500" : "bg-indigo-500"
+                            )}
+                            style={{ width: `${Math.round((w.open / maxOpen) * 100)}%` }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
