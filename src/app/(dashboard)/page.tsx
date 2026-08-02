@@ -29,9 +29,11 @@ import CountdownTimer from "@/components/CountdownTimer";
 import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
+import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 
 export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading, refresh } = useDashboardData();
+  useRealtimeRefresh({ tables: ["tasks", "events", "activities"], swrKeys: ["dashboard"] });
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showAllActivities, setShowAllActivities] = useState(false);

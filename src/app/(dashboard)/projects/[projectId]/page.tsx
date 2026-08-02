@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import Skeleton from "@/components/ui/Skeleton";
 import ExportButton from "@/components/ExportButton";
+import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 
 const KanbanBoard = dynamic(() => import("@/components/kanban/KanbanBoard"), { ssr: false });
 const ListView = dynamic(() => import("@/components/kanban/ListView"), { ssr: false });
@@ -198,6 +199,11 @@ export default function ProjectPage() {
     projectFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
   );
+
+  useRealtimeRefresh({
+    tables: ["tasks", "sections", "task_assignees", "task_projects"],
+    swrKeys: [projectId ? `project:${projectId}` : null],
+  });
 
   const projectLoaded = useRef(false);
   useEffect(() => {
@@ -983,6 +989,7 @@ export default function ProjectPage() {
           onBulkDelete={handleBulkDelete}
           onBulkMove={handleBulkMove}
           onBulkAssign={handleBulkAssign}
+          assignees={members.map((m) => ({ id: m.user_id, name: memberProfiles[m.user_id] || m.user_id }))}
           subtaskCounts={subtaskCounts}
         />
       )}
