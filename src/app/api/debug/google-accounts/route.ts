@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
+
+function debugEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.ENABLE_DEBUG_ROUTES === "true";
+}
 
 export async function GET() {
+  if (!debugEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const auth = await requireAuth();
   if (auth.error || !auth.user) return auth.error ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!(await rateLimit(`debug-google-accounts:${auth.user.id}`, 30, 60_000))) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   const supabase = getServiceClient();
   const { data: accounts } = await supabase

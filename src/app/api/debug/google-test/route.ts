@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
+import { rateLimit } from "@/lib/rateLimit";
+
+function debugEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.ENABLE_DEBUG_ROUTES === "true";
+}
 
 export async function GET() {
+  if (!debugEnabled()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const auth = await requireAuth();
   if (auth.error || !auth.user) return auth.error ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // This route performs real token refreshes and Google API calls, which
+  // consume the shared OAuth quota — keep it tight.
+  if (!(await rateLimit(`debug-google-test:${auth.user.id}`, 10, 60_000))) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   const results: Record<string, unknown>[] = [];
   const supabase = getServiceClient();
