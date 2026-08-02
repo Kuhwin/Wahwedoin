@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
 import { getValidGoogleToken, type GoogleAccount } from "@/lib/googleServer";
+import { sharesOrgWithAdmin } from "@/lib/people";
 
 interface GoogleCalendarItem {
   id: string;
@@ -53,10 +54,9 @@ export async function GET(
     .from("org_members")
     .select("org_id")
     .eq("user_id", userId);
-  const targetOrgIds = new Set((targetOrgs || []).map((m: { org_id: string }) => m.org_id));
+  const targetOrgIds = (targetOrgs || []).map((m: { org_id: string }) => m.org_id);
 
-  const sharesOrg = [...adminOrgIds].some((orgId) => targetOrgIds.has(orgId));
-  if (!sharesOrg) {
+  if (!sharesOrgWithAdmin(callerOrgs || [], targetOrgIds)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

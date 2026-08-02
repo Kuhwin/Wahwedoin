@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, getServiceClient } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
 import { getValidGoogleToken, type GoogleAccount } from "@/lib/googleServer";
+import { buildUserMeetingCounts, type MeetingEventRow } from "@/lib/people";
 
 interface GoogleCalendarItem {
   id: string;
@@ -89,20 +90,13 @@ export async function GET(request: Request) {
       .gte("start_date", startISO)
       .lte("start_date", endISO);
 
-    (events || []).forEach((ev: { team_id: string; google_account_id: string | null }) => {
-      // Count each event once per user, even when it matches via both the
-      // team and a linked Google account (previously double-counted).
-      const affected = new Set<string>();
-      Object.entries(userTeamSet).forEach(([uid, teamSet]) => {
-        if (teamSet.has(ev.team_id)) affected.add(uid);
-      });
-      if (ev.google_account_id) {
-        Object.entries(userAccountSet).forEach(([uid, accountSet]) => {
-          if (accountSet.has(ev.google_account_id!)) affected.add(uid);
-        });
-      }
-      affected.forEach((uid) => { counts[uid] = (counts[uid] || 0) + 1; });
-    });
+    const meetingCounts = buildUserMeetingCounts(
+      userIds,
+      (events || []) as MeetingEventRow[],
+      userTeamSet,
+      userAccountSet,
+    );
+    Object.entries(meetingCounts).forEach(([uid, n]) => { counts[uid] = n; });
   }
 
   await Promise.all(
