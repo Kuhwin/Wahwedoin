@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { promises as dns } from "dns";
 
 export async function requireAuth() {
   const supabase = await createClient();
@@ -33,9 +34,10 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 
 function isPrivateIP(hostname: string): boolean {
-  if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.)/.test(hostname)) return true;
-  if (/^fc00:/i.test(hostname) || /^fe80:/i.test(hostname)) return true;
-  if (hostname === "::1" || hostname === "::") return true;
+  const h = hostname.replace(/^::ffff:/i, "").replace(/^\[|\]$/g, "");
+  if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|127\.|0\.)/.test(h)) return true;
+  if (/^fc00:/i.test(h) || /^fe80:/i.test(h)) return true;
+  if (h === "::1" || h === "::") return true;
   return false;
 }
 
@@ -53,6 +55,21 @@ export function isSafeUrl(urlString: string): boolean {
   if (/\.internal$/i.test(parsed.hostname)) return false;
 
   return true;
+}
+
+/**
+ * Resolves a hostname and rejects it when any address is private. This
+ * catches SSRF attempts that pass the string-level checks, e.g. hostnames
+ * that resolve to loopback or link-local addresses (169.254.x.x).
+ */
+export async function hostnameResolvesToPrivate(hostname: string): Promise<boolean> {
+  try {
+    const records = await dns.lookup(hostname, { all: true, verbatim: true });
+    return records.some((r) => isPrivateIP(r.address));
+  } catch {
+    // Treat resolution failure as unsafe rather than allowing the request.
+    return true;
+  }
 }
 
 function getHmacSecret(): string {

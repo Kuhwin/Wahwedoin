@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAuth, isSafeUrl } from "@/lib/security";
+import { requireAuth, isSafeUrl, hostnameResolvesToPrivate } from "@/lib/security";
 import { rateLimit } from "@/lib/rateLimit";
 
 interface CalEvent {
@@ -106,6 +106,12 @@ export async function POST(request: Request) {
       parsedUrl = new URL(url);
     } catch {
       return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
+    }
+
+    // Resolve the hostname and reject addresses pointing at private ranges
+    // (e.g. DNS names that resolve to loopback or link-local IPs).
+    if (await hostnameResolvesToPrivate(parsedUrl.hostname)) {
+      return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
     }
 
     const response = await fetch(parsedUrl.toString(), {
