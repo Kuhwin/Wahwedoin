@@ -343,6 +343,10 @@ export default function TaskDetailModal({
 
     logActivity({ project_id: task!.project_id, task_id: task!.id, user_id: user.id, action: "commented on", detail: task!.title });
 
+    const taskLink = task!.project_id ? `/projects/${task!.project_id}` : "/my-tasks";
+
+    // Notify @mentioned users (deduped by id)
+    const mentionedUserIds = new Set<string>();
     const mentionRegex = /@(\S+)/g;
     let match;
     while ((match = mentionRegex.exec(body)) !== null) {
@@ -350,37 +354,28 @@ export default function TaskDetailModal({
       const mentioned = memberProfiles.find(
         (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
       );
-      if (mentioned && mentioned.user_id !== user.id) {
+      if (mentioned && mentioned.user_id !== user.id && !mentionedUserIds.has(mentioned.user_id)) {
+        mentionedUserIds.add(mentioned.user_id);
         const title = `You were mentioned in a comment on "${task!.title}"`;
         const mentionBody = `${getMemberName(user.id)}: ${body}`;
-        const link = `/projects/${task!.project_id}`;
-        await supabase.from("notifications").insert({ user_id: mentioned.user_id, type: "comment", title, body: mentionBody, link });
+        await supabase.from("notifications").insert({ user_id: mentioned.user_id, type: "comment", title, body: mentionBody, link: taskLink });
         void fetch("/api/notifications/send-assignment", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: mentioned.user_id, title, body: mentionBody, link }),
+          body: JSON.stringify({ user_id: mentioned.user_id, title, body: mentionBody, link: taskLink }),
         });
       }
     }
 
-    // Notify followers (excluding comment author, mentioned users, and assignees)
+    // Notify followers (excluding the comment author and users already mentioned)
     if (taskFollowers.length > 0) {
-      const mentionedIds = new Set(
-        body.split(/\s+/).map((w) => w.startsWith("@") ? w.slice(1).toLowerCase() : "").filter(Boolean)
-      );
       const title = `New comment on "${task!.title}"`;
       const commentBody = `${getMemberName(user.id)}: ${body}`;
-      const link = `/projects/${task!.project_id}`;
-      const targets = taskFollowers.filter((fid) => {
-        if (fid === user.id) return false;
-        const mp = memberProfiles.find((p) => p.user_id === fid);
-        const name = (mp?.display_name || "").toLowerCase();
-        return !(name && mentionedIds.has(name));
-      });
-      for (const fid of targets) {
-        await supabase.from("notifications").insert({ user_id: fid, type: "comment", title, body: commentBody, link });
+      for (const fid of taskFollowers) {
+        if (fid === user.id || mentionedUserIds.has(fid)) continue;
+        await supabase.from("notifications").insert({ user_id: fid, type: "comment", title, body: commentBody, link: taskLink });
         void fetch("/api/notifications/send-assignment", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: fid, title, body: commentBody, link }),
+          body: JSON.stringify({ user_id: fid, title, body: commentBody, link: taskLink }),
         });
       }
     }
