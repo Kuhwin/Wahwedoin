@@ -90,6 +90,7 @@ export interface Task {
   assignee_ids?: string[];
   follower_ids?: string[];
   start_date?: string | null;
+  reminder_at?: string | null;
   projects?: ProjectSummary[];
   task_projects?: { project_id: string }[];
 }

@@ -4,6 +4,7 @@ import { getServiceClient } from "@/lib/security";
 import { sendEmail } from "@/lib/email";
 import { checkDueDatesServer } from "@/lib/dueDateServer";
 import { checkRecurringTasksServer } from "@/lib/recurringTaskServer";
+import { checkTaskRemindersServer } from "@/lib/taskReminderServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
   // before dispatching emails
   const dueDateCount = await checkDueDatesServer();
   const recurringCount = await checkRecurringTasksServer();
+  const reminderCount = await checkTaskRemindersServer();
 
   const { data: notifications } = await supabase
     .from("notifications")
@@ -38,7 +40,7 @@ export async function GET(req: NextRequest) {
     .limit(50);
 
   if (!notifications || notifications.length === 0) {
-    return NextResponse.json({ dueDateNotifications: dueDateCount, recurringTasksCreated: recurringCount, emailSent: 0 });
+    return NextResponse.json({ dueDateNotifications: dueDateCount, recurringTasksCreated: recurringCount, taskReminders: reminderCount, emailSent: 0 });
   }
 
   // listUsers is paginated (default 50) — page through so emails reach every
@@ -81,5 +83,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ dueDateNotifications: dueDateCount, recurringTasksCreated: recurringCount, emailSent: sent });
+  return NextResponse.json({ dueDateNotifications: dueDateCount, recurringTasksCreated: recurringCount, taskReminders: reminderCount, emailSent: sent });
 }

@@ -14,6 +14,7 @@ import {
   History,
   User,
   Calendar,
+  Clock,
   Columns3,
   Paperclip,
   Upload,
@@ -40,6 +41,14 @@ import { formatRelativeTime, cn } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
 import ReactMarkdown from "react-markdown";
 import CustomFieldsPanel from "@/components/CustomFieldsPanel";
+
+function toLocalDateTimeInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -787,6 +796,21 @@ export default function TaskDetailModal({
               value={task.start_date || ""}
               onChange={(e) =>
                 onUpdate(task.id, { start_date: e.target.value || null } as Partial<Task>)
+              }
+              className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
+            />
+          </div>
+
+          {/* Reminder */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Clock size={12} /> Reminder
+            </label>
+            <input
+              type="datetime-local"
+              value={toLocalDateTimeInput(task.reminder_at)}
+              onChange={(e) =>
+                onUpdate(task.id, { reminder_at: e.target.value ? new Date(e.target.value).toISOString() : null } as Partial<Task>)
               }
               className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
             />
