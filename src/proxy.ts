@@ -34,13 +34,12 @@ export async function proxy(request: NextRequest) {
   }
 
   const isApiRoute = pathname.startsWith("/api");
-  const isPublicApi = pathname === "/api/seed";
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (isApiRoute && !isPublicApi && !user) {
+  if (isApiRoute && !user) {
     const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     res.headers.set("X-Content-Type-Options", "nosniff");
     return res;
