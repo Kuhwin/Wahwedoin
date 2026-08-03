@@ -20,10 +20,10 @@ jobs:
       - run: npm run lint
       - run: npm test
 
-  # Runs only when the real service role key is available as a repo secret.
-  # The `secrets` context is not allowed in job-level `if:` expressions, so we
-  # detect the key in a step and skip the heavy e2e steps when it is absent.
-  # Until then the check job above still guards main.
+  # Runs only when all three Supabase credentials are available as repo
+  # secrets. The `secrets` context is not allowed in job-level `if:`
+  # expressions, so we detect the credentials in a step and skip the heavy e2e
+  # steps when any are absent. Until then the check job above still guards main.
   e2e:
     name: End-to-end tests
     runs-on: ubuntu-latest
@@ -36,10 +36,16 @@ jobs:
       - name: Detect e2e credentials
         id: creds
         run: |
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+          missing=""
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then missing="$missing NEXT_PUBLIC_SUPABASE_URL"; fi
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"; fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then missing="$missing SUPABASE_SERVICE_ROLE_KEY"; fi
+          if [ -z "$missing" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "All e2e credentials are present."
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Missing e2e credentials:$missing — add them as repository secrets to run the e2e suite."
           fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
