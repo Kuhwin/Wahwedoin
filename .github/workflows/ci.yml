@@ -48,6 +48,21 @@ jobs:
             echo "available=false" >> "$GITHUB_OUTPUT"
             echo "Missing e2e credentials:$missing — add them as repository secrets to run the e2e suite."
           fi
+      - name: Report credential visibility
+        if: always()
+        run: |
+          {
+            echo "available=${{ steps.creds.outputs.available }}"
+            echo "url_present=$([ -n "$NEXT_PUBLIC_SUPABASE_URL" ] && echo yes || echo no)"
+            echo "anon_present=$([ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && echo yes || echo no)"
+            echo "service_present=$([ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && echo yes || echo no)"
+          } > creds-report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: creds-report
+          path: creds-report.txt
+          retention-days: 7
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
