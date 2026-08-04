@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Building2, Users, Settings, Shield, ShieldAlert, UserMinus, UserCog,
-  Plus, X, Mail, Copy, Check, Trash2, ArrowRight, Save, UserPlus,
+  Building2, Users, Settings, Shield, UserMinus, UserCog,
+  Plus, Mail, Copy, Check, Trash2, ArrowRight, Save, UserPlus,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -78,6 +78,17 @@ export default function ManagePage() {
   const [inviting, setInviting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [teamMemberProfiles, setTeamMemberProfiles] = useState<Record<string, { display_name: string | null; avatar_url: string | null }>>({});
+
+  // Team add: autocomplete dropdown (add existing org member vs invite by email)
+  const [teamAddOpen, setTeamAddOpen] = useState(false);
+  const teamAddRef = useRef<HTMLDivElement>(null);
+
+  // Member detail popup (click a person in the org manager)
+  const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
+  const [memberDetailLoading, setMemberDetailLoading] = useState(false);
+  const [memberDetailMemberships, setMemberDetailMemberships] = useState<Record<string, { id: string; role: string }>>({});
+  const [memberDetailAddRole, setMemberDetailAddRole] = useState<"admin" | "member" | "viewer">("member");
+  const [memberDetailAdding, setMemberDetailAdding] = useState(false);
 
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -160,6 +171,54 @@ export default function ManagePage() {
     }
     void loadOrgData();
   }, [selectedOrgId, supabase]);
+
+  // Close the team-add autocomplete dropdown on outside click.
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (teamAddRef.current && !teamAddRef.current.contains(e.target as Node)) {
+        setTeamAddOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  // When a member is opened in the detail popup, load their team memberships
+  // within this organization.
+  useEffect(() => {
+    if (!memberDetail || !selectedOrgId) {
+      setMemberDetailMemberships({});
+      return;
+    }
+    const detail = memberDetail;
+    const orgId = selectedOrgId;
+    let cancelled = false;
+    async function load() {
+      setMemberDetailLoading(true);
+      const orgTeamIds = teams.filter((t) => t.org_id === orgId).map((t) => t.id);
+      if (orgTeamIds.length === 0) {
+        if (!cancelled) {
+          setMemberDetailMemberships({});
+          setMemberDetailLoading(false);
+        }
+        return;
+      }
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, team_id, role")
+        .eq("user_id", detail.user_id)
+        .in("team_id", orgTeamIds);
+      if (cancelled) return;
+      const map: Record<string, { id: string; role: string }> = {};
+      (data || []).forEach((r: { id: string; team_id: string; role: string }) => {
+        map[r.team_id] = { id: r.id, role: r.role };
+      });
+      setMemberDetailMemberships(map);
+      setMemberDetailLoading(false);
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [memberDetail, selectedOrgId, teams, supabase]);
 
   useEffect(() => {
     if (selectedOrg) setNameInput(selectedOrg.name);
@@ -246,13 +305,33 @@ export default function ManagePage() {
     }
   }
 
-  async function handleChangeRole(member: OrgMember, newRole: "admin" | "member") {
+  async function handleChangeRole(member: OrgMember, newRole: "owner" | "admin" | "member") {
     setMessage(null);
+    if (member.role === newRole) return;
+    // Only owners can promote to or demote from owner.
+    if ((newRole === "owner" || member.role === "owner") && currentRole !== "owner") {
+      setMessage({ type: "error", text: "Only owners can change an owner's role." });
+      return;
+    }
+    // Guard against demoting the last owner.
+    if (member.role === "owner" && newRole !== "owner") {
+      const ownerCount = members.filter((m) => m.role === "owner").length;
+      if (ownerCount <= 1) {
+        setMessage({ type: "error", text: "Cannot demote the last owner. Promote another member to owner first." });
+        return;
+      }
+    }
+    // Confirm any change that touches the owner role.
+    if (member.role === "owner" || newRole === "owner") {
+      const label = member.display_name || member.email || member.user_id;
+      if (!window.confirm(`Change ${label}'s role from ${member.role} to ${newRole}?`)) return;
+    }
     const { error } = await supabase.rpc("update_org_member_role", { p_member_id: member.id, p_new_role: newRole });
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else {
       setMembers(members.map((m) => m.id === member.id ? { ...m, role: newRole } : m));
+      setMessage({ type: "success", text: `Role updated to ${newRole}` });
     }
   }
 
@@ -360,6 +439,63 @@ export default function ManagePage() {
   async function handleRevokeInvite(inviteId: string) {
     await supabase.from("team_invites").delete().eq("id", inviteId);
     setTeamInvites(teamInvites.filter((i) => i.id !== inviteId));
+  }
+
+  // Add an existing organization member directly to the currently selected team.
+  async function handleAddExistingToTeam(member: OrgMember) {
+    if (!selectedTeam) return;
+    setMessage(null);
+    const { data, error } = await supabase
+      .from("team_members")
+      .insert({ team_id: selectedTeam.id, user_id: member.user_id, role: inviteRole })
+      .select()
+      .single();
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    if (data) {
+      setTeamMembers([...teamMembers, data as TeamMember]);
+      const profile = { display_name: member.display_name ?? null, avatar_url: member.avatar_url ?? null };
+      setTeamMemberProfiles({ ...teamMemberProfiles, [member.user_id]: profile });
+    }
+    setInviteEmail("");
+    setTeamAddOpen(false);
+    setMessage({ type: "success", text: `Added ${member.display_name || member.email || "member"} to the team` });
+  }
+
+  // Member-detail popup: add this member to a team they're not yet on.
+  async function handleMemberDetailAdd(teamId: string) {
+    if (!memberDetail) return;
+    setMemberDetailAdding(true);
+    setMessage(null);
+    const { data, error } = await supabase
+      .from("team_members")
+      .insert({ team_id: teamId, user_id: memberDetail.user_id, role: memberDetailAddRole })
+      .select()
+      .single();
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+    } else if (data) {
+      setMemberDetailMemberships({ ...memberDetailMemberships, [teamId]: { id: (data as TeamMember).id, role: (data as TeamMember).role } });
+      setMessage({ type: "success", text: "Added to team" });
+    }
+    setMemberDetailAdding(false);
+  }
+
+  async function handleMemberDetailRemove(teamId: string) {
+    const m = memberDetailMemberships[teamId];
+    if (!m) return;
+    setMessage(null);
+    const { error } = await supabase.from("team_members").delete().eq("id", m.id);
+    if (error) {
+      setMessage({ type: "error", text: error.message });
+      return;
+    }
+    const next = { ...memberDetailMemberships };
+    delete next[teamId];
+    setMemberDetailMemberships(next);
+    setMessage({ type: "success", text: "Removed from team" });
   }
 
   async function handleTeamCoverChange(newUrl: string | null) {
@@ -589,7 +725,12 @@ export default function ManagePage() {
                   ) : (
                     members.map((member) => (
                       <div key={member.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setMemberDetail(member)}
+                          className="flex items-center gap-3 min-w-0 text-left rounded-md -m-1 p-1 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors flex-1"
+                          title="View teams and manage membership"
+                        >
                           <Avatar email={member.user_id} avatarUrl={member.avatar_url} name={member.display_name} size="sm" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
@@ -601,39 +742,35 @@ export default function ManagePage() {
                               {member.email && member.display_name ? ` · ${member.email}` : ""}
                             </p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant={member.role === "owner" ? "info" : member.role === "admin" ? "warning" : "default"}>
-                            {member.role}
-                          </Badge>
-                          {canManage && member.role !== "owner" && (
-                            <div className="relative group">
-                              <button className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors">
-                                <UserCog size={14} />
-                              </button>
-                              <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[140px] hidden group-hover:block">
-                                {member.role === "admin" ? (
-                                  <button onClick={() => void handleChangeRole(member, "member")}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700">
-                                    <Shield size={12} /> Demote to Member
-                                  </button>
-                                ) : (
-                                  <button onClick={() => void handleChangeRole(member, "admin")}
-                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700">
-                                    <ShieldAlert size={12} /> Promote to Admin
-                                  </button>
-                                )}
-                                <button onClick={() => void handleRemoveMember(member.id, member.user_id)}
-                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
-                                  <UserMinus size={12} /> {member.user_id === user?.id ? "Leave" : "Remove"}
-                                </button>
-                              </div>
-                            </div>
+                        </button>
+                        <div
+                          className="flex items-center gap-2 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {canManage ? (
+                            <select
+                              value={member.role}
+                              onChange={(e) => void handleChangeRole(member, e.target.value as "owner" | "admin" | "member")}
+                              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              title="Change role"
+                            >
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                              {currentRole === "owner" && <option value="owner">Owner</option>}
+                            </select>
+                          ) : (
+                            <Badge variant={member.role === "owner" ? "info" : member.role === "admin" ? "warning" : "default"}>
+                              {member.role}
+                            </Badge>
                           )}
-                          {member.user_id === user?.id && member.role !== "owner" && (
-                            <button onClick={() => void handleRemoveMember(member.id, member.user_id)}
-                              className="p-1 rounded text-slate-400 hover:text-red-500 transition-colors" title="Leave">
-                              <X size={14} />
+                          {((member.user_id !== user?.id && canManage) ||
+                            (member.user_id === user?.id && member.role !== "owner")) && (
+                            <button
+                              onClick={() => void handleRemoveMember(member.id, member.user_id)}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                              title={member.user_id === user?.id ? "Leave this organization" : "Remove this member"}
+                            >
+                              <UserMinus size={12} /> {member.user_id === user?.id ? "Leave" : "Remove"}
                             </button>
                           )}
                         </div>
@@ -830,21 +967,105 @@ export default function ManagePage() {
           )}
 
           <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-              <UserPlus size={12} className="inline mr-1" /> Invite by email
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+              <UserPlus size={12} className="inline mr-1" /> Add to team
             </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              Start typing a name to add someone from this organization, or type a full email to invite a new person.
+            </p>
             <form onSubmit={(e) => void handleInvite(e)} className="space-y-3">
               <div className="flex gap-2">
-                <input type="email" placeholder="teammate@email.com" value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" required />
+                <div ref={teamAddRef} className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Search members or type an email to invite…"
+                    value={inviteEmail}
+                    onChange={(e) => { setInviteEmail(e.target.value); setTeamAddOpen(true); }}
+                    onFocus={() => setTeamAddOpen(true)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                  {teamAddOpen && (() => {
+                    const q = inviteEmail.trim().toLowerCase();
+                    const onTeamIds = new Set(teamMembers.map((m) => m.user_id));
+                    const invitedEmails = new Set(teamInvites.map((i) => i.email.toLowerCase()));
+                    const matches = members
+                      .filter((m) => {
+                        if (onTeamIds.has(m.user_id)) return false;
+                        const email = (m.email || "").toLowerCase();
+                        if (email && invitedEmails.has(email)) return false;
+                        if (!q) return true;
+                        return (
+                          (m.display_name || "").toLowerCase().includes(q) ||
+                          email.includes(q) ||
+                          m.user_id.toLowerCase().includes(q)
+                        );
+                      })
+                      .slice(0, 8);
+                    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim());
+                    const exactOrgEmail = members.some((m) => (m.email || "").toLowerCase() === q);
+                    const showInviteOption = isEmail && !exactOrgEmail;
+                    if (matches.length === 0 && !showInviteOption) return null;
+                    return (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-30 max-h-64 overflow-y-auto">
+                        {matches.length > 0 && (
+                          <div className="py-1">
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Add from organization</p>
+                            {matches.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => void handleAddExistingToTeam(m)}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700 text-left"
+                              >
+                                <Avatar email={m.user_id} avatarUrl={m.avatar_url} name={m.display_name} size="xs" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-medium">{m.display_name || m.email || m.user_id}</div>
+                                  {m.email && <div className="text-xs text-slate-400 truncate">{m.email}</div>}
+                                </div>
+                                <span className="text-xs text-slate-400">as {inviteRole}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {showInviteOption && (
+                          <div className="py-1 border-t border-slate-100 dark:border-slate-700">
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Invite by email</p>
+                            <button
+                              type="submit"
+                              onClick={() => setTeamAddOpen(false)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700 text-left"
+                            >
+                              <Mail size={14} className="text-slate-400" />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">Send invite to {inviteEmail.trim()}</div>
+                                <div className="text-xs text-slate-400">They&apos;ll join the team when they sign up</div>
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
                 <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as "admin" | "member" | "viewer")}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
                   <option value="viewer">Viewer</option>
                 </select>
-                <Button type="submit" size="sm" disabled={inviting || !inviteEmail.trim()}>{inviting ? "..." : "Invite"}</Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={
+                    inviting ||
+                    !inviteEmail.trim() ||
+                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim()) ||
+                    members.some((m) => (m.email || "").toLowerCase() === inviteEmail.trim().toLowerCase())
+                  }
+                  title="Send an email invite to a new person"
+                >
+                  {inviting ? "..." : "Send invite"}
+                </Button>
               </div>
             </form>
           </div>
@@ -904,6 +1125,89 @@ export default function ManagePage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Member detail popup - shows teams in this org and lets you add/remove */}
+      <Modal
+        open={!!memberDetail}
+        onClose={() => setMemberDetail(null)}
+        title={memberDetail ? (memberDetail.display_name || memberDetail.email || "Member") : "Member"}
+        size="lg"
+      >
+        {memberDetail && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <Avatar email={memberDetail.user_id} avatarUrl={memberDetail.avatar_url} name={memberDetail.display_name} size="md" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                  {memberDetail.display_name || memberDetail.email || memberDetail.user_id}
+                </p>
+                {memberDetail.email && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{memberDetail.email}</p>
+                )}
+              </div>
+              <Badge variant={memberDetail.role === "owner" ? "info" : memberDetail.role === "admin" ? "warning" : "default"}>
+                {memberDetail.role}
+              </Badge>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                <Users size={12} className="inline mr-1" /> Teams in this organization
+              </h4>
+              {memberDetailLoading ? (
+                <p className="text-sm text-slate-500 text-center py-3">Loading…</p>
+              ) : teams.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-3">No teams yet in this organization.</p>
+              ) : (
+                <div className="space-y-2">
+                  {teams.map((team) => {
+                    const membership = memberDetailMemberships[team.id];
+                    return (
+                      <div key={team.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{team.name}</p>
+                          {team.description && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{team.description}</p>
+                          )}
+                        </div>
+                        {membership ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant={membership.role === "owner" ? "info" : "default"}>{membership.role}</Badge>
+                            {canManage && membership.role !== "owner" && (
+                              <Button size="sm" variant="secondary" onClick={() => void handleMemberDetailRemove(team.id)}>
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          canManage ? (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <select
+                                value={memberDetailAddRole}
+                                onChange={(e) => setMemberDetailAddRole(e.target.value as "admin" | "member" | "viewer")}
+                                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              >
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                              <Button size="sm" onClick={() => void handleMemberDetailAdd(team.id)} disabled={memberDetailAdding}>
+                                <Plus size={12} className="mr-1" /> Add
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">Not a member</span>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -149,13 +149,14 @@ export default function Sidebar({
     { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
   );
 
-  const hasLoaded = useRef(false);
+  const hasSeededExpansion = useRef(false);
   useEffect(() => {
-    if (sidebarData && !hasLoaded.current) {
-      setTeams(sidebarData.teamsWithProjects);
-      setOrgsById(sidebarData.orgMap);
+    if (!sidebarData) return;
+    setTeams(sidebarData.teamsWithProjects);
+    setOrgsById(sidebarData.orgMap);
+    if (!hasSeededExpansion.current) {
       setExpandedOrgs(new Set(sidebarData.allOrgIds));
-      hasLoaded.current = true;
+      hasSeededExpansion.current = true;
     }
   }, [sidebarData]);
 
