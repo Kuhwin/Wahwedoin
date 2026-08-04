@@ -464,20 +464,23 @@ export default function ManagePage() {
   }
 
   // Add an existing organization member directly to the currently selected team.
+  // Goes through the add_team_member SECURITY DEFINER RPC, which performs an
+  // explicit server-side role check and replaces the fragile RLS subquery.
   async function handleAddExistingToTeam(member: OrgMember) {
     if (!selectedTeam) return;
     setMessage(null);
-    const { data, error } = await supabase
-      .from("team_members")
-      .insert({ team_id: selectedTeam.id, user_id: member.user_id, role: inviteRole })
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("add_team_member", {
+      p_team_id: selectedTeam.id,
+      p_user_id: member.user_id,
+      p_role: inviteRole,
+    });
     if (error) {
       setMessage({ type: "error", text: error.message });
       return;
     }
     if (data) {
-      setTeamMembers([...teamMembers, data as TeamMember]);
+      const inserted = data as unknown as TeamMember;
+      setTeamMembers([...teamMembers, inserted]);
       const profile = { display_name: member.display_name ?? null, avatar_url: member.avatar_url ?? null };
       setTeamMemberProfiles({ ...teamMemberProfiles, [member.user_id]: profile });
     }
@@ -487,20 +490,23 @@ export default function ManagePage() {
   }
 
   // Member-detail popup: add this member to a team they're not yet on.
+  // Goes through the add_team_member SECURITY DEFINER RPC for the same
+  // reason as handleAddExistingToTeam above.
   async function handleMemberDetailAdd(teamId: string) {
     if (!memberDetail) return;
     const role = memberDetailAddRoles[teamId] ?? "member";
     setMemberDetailAdding(true);
     setMessage(null);
-    const { data, error } = await supabase
-      .from("team_members")
-      .insert({ team_id: teamId, user_id: memberDetail.user_id, role })
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("add_team_member", {
+      p_team_id: teamId,
+      p_user_id: memberDetail.user_id,
+      p_role: role,
+    });
     if (error) {
       setMessage({ type: "error", text: error.message });
     } else if (data) {
-      setMemberDetailMemberships({ ...memberDetailMemberships, [teamId]: { id: (data as TeamMember).id, role: (data as TeamMember).role } });
+      const inserted = data as unknown as TeamMember;
+      setMemberDetailMemberships({ ...memberDetailMemberships, [teamId]: { id: inserted.id, role: inserted.role } });
       setMessage({ type: "success", text: "Added to team" });
     }
     setMemberDetailAdding(false);
