@@ -13,6 +13,8 @@ import { useAccentColour } from "@/components/AccentColourProvider";
 import { useActiveUser } from "@/components/ActiveUserProvider";
 import type { LinkedGoogleAccount } from "@/lib/types";
 
+const isUUID = (s: string) => /^[0-9a-f]{8}-/i.test(s);
+
 interface HeaderProps {
   onMenuClick: () => void;
 }
@@ -28,6 +30,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Resolved names for the current breadcrumb segments that are UUIDs
+  // (e.g. /teams/<id> resolves the id to Org + Team names; /projects/<id>
+  // resolves to Team + Project names). Null while loading.
+  const [crumbResolve, setCrumbResolve] = useState<{
+    orgName?: string;
+    orgId?: string;
+    teamName?: string;
+    teamId?: string;
+    projectName?: string;
+  } | null>(null);
 
   useEffect(() => {
     async function loadGoogle() {
@@ -64,6 +76,101 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  // Resolve the breadcrumb segments that are UUIDs into real names so the
+  // header shows "Org / Team" on team pages and "Team / Project" on
+  // project pages, instead of the generic "Teams / Team" / "Projects /
+  // Project" placeholders.
+  useEffect(() => {
+    const segs = pathname.split("/").filter(Boolean);
+    const teamIdx = segs.findIndex((s, i) => isUUID(s) && segs[i - 1] === "teams");
+    const projIdx = segs.findIndex((s, i) => isUUID(s) && segs[i - 1] === "projects");
+    const teamId = teamIdx >= 0 ? segs[teamIdx] : null;
+    const projectId = projIdx >= 0 ? segs[projIdx] : null;
+
+    // If the path has neither a team nor a project UUID, clear resolve.
+    if (!teamId && !projectId) {
+      setCrumbResolve(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function load() {
+      try {
+        if (projectId) {
+          const { data: p } = await supabase
+            .from("projects")
+            .select("name, team_id, teams(name, org_id)")
+            .eq("id", projectId)
+            .maybeSingle();
+          if (cancelled) return;
+          // supabase returns the embedded to-one as an object; guard
+          // against the array form just in case.
+          const team = (p && (Array.isArray((p as { teams: unknown }).teams)
+            ? (p as { teams: { name: string; org_id: string | null; id: string }[] }).teams[0]
+            : (p as { teams: { name: string; org_id: string | null; id: string } | null }).teams)) || null;
+          if (!p || !team) {
+            setCrumbResolve(null);
+            return;
+          }
+          let orgName: string | undefined;
+          let orgId: string | undefined;
+          if (team.org_id) {
+            const { data: o } = await supabase
+              .from("organizations")
+              .select("id, name")
+              .eq("id", team.org_id)
+              .maybeSingle();
+            if (cancelled) return;
+            orgName = o?.name;
+            orgId = o?.id;
+          }
+          if (cancelled) return;
+          setCrumbResolve({
+            orgName,
+            orgId,
+            teamName: team.name,
+            teamId: team.id,
+            projectName: (p as { name: string }).name,
+          });
+        } else if (teamId) {
+          const { data: t } = await supabase
+            .from("teams")
+            .select("name, org_id")
+            .eq("id", teamId)
+            .maybeSingle();
+          if (cancelled) return;
+          if (!t) {
+            setCrumbResolve(null);
+            return;
+          }
+          let orgName: string | undefined;
+          let orgId: string | undefined;
+          if ((t as { org_id: string | null }).org_id) {
+            const { data: o } = await supabase
+              .from("organizations")
+              .select("id, name")
+              .eq("id", (t as { org_id: string }).org_id)
+              .maybeSingle();
+            if (cancelled) return;
+            orgName = o?.name;
+            orgId = o?.id;
+          }
+          if (cancelled) return;
+          setCrumbResolve({
+            orgName,
+            orgId,
+            teamName: (t as { name: string }).name,
+            teamId,
+          });
+        }
+      } catch {
+        if (!cancelled) setCrumbResolve(null);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [pathname, supabase]);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     localStorage.removeItem("wahwedoin-active-user");
@@ -90,12 +197,41 @@ export default function Header({ onMenuClick }: HeaderProps) {
     terms: "Terms",
   };
 
-  const isUUID = (s: string) => /^[0-9a-f]{8}-/i.test(s);
-
   const breadcrumbs: { label: string; href: string | null }[] = (() => {
     if (pathname === "/") return [];
     const segments = pathname.split("/").filter(Boolean);
     const crumbs: { label: string; href: string | null }[] = [];
+
+    // /teams/<uuid>: show "<Org Name> / <Team Name>" (user preference:
+    // org then team, not the generic "Teams / Team").
+    const teamSegIdx = segments.findIndex((s, i) => isUUID(s) && segments[i - 1] === "teams");
+    if (teamSegIdx >= 0 && crumbResolve?.teamName) {
+      if (crumbResolve.orgName) {
+        crumbs.push({
+          label: crumbResolve.orgName,
+          href: crumbResolve.orgId ? `/manage?org=${crumbResolve.orgId}` : null,
+        });
+      } else {
+        crumbs.push({ label: "Teams", href: "/teams" });
+      }
+      crumbs.push({ label: crumbResolve.teamName, href: null });
+      return crumbs;
+    }
+
+    // /projects/<uuid>: show "<Team Name> / <Project Name>".
+    const projSegIdx = segments.findIndex((s, i) => isUUID(s) && segments[i - 1] === "projects");
+    if (projSegIdx >= 0 && crumbResolve?.projectName) {
+      if (crumbResolve.teamName) {
+        crumbs.push({
+          label: crumbResolve.teamName,
+          href: crumbResolve.teamId ? `/teams/${crumbResolve.teamId}` : null,
+        });
+      } else {
+        crumbs.push({ label: "Projects", href: "/projects" });
+      }
+      crumbs.push({ label: crumbResolve.projectName, href: null });
+      return crumbs;
+    }
 
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];

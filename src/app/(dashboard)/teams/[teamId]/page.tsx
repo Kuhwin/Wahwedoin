@@ -50,8 +50,12 @@ export default function TeamWorkspacePage() {
     if (searchParams.get("action") === "add-project") {
       setActiveTab("overview");
       setAutoOpenCreate(true);
+      // Strip the query param so a subsequent back navigation to this
+      // page lands on a clean team URL (no re-opened modal) and the
+      // browser back button behaves as expected.
+      router.replace(`/teams/${teamId}`);
     }
-  }, [searchParams]);
+  }, [searchParams, router, teamId]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
