@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { FolderKanban, Clock, AlertCircle, CheckCircle2, Plus, ChevronRight, ChevronDown } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
-import { type Project, type Task, type TeamMember, type Activity } from "@/lib/types";
+import Modal from "@/components/ui/Modal";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import { PROJECT_COLORS, type Project, type Task, type TeamMember, type Activity } from "@/lib/types";
 
 interface TeamOverviewProps {
   teamId: string;
@@ -17,6 +21,7 @@ interface TeamOverviewProps {
 }
 
 export default function TeamOverview({ teamId, members, memberProfiles, memberAvatarUrls, memberEmails }: TeamOverviewProps) {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -26,6 +31,13 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [allUserNames, setAllUserNames] = useState<Record<string, string>>({});
   const [allActivitiesLoading, setAllActivitiesLoading] = useState(false);
+  // Create-project (in-team) modal state
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createDesc, setCreateDesc] = useState("");
+  const [createColor, setCreateColor] = useState<string>(PROJECT_COLORS[0]);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
@@ -124,6 +136,39 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   const today = new Date().toISOString().split("T")[0];
   const overdueTasks = tasks.filter((t) => t.due_date && t.due_date < today && t.status !== "done").length;
 
+  // Create a new project in THIS team (no redirect to the global /projects
+  // page). On success, navigate to the newly created project so the user
+  // lands where they'd expect after creating one.
+  async function handleCreateProject(e: React.FormEvent) {
+    e.preventDefault();
+    if (!createName.trim() || createSubmitting) return;
+    setCreateSubmitting(true);
+    setCreateError(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("projects")
+      .insert({
+        name: createName.trim(),
+        description: createDesc.trim() || null,
+        team_id: teamId,
+        color: createColor,
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      setCreateError(error?.message || "Failed to create project.");
+      setCreateSubmitting(false);
+      return;
+    }
+    setShowCreateProject(false);
+    setCreateName("");
+    setCreateDesc("");
+    setCreateError(null);
+    setCreateSubmitting(false);
+    router.push(`/projects/${data.id}`);
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats */}
@@ -165,24 +210,26 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-700">Projects</h3>
-            <Link
-              href={`/projects?team=${teamId}`}
+            <button
+              type="button"
+              onClick={() => { setCreateError(null); setShowCreateProject(true); }}
               className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80"
             >
               <Plus size={12} />
               Add Project
-            </Link>
+            </button>
           </div>
           {projects.length === 0 ? (
             <div className="text-sm text-slate-500 bg-white border border-slate-200 rounded-xl p-6 text-center">
               <p className="mb-3">No projects yet</p>
-              <Link
-                href={`/projects?team=${teamId}`}
+              <button
+                type="button"
+                onClick={() => { setCreateError(null); setShowCreateProject(true); }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-accent/15 transition-colors"
               >
                 <Plus size={12} />
                 Create Project
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -294,6 +341,66 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
           </div>
         </div>
       </div>
+
+      {/* Create Project (in-team) modal */}
+      <Modal
+        open={showCreateProject}
+        onClose={() => { if (!createSubmitting) { setShowCreateProject(false); setCreateError(null); } }}
+        title="Create Project"
+      >
+        <form onSubmit={handleCreateProject} className="space-y-4">
+          {createError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+              {createError}
+            </div>
+          )}
+          <Input
+            label="Project Name"
+            placeholder="e.g. Beach Cleanup Drive"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            required
+          />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">Description</label>
+            <textarea
+              placeholder="What is this project about?"
+              value={createDesc}
+              onChange={(e) => setCreateDesc(e.target.value)}
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none"
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">Team</label>
+            <div className="block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              This project will be created in the current team.
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700">Colour</label>
+            <div className="flex gap-2">
+              {PROJECT_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setCreateColor(color)}
+                  className={`h-8 w-8 rounded-lg transition-all ${createColor === color ? "ring-2 ring-offset-2 ring-indigo-500" : ""}`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" type="button" onClick={() => { setShowCreateProject(false); setCreateError(null); }} disabled={createSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createSubmitting || !createName.trim()}>
+              {createSubmitting ? "Creating..." : "Create Project"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

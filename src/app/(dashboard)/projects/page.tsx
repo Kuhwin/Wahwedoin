@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Plus, FolderKanban, Archive, Trash2, MoreVertical } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -10,8 +11,11 @@ import Input from "@/components/ui/Input";
 import { PROJECT_COLORS, type Project, type Team } from "@/lib/types";
 
 export default function ProjectsPage() {
+  const searchParams = useSearchParams();
+  const teamParam = searchParams.get("team");
   const [projects, setProjects] = useState<Project[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [orgNameById, setOrgNameById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
@@ -39,7 +43,27 @@ export default function ProjectsPage() {
       if (memberships) {
         const teamList = (memberships as { teams: Team }[]).map((m) => m.teams).filter(Boolean);
         setTeams(teamList);
-        if (teamList.length > 0) setNewTeamId(teamList[0].id);
+        // Prefer ?team=... if the user is a member of it, else fall back to
+        // the first team in the list.
+        if (teamParam && teamList.some((t) => t.id === teamParam)) {
+          setNewTeamId(teamParam);
+        } else if (teamList.length > 0 && !newTeamId) {
+          setNewTeamId(teamList[0].id);
+        }
+
+        // Load organization names for the teams' orgs so the team
+        // selector can group/show "Team Name — Org Name" and users can
+        // find the right team across multiple organizations.
+        const orgIds = Array.from(new Set(teamList.map((t) => t.org_id).filter((id): id is string => !!id)));
+        if (orgIds.length > 0) {
+          const { data: orgs } = await supabase
+            .from("organizations")
+            .select("id, name")
+            .in("id", orgIds);
+          const map: Record<string, string> = {};
+          (orgs || []).forEach((o: { id: string; name: string }) => { map[o.id] = o.name; });
+          setOrgNameById(map);
+        }
       }
 
       const { data: projectsData } = await supabase
@@ -52,6 +76,7 @@ export default function ProjectsPage() {
       setLoading(false);
     }
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, filter]);
 
   async function handleCreate(e: React.FormEvent) {
@@ -266,9 +291,46 @@ export default function ProjectsPage() {
               onChange={(e) => setNewTeamId(e.target.value)}
               className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
             >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
+              {(() => {
+                // Group teams by organization so users can find the right
+                // team across multiple orgs. Teams without an org_id
+                // (legacy / no-org) fall into an "Other" group.
+                const byOrg = new Map<string, Team[]>();
+                const noOrg: Team[] = [];
+                teams.forEach((t) => {
+                  if (t.org_id) {
+                    if (!byOrg.has(t.org_id)) byOrg.set(t.org_id, []);
+                    byOrg.get(t.org_id)!.push(t);
+                  } else {
+                    noOrg.push(t);
+                  }
+                });
+                const sortedOrgIds = Array.from(byOrg.keys()).sort((a, b) =>
+                  (orgNameById[a] || "").localeCompare(orgNameById[b] || "")
+                );
+                return (
+                  <>
+                    {sortedOrgIds.map((orgId) => {
+                      const orgName = orgNameById[orgId] || "Organization";
+                      const group = byOrg.get(orgId)!.slice().sort((a, b) => a.name.localeCompare(b.name));
+                      return (
+                        <optgroup key={orgId} label={orgName}>
+                          {group.map((team) => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
+                    {noOrg.length > 0 && (
+                      <optgroup label="Other">
+                        {noOrg.map((team) => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </>
+                );
+              })()}
             </select>
           </div>
           <div className="space-y-1">
