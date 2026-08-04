@@ -18,9 +18,11 @@ interface TeamOverviewProps {
   memberProfiles: Record<string, string>;
   memberAvatarUrls: Record<string, string>;
   memberEmails: Record<string, string>;
+  autoOpenCreate?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
-export default function TeamOverview({ teamId, members, memberProfiles, memberAvatarUrls, memberEmails }: TeamOverviewProps) {
+export default function TeamOverview({ teamId, members, memberProfiles, memberAvatarUrls, memberEmails, autoOpenCreate, onAutoOpenHandled }: TeamOverviewProps) {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -39,6 +41,17 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const supabase = createClient();
+
+  // Open the create-project modal automatically when the parent signals
+  // (e.g. the user followed the sidebar's "Add Project" link for this
+  // team, which lands on /teams/<id>?action=add-project). One-shot via
+  // onAutoOpenHandled so the modal doesn't reopen on re-renders.
+  useEffect(() => {
+    if (autoOpenCreate) {
+      setShowCreateProject(true);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpenCreate, onAutoOpenHandled]);
 
   const loadData = useCallback(async () => {
     const { data: projectsData } = await supabase

@@ -791,7 +791,7 @@ export default function Sidebar({
                                   );
                                 })}
                                 <Link
-                                  href={`/projects?team=${team.id}`}
+                                  href={`/teams/${team.id}?action=add-project`}
                                   onClick={onMobileClose}
                                   className="flex items-center gap-2 px-2 py-1 rounded-md text-sm text-slate-400 hover:text-accent hover:bg-indigo-50 transition-colors dark:text-slate-500"
                                 >

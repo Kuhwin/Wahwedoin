@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Users, FileText, Calendar, Link2, LayoutGrid, UserPlus, FolderOpen } from "lucide-react";
@@ -37,6 +37,21 @@ export default function TeamWorkspacePage() {
   const [memberAvatarUrls, setMemberAvatarUrls] = useState<Record<string, string>>({});
   const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const searchParams = useSearchParams();
+  // When the sidebar's per-team "Add Project" link is used, it navigates to
+  // /teams/<id>?action=add-project. We force the overview tab and signal
+  // TeamOverview to open its create-project modal so the user stays in
+  // the team context (and the browser back button returns to the team
+  // instead of to the global /projects page).
+  const [autoOpenCreate, setAutoOpenCreate] = useState(
+    searchParams.get("action") === "add-project"
+  );
+  useEffect(() => {
+    if (searchParams.get("action") === "add-project") {
+      setActiveTab("overview");
+      setAutoOpenCreate(true);
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -182,6 +197,8 @@ export default function TeamWorkspacePage() {
           memberProfiles={memberProfiles}
           memberAvatarUrls={memberAvatarUrls}
           memberEmails={memberEmails}
+          autoOpenCreate={autoOpenCreate}
+          onAutoOpenHandled={() => setAutoOpenCreate(false)}
         />
       )}
       {activeTab === "docs" && (
