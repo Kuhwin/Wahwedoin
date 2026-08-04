@@ -78,7 +78,7 @@ export default function ManagePage() {
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "viewer">("member");
   const [inviting, setInviting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const [teamMemberProfiles, setTeamMemberProfiles] = useState<Record<string, { display_name: string | null; avatar_url: string | null }>>({});
+  const [teamMemberProfiles, setTeamMemberProfiles] = useState<Record<string, { display_name: string | null; avatar_url: string | null; email: string | null }>>({});
 
   // Team add: autocomplete dropdown (add existing org member vs invite by email)
   const [teamAddOpen, setTeamAddOpen] = useState(false);
@@ -409,15 +409,23 @@ export default function ManagePage() {
     const { data: mData } = await supabase.from("team_members").select("*").eq("team_id", team.id);
     if (mData) {
       setTeamMembers(mData);
-      const userIds = mData.map((m: TeamMember) => m.user_id);
-      const { data: profiles } = await supabase
-        .from("user_profiles")
-        .select("user_id, display_name, avatar_url")
-        .in("user_id", userIds);
-      const profileMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
-      (profiles || []).forEach((p: { user_id: string; display_name: string | null; avatar_url: string | null }) => {
-        profileMap[p.user_id] = p;
-      });
+      // Use the get_org_member_profiles RPC (SECURITY DEFINER) to fetch
+      // display_name + avatar_url + email for every team member. This
+      // bypasses the restrictive user_profiles SELECT RLS and gives us
+      // a real email fallback for users who have no display_name yet,
+      // so the UI no longer falls back to a raw UUID.
+      const orgId = team.org_id ?? selectedOrgId;
+      const profileMap: Record<string, { display_name: string | null; avatar_url: string | null; email: string | null }> = {};
+      if (orgId) {
+        const { data: orgProfiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
+        (orgProfiles || []).forEach((p: { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }) => {
+          profileMap[p.user_id] = {
+            display_name: p.display_name || null,
+            avatar_url: p.avatar_url || null,
+            email: p.email || null,
+          };
+        });
+      }
       setTeamMemberProfiles(profileMap);
     }
     const { data: invitesData } = await supabase
@@ -481,7 +489,11 @@ export default function ManagePage() {
     if (data) {
       const inserted = data as unknown as TeamMember;
       setTeamMembers([...teamMembers, inserted]);
-      const profile = { display_name: member.display_name ?? null, avatar_url: member.avatar_url ?? null };
+      const profile = {
+        display_name: member.display_name ?? null,
+        avatar_url: member.avatar_url ?? null,
+        email: member.email ?? null,
+      };
       setTeamMemberProfiles({ ...teamMemberProfiles, [member.user_id]: profile });
     }
     setInviteEmail("");
@@ -728,7 +740,7 @@ export default function ManagePage() {
                 <div className="space-y-2">
                   {members.slice(0, 5).map((m) => (
                     <div key={m.id} className="flex items-center gap-3">
-                      <Avatar email={m.user_id} avatarUrl={m.avatar_url} name={m.display_name} size="sm" />
+                      <Avatar email={m.email || m.user_id} avatarUrl={m.avatar_url} name={m.display_name} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                           {m.display_name || m.email || m.user_id}
@@ -760,7 +772,7 @@ export default function ManagePage() {
                           className="flex items-center gap-3 min-w-0 text-left rounded-md -m-1 p-1 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors flex-1"
                           title="View teams and manage membership"
                         >
-                          <Avatar email={member.user_id} avatarUrl={member.avatar_url} name={member.display_name} size="sm" />
+                          <Avatar email={member.email || member.user_id} avatarUrl={member.avatar_url} name={member.display_name} size="sm" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                               {member.display_name || member.email || member.user_id}
@@ -946,9 +958,9 @@ export default function ManagePage() {
                   return (
                     <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
                       <div className="flex items-center gap-3">
-                        <Avatar email={m.user_id} avatarUrl={profile?.avatar_url} name={profile?.display_name} size="sm" />
+                        <Avatar email={profile?.email || m.user_id} avatarUrl={profile?.avatar_url} name={profile?.display_name} size="sm" />
                         <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{profile?.display_name || m.user_id}</p>
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{profile?.display_name || profile?.email || m.user_id}</p>
                           <p className="text-xs text-slate-500">Joined {new Date(m.joined_at).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -1048,7 +1060,7 @@ export default function ManagePage() {
                                 onClick={() => void handleAddExistingToTeam(m)}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700 text-left"
                               >
-                                <Avatar email={m.user_id} avatarUrl={m.avatar_url} name={m.display_name} size="xs" />
+                                <Avatar email={m.email || m.user_id} avatarUrl={m.avatar_url} name={m.display_name} size="xs" />
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate font-medium">{m.display_name || m.email || m.user_id}</div>
                                   {m.email && <div className="text-xs text-slate-400 truncate">{m.email}</div>}

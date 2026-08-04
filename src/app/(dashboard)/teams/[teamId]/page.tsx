@@ -35,6 +35,7 @@ export default function TeamWorkspacePage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [memberProfiles, setMemberProfiles] = useState<Record<string, string>>({});
   const [memberAvatarUrls, setMemberAvatarUrls] = useState<Record<string, string>>({});
+  const [memberEmails, setMemberEmails] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -67,20 +68,25 @@ export default function TeamWorkspacePage() {
       const myMembership = membersData.find((m: TeamMember) => m.user_id === user?.id);
       setUserRole(myMembership?.role || null);
 
-      const userIds = membersData.map((m: TeamMember) => m.user_id);
-      const { data: profiles } = await supabase
-        .from("user_profiles")
-        .select("user_id, display_name, avatar_url")
-        .in("user_id", userIds);
-      if (profiles) {
-        const nameMap: Record<string, string> = {};
-        const avatarMap: Record<string, string> = {};
-        profiles.forEach((p: { user_id: string; display_name: string; avatar_url: string }) => {
-          if (p.display_name) nameMap[p.user_id] = p.display_name;
-          if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
-        });
-        setMemberProfiles(nameMap);
-        setMemberAvatarUrls(avatarMap);
+      // Use get_org_member_profiles (SECURITY DEFINER) to fetch
+      // display_name + avatar_url + email for every team member. This
+      // bypasses the restrictive user_profiles SELECT RLS and gives us a
+      // real email fallback so the UI no longer falls back to a raw UUID.
+      if (teamData.org_id) {
+        const { data: orgProfiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: teamData.org_id });
+        if (orgProfiles) {
+          const nameMap: Record<string, string> = {};
+          const avatarMap: Record<string, string> = {};
+          const emailMap: Record<string, string> = {};
+          (orgProfiles as { user_id: string; display_name: string | null; avatar_url: string | null; email: string | null }[]).forEach((p) => {
+            if (p.display_name) nameMap[p.user_id] = p.display_name;
+            if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url;
+            if (p.email) emailMap[p.user_id] = p.email;
+          });
+          setMemberProfiles(nameMap);
+          setMemberAvatarUrls(avatarMap);
+          setMemberEmails(emailMap);
+        }
       }
     }
 
@@ -123,7 +129,7 @@ export default function TeamWorkspacePage() {
               <Avatar
                 key={member.id}
                 name={memberProfiles[member.user_id]}
-                email={member.user_email || member.user_id}
+                email={memberEmails[member.user_id] || member.user_id}
                 avatarUrl={memberAvatarUrls[member.user_id]}
                 size="sm"
                 className="ring-2 ring-white"
@@ -175,6 +181,7 @@ export default function TeamWorkspacePage() {
           members={members}
           memberProfiles={memberProfiles}
           memberAvatarUrls={memberAvatarUrls}
+          memberEmails={memberEmails}
         />
       )}
       {activeTab === "docs" && (

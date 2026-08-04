@@ -13,9 +13,10 @@ interface TeamOverviewProps {
   members: TeamMember[];
   memberProfiles: Record<string, string>;
   memberAvatarUrls: Record<string, string>;
+  memberEmails: Record<string, string>;
 }
 
-export default function TeamOverview({ teamId, members, memberProfiles, memberAvatarUrls }: TeamOverviewProps) {
+export default function TeamOverview({ teamId, members, memberProfiles, memberAvatarUrls, memberEmails }: TeamOverviewProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -234,13 +235,13 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
                 <div key={member.id} className="flex items-center gap-3 p-3">
                   <Avatar
                     name={memberProfiles[member.user_id]}
-                    email={member.user_email || member.user_id}
+                    email={memberEmails[member.user_id] || member.user_id}
                     avatarUrl={memberAvatarUrls[member.user_id]}
                     size="sm"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-900 truncate">
-                      {memberProfiles[member.user_id] || member.user_email || "Unknown"}
+                      {memberProfiles[member.user_id] || memberEmails[member.user_id] || "Unknown"}
                     </p>
                   </div>
                   <Badge variant={member.role === "owner" ? "info" : "default"}>
