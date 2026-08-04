@@ -44,6 +44,7 @@ export default function ManagePage() {
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [teams, setTeams] = useState<(Team & { role?: string })[]>([]);
+  const [myTeamRoles, setMyTeamRoles] = useState<Record<string, "owner" | "admin" | "member" | "viewer">>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -87,7 +88,7 @@ export default function ManagePage() {
   const [memberDetail, setMemberDetail] = useState<OrgMember | null>(null);
   const [memberDetailLoading, setMemberDetailLoading] = useState(false);
   const [memberDetailMemberships, setMemberDetailMemberships] = useState<Record<string, { id: string; role: string }>>({});
-  const [memberDetailAddRole, setMemberDetailAddRole] = useState<"admin" | "member" | "viewer">("member");
+  const [memberDetailAddRoles, setMemberDetailAddRoles] = useState<Record<string, "admin" | "member" | "viewer">>({});
   const [memberDetailAdding, setMemberDetailAdding] = useState(false);
 
   const searchParams = useSearchParams();
@@ -96,6 +97,7 @@ export default function ManagePage() {
   const myMembership = selectedOrgId ? orgMemberships[selectedOrgId] : null;
   const currentRole = myMembership?.role || null;
   const canManage = currentRole === "owner" || currentRole === "admin";
+  const selectedTeamCanEdit = selectedTeam?.role === "owner" || selectedTeam?.role === "admin";
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId);
 
   useEffect(() => {
@@ -166,6 +168,26 @@ export default function ManagePage() {
         .eq("org_id", selectedOrgId)
         .order("name");
       setTeams(teamList || []);
+
+      // Load the caller's role on each team in this org so the team-modal
+      // and member-detail popup can gate add/remove on the actual team role
+      // (RLS on team_members / team_invites requires team owner or admin).
+      const { data: { user: authUser2 } } = await supabase.auth.getUser();
+      if (authUser2 && teamList && teamList.length > 0) {
+        const teamIds = (teamList as { id: string }[]).map((t) => t.id);
+        const { data: myTeamRows } = await supabase
+          .from("team_members")
+          .select("team_id, role")
+          .eq("user_id", authUser2.id)
+          .in("team_id", teamIds);
+        const roles: Record<string, "owner" | "admin" | "member" | "viewer"> = {};
+        ((myTeamRows || []) as { team_id: string; role: string }[]).forEach((r) => {
+          roles[r.team_id] = r.role as "owner" | "admin" | "member" | "viewer";
+        });
+        setMyTeamRoles(roles);
+      } else {
+        setMyTeamRoles({});
+      }
 
       setLoading(false);
     }
@@ -467,11 +489,12 @@ export default function ManagePage() {
   // Member-detail popup: add this member to a team they're not yet on.
   async function handleMemberDetailAdd(teamId: string) {
     if (!memberDetail) return;
+    const role = memberDetailAddRoles[teamId] ?? "member";
     setMemberDetailAdding(true);
     setMessage(null);
     const { data, error } = await supabase
       .from("team_members")
-      .insert({ team_id: teamId, user_id: memberDetail.user_id, role: memberDetailAddRole })
+      .insert({ team_id: teamId, user_id: memberDetail.user_id, role })
       .select()
       .single();
     if (error) {
@@ -925,7 +948,7 @@ export default function ManagePage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant={m.role === "owner" ? "info" : "default"}>{m.role}</Badge>
-                        {m.role !== "owner" && (
+                        {m.role !== "owner" && selectedTeamCanEdit && (
                           <button onClick={() => supabase.from("team_members").delete().eq("id", m.id).then(() => setTeamMembers(teamMembers.filter((tm) => tm.id !== m.id)))}
                             className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors" title="Remove">
                             <Trash2 size={12} />
@@ -967,12 +990,14 @@ export default function ManagePage() {
           )}
 
           <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-              <UserPlus size={12} className="inline mr-1" /> Add to team
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-              Start typing a name to add someone from this organization, or type a full email to invite a new person.
-            </p>
+            {selectedTeamCanEdit ? (
+              <>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                  <UserPlus size={12} className="inline mr-1" /> Add to team
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                  Start typing a name to add someone from this organization, or type a full email to invite a new person.
+                </p>
             <form onSubmit={(e) => void handleInvite(e)} className="space-y-3">
               <div className="flex gap-2">
                 <div ref={teamAddRef} className="flex-1 relative">
@@ -1068,6 +1093,12 @@ export default function ManagePage() {
                 </Button>
               </div>
             </form>
+              </>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Only team admins and owners can add or invite members.
+              </p>
+            )}
           </div>
         </div>
       </Modal>
@@ -1130,7 +1161,7 @@ export default function ManagePage() {
       {/* Member detail popup - shows teams in this org and lets you add/remove */}
       <Modal
         open={!!memberDetail}
-        onClose={() => setMemberDetail(null)}
+        onClose={() => { setMemberDetail(null); setMemberDetailAddRoles({}); }}
         title={memberDetail ? (memberDetail.display_name || memberDetail.email || "Member") : "Member"}
         size="lg"
       >
@@ -1163,6 +1194,9 @@ export default function ManagePage() {
                 <div className="space-y-2">
                   {teams.map((team) => {
                     const membership = memberDetailMemberships[team.id];
+                    const myRole = myTeamRoles[team.id];
+                    const canEditTeam = myRole === "owner" || myRole === "admin";
+                    const addRole = memberDetailAddRoles[team.id] ?? "member";
                     return (
                       <div key={team.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg dark:bg-slate-800">
                         <div className="min-w-0 flex-1">
@@ -1174,31 +1208,30 @@ export default function ManagePage() {
                         {membership ? (
                           <div className="flex items-center gap-2 shrink-0">
                             <Badge variant={membership.role === "owner" ? "info" : "default"}>{membership.role}</Badge>
-                            {canManage && membership.role !== "owner" && (
+                            {canEditTeam && membership.role !== "owner" && (
                               <Button size="sm" variant="secondary" onClick={() => void handleMemberDetailRemove(team.id)}>
                                 Remove
                               </Button>
                             )}
                           </div>
+                        ) : canEditTeam ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <select
+                              value={addRole}
+                              onChange={(e) => setMemberDetailAddRoles({ ...memberDetailAddRoles, [team.id]: e.target.value as "admin" | "member" | "viewer" })}
+                              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                              title={`Role to assign in ${team.name}`}
+                            >
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                            <Button size="sm" onClick={() => void handleMemberDetailAdd(team.id)} disabled={memberDetailAdding}>
+                              <Plus size={12} className="mr-1" /> Add
+                            </Button>
+                          </div>
                         ) : (
-                          canManage ? (
-                            <div className="flex items-center gap-2 shrink-0">
-                              <select
-                                value={memberDetailAddRole}
-                                onChange={(e) => setMemberDetailAddRole(e.target.value as "admin" | "member" | "viewer")}
-                                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                              >
-                                <option value="member">Member</option>
-                                <option value="admin">Admin</option>
-                                <option value="viewer">Viewer</option>
-                              </select>
-                              <Button size="sm" onClick={() => void handleMemberDetailAdd(team.id)} disabled={memberDetailAdding}>
-                                <Plus size={12} className="mr-1" /> Add
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">Not a member</span>
-                          )
+                          <span className="text-xs text-slate-400">Not a member</span>
                         )}
                       </div>
                     );
