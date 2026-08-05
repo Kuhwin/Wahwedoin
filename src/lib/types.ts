@@ -212,6 +212,31 @@ export interface TeamDoc {
   author_name?: string;
 }
 
+export type TeamDocumentSource =
+  | "internal"
+  | "drive_folder_team"
+  | "drive_folder_project"
+  | "task_comment"
+  | "drive_picker";
+
+export interface TeamDocument {
+  id: string;
+  team_id: string;
+  project_id: string | null;
+  task_id: string | null;
+  source: TeamDocumentSource;
+  drive_file_id: string | null;
+  internal_doc_id: string | null;
+  title: string;
+  mime_type: string | null;
+  web_view_link: string | null;
+  icon_link: string | null;
+  category: "general" | "meeting_notes" | "sops" | "project_briefs";
+  added_by: string | null;
+  created_at: string;
+  author_name?: string;
+}
+
 export interface TeamMeeting {
   id: string;
   team_id: string;
