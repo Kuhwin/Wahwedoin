@@ -376,6 +376,22 @@ export default function ProjectPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const maxPos = tasks.length > 0 ? Math.max(...tasks.map((t) => t.position)) + 1 : 0;
 
+    // The Kanban board groups tasks into columns by section_id, so a
+    // task with section_id = null would never appear in any column
+    // (it shows in the List, Gantt, etc. because they don't group by
+    // section). When the form doesn't choose a section, default to
+    // the "To Do" section so the task lands in the To Do column.
+    // Fall back to the first section by position if there is no
+    // "To Do" section.
+    let resolvedSectionId: string | null = newTaskSection || null;
+    if (!resolvedSectionId && sections.length > 0) {
+      const todoSection =
+        sections.find((s) => s.name.toLowerCase() === "to do") ||
+        sections.find((s) => s.name.toLowerCase() === "todo") ||
+        [...sections].sort((a, b) => a.position - b.position)[0];
+      resolvedSectionId = todoSection ? todoSection.id : null;
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -386,7 +402,7 @@ export default function ProjectPage() {
         assignee_id: newTaskAssignee || null,
         due_date: newTaskDueDate || null,
         start_date: newTaskStartDate || null,
-        section_id: newTaskSection || null,
+        section_id: resolvedSectionId,
         position: maxPos,
         created_by: user?.id,
         recurrence: newTaskRecurrence || null,
