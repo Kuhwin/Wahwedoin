@@ -151,13 +151,13 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
       <div className="flex items-center justify-between">
         <div>
           {nextMeeting && (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               Next: <span className="font-medium text-indigo-600">{nextMeeting.name}</span>
               {" "} — {nextMeeting.meeting_date
                 ? formatMeetingDate(nextMeeting.meeting_date)
                 : DAYS[nextMeeting.day_of_week!]}
               {nextMeeting.time && ` at ${nextMeeting.time}`}
-              <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
+              <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                 <Clock size={10} /> {formatCountdown(getNextOccurrence(nextMeeting)!)}
               </span>
             </p>
@@ -170,9 +170,9 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
       </div>
 
       {meetings.length === 0 ? (
-        <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
-          <Calendar size={40} className="text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 mb-3">No meetings scheduled</p>
+        <div className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+          <Calendar size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No meetings scheduled</p>
           <Button onClick={() => setShowCreate(true)} size="sm"><Plus size={14} /> Add Meeting</Button>
         </div>
       ) : (
@@ -181,14 +181,14 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
             const next = getNextOccurrence(meeting);
             const isRecurring = meeting.is_recurring !== false && meeting.day_of_week !== null && !meeting.meeting_date;
             return (
-              <div key={meeting.id} className="bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-200 transition-all group">
+              <div key={meeting.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-slate-900">{meeting.name}</h4>
+                      <h4 className="font-medium text-slate-900 dark:text-slate-100">{meeting.name}</h4>
                       <span className={cn(
                         "text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
-                        isRecurring ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
+                        isRecurring ? "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" : "bg-amber-50 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
                       )}>
                         {isRecurring ? (
                           <span className="flex items-center gap-0.5"><Repeat size={8} /> Weekly</span>
@@ -197,7 +197,7 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
                         )}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-500 mt-0.5">
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                       {meeting.meeting_date
                         ? formatMeetingDate(meeting.meeting_date)
                         : meeting.day_of_week !== null
@@ -225,7 +225,7 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
                       </a>
                     )}
                     {(userRole === "owner" || userRole === "admin") && (
-                      <button onClick={() => void handleDelete(meeting.id)} className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50" title="Delete">
+                      <button onClick={() => void handleDelete(meeting.id)} className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50" title="Delete">
                         <Trash2 size={14} />
                       </button>
                     )}
@@ -257,13 +257,13 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
 
           {/* Meeting Type Toggle */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700">Meeting Type</label>
-            <div className="flex bg-slate-100 rounded-lg p-0.5">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Meeting Type</label>
+            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
               <button
                 onClick={() => setMeetingType("recurring")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  meetingType === "recurring" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"
+                  meetingType === "recurring" ? "bg-white dark:bg-accent shadow-sm text-indigo-700 dark:text-white" : "text-slate-500 dark:text-slate-400"
                 )}
               >
                 <Repeat size={14} />
@@ -273,7 +273,7 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
                 onClick={() => setMeetingType("onetime")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                  meetingType === "onetime" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500"
+                  meetingType === "onetime" ? "bg-white dark:bg-accent shadow-sm text-indigo-700 dark:text-white" : "text-slate-500 dark:text-slate-400"
                 )}
               >
                 <CalendarDays size={14} />
@@ -284,8 +284,8 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
 
           {meetingType === "recurring" ? (
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-slate-700">Day of Week</label>
-              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Day of Week</label>
+              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
                 <option value="">Select a day...</option>
                 {DAYS.map((day, i) => (
                   <option key={i} value={i}>{day}</option>
