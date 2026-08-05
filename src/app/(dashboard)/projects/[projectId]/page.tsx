@@ -398,6 +398,12 @@ export default function ProjectPage() {
 
     if (data && !error) {
       setTasks((prev) => [...prev, data]);
+      // Force an SWR revalidation so the new task is read back from
+      // the server and any other client state (sections, members,
+      // etc.) is refreshed. The realtime hook also revalidates, but
+      // calling mutate here guarantees a fetch even if realtime is
+      // delayed or unavailable.
+      void projectMutate();
       setNewTaskTitle("");
       setNewTaskPriority("medium");
       setNewTaskAssignee("");
@@ -507,6 +513,7 @@ export default function ProjectPage() {
 
     if (data && !error) {
       setTasks((prev) => [...prev, data]);
+      void projectMutate();
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
