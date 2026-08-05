@@ -28,6 +28,7 @@ interface DrivePickerProps {
   onClose: () => void;
   teamId: string;
   defaultProjectId?: string | null;
+  onAdded?: () => void;
 }
 
 function getFileIcon(mimeType: string) {
@@ -60,7 +61,7 @@ function sortFiles(files: DriveFile[]) {
   });
 }
 
-export default function DrivePicker({ open, onClose, teamId, defaultProjectId }: DrivePickerProps) {
+export default function DrivePicker({ open, onClose, teamId, defaultProjectId, onAdded }: DrivePickerProps) {
   const [accounts, setAccounts] = useState<LinkedGoogleAccount[]>([]);
   const [linkedAccount, setLinkedAccount] = useState<LinkedGoogleAccount | null>(null);
   const [currentFolder, setCurrentFolder] = useState<{ id: string | null; name: string }>({
@@ -217,8 +218,9 @@ export default function DrivePicker({ open, onClose, teamId, defaultProjectId }:
       return;
     }
     addToast(`Added ${rows.length} ${rows.length === 1 ? "document" : "documents"} to Docs`, "success");
+    onAdded?.();
     onClose();
-  }, [linkedAccount, selected, files, projectId, teamId, addToast, onClose]);
+  }, [linkedAccount, selected, files, projectId, teamId, addToast, onAdded, onClose]);
 
   const displayFiles = useMemo(() => {
     const list = files || [];

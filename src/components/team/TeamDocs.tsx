@@ -80,6 +80,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   const [filter, setFilter] = useState<string>("all");
   const [docTab, setDocTab] = useState<"edit" | "preview">("edit");
   const [showPicker, setShowPicker] = useState(false);
+  const [viewDoc, setViewDoc] = useState<TeamDocument | null>(null);
   const { addToast } = useToast();
   const supabase = createClient();
 
@@ -234,9 +235,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       void openEdit(doc);
       return;
     }
-    if (doc.web_view_link) {
-      window.open(doc.web_view_link, "_blank", "noopener,noreferrer");
-    }
+    setViewDoc(doc);
   }
 
   const filteredDocs = filter === "all" ? docs : docs.filter((d) => d.category === filter);
@@ -363,7 +362,47 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
         open={showPicker}
         onClose={() => setShowPicker(false)}
         teamId={teamId}
+        onAdded={() => void loadDocs()}
       />
+
+      <Modal open={!!viewDoc} onClose={() => setViewDoc(null)} title={viewDoc?.title || "Document"} size="lg">
+        {viewDoc?.drive_file_id ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">Preview via Google Drive</p>
+              {viewDoc.web_view_link && (
+                <a
+                  href={viewDoc.web_view_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline shrink-0"
+                >
+                  <ExternalLink size={12} /> Open in Google Drive
+                </a>
+              )}
+            </div>
+            <iframe
+              src={`https://drive.google.com/file/d/${viewDoc.drive_file_id}/preview`}
+              className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700"
+              title={viewDoc.title}
+              allowFullScreen
+            />
+          </div>
+        ) : viewDoc?.web_view_link ? (
+          <div className="text-center py-10">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">This document cannot be embedded. Open it in Google Drive instead.</p>
+            <a
+              href={viewDoc.web_view_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
+              style={{ backgroundColor: "var(--accent)" }}
+            >
+              <ExternalLink size={14} /> Open in Google Drive
+            </a>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
