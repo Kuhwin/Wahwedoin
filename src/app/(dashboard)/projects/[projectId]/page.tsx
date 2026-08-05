@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
@@ -221,14 +221,32 @@ export default function ProjectPage() {
   }, [projectData]);
 
   // Force the browser back button on this page to return to the team's
-  // workspace, no matter how the user reached the project (created it
-  // from the team, clicked it in the team overview, clicked it in the
-  // sidebar, or came from the global /projects list). The browser
-  // history cannot be rewritten to insert the team entry before the
-  // project, so we intercept the first popstate: if back lands
-  // somewhere that isn't the team, we restore the project entry and
-  // replace it with the team so the user ends up on the team with a
-  // single back press.
+  // workspace, no matter how the user reached the project. We do this
+  // with the History API directly so there is no visible flash: on
+  // the first layout effect where we know the project's team, we
+  // rewrite the current history entry to the team URL (replaceState)
+  // and then push the project URL back on top (pushState). The visible
+  // page stays the project (no re-render), but the history is now
+  // [..., /teams/<id>, /projects/<id>], so the browser back button
+  // returns to the team.
+  useLayoutEffect(() => {
+    if (!project?.team_id) return;
+    const teamId = project.team_id;
+    const projectPath = window.location.pathname;
+    // Skip if the history was already fixed for this team (StrictMode
+    // double-invoke in dev runs effects twice; check the previous
+    // entry's state we tagged).
+    if ((window.history.state as { backFixedToTeam?: string } | null)?.backFixedToTeam === teamId) {
+      return;
+    }
+    window.history.replaceState({ backFixedToTeam: teamId }, "", `/teams/${teamId}`);
+    window.history.pushState(null, "", projectPath);
+  }, [project]);
+
+  // Safety net: if the user presses back before the project data
+  // loads (so the layout effect above hasn't fixed the history yet),
+  // or if /projects somehow remains the previous entry, intercept
+  // popstate and route them to the team directly.
   const backHandledRef = useRef(false);
   useEffect(() => {
     if (!project?.team_id) return;
