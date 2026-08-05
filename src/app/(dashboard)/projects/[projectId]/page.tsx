@@ -518,6 +518,17 @@ export default function ProjectPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const maxPos = tasks.length > 0 ? Math.max(...tasks.map((t) => t.position)) + 1 : 0;
 
+    // Default the section to "To Do" when the board's quick-add doesn't
+    // specify one, so the task gets a section label on the card.
+    let resolvedSectionId: string | null = updates.section_id || null;
+    if (!resolvedSectionId && sections.length > 0) {
+      const todoSection =
+        sections.find((s) => s.name.toLowerCase() === "to do") ||
+        sections.find((s) => s.name.toLowerCase() === "todo") ||
+        [...sections].sort((a, b) => a.position - b.position)[0];
+      resolvedSectionId = todoSection ? todoSection.id : null;
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -526,7 +537,7 @@ export default function ProjectPage() {
         priority: updates.priority || "medium",
         assignee_id: updates.assignee_id || null,
         due_date: updates.due_date || null,
-        section_id: updates.section_id || null,
+        section_id: resolvedSectionId,
         position: updates.position ?? maxPos,
         status: updates.status || "todo",
         created_by: user?.id,
@@ -540,6 +551,11 @@ export default function ProjectPage() {
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
+    } else {
+      addToast(
+        `Could not create task${error ? `: ${error.message}` : ""}`,
+        "error",
+      );
     }
   }
 

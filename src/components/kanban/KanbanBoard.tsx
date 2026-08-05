@@ -11,7 +11,6 @@ import {
   Plus,
   MoreHorizontal,
   Trash2,
-  Pencil,
   FolderOpen,
   Check,
   X,
@@ -48,22 +47,6 @@ const PRIORITY_BORDER: Record<Task["priority"], string> = {
   urgent: "border-l-red-500",
 };
 
-function mapPositionToStatus(position: number, total: number): Task["status"] {
-  if (total <= 1) return "todo";
-  if (position === 0) return "todo";
-  if (position >= total - 1) return "done";
-  return "in_progress";
-}
-
-function getStatusForSection(
-  sectionId: string,
-  sections: Section[]
-): Task["status"] {
-  const sorted = [...sections].sort((a, b) => a.position - b.position);
-  const idx = sorted.findIndex((s) => s.id === sectionId);
-  return mapPositionToStatus(idx, sorted.length);
-}
-
 function KanbanBoardInner({
   tasks,
   sections,
@@ -74,39 +57,36 @@ function KanbanBoardInner({
   onDeleteTask,
   onAddTask,
   onAddSection,
-  onUpdateSection,
-  onDeleteSection,
   onTaskClick,
   onBulkDelete,
   onBulkMove,
   onBulkAssign,
 }: KanbanBoardProps) {
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
-  const [menuSectionId, setMenuSectionId] = useState<string | null>(null);
-  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
-  const [editSectionName, setEditSectionName] = useState("");
   const [newSectionName, setNewSectionName] = useState("");
   const [isAddingSection, setIsAddingSection] = useState(false);
-  const [quickAddSectionId, setQuickAddSectionId] = useState<string | null>(null);
+  const [quickAddStatus, setQuickAddStatus] = useState<"todo" | "in_progress" | "done" | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState("");
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
   const [bulkMoveSectionId, setBulkMoveSectionId] = useState<string>("");
   const [showBulkMove, setShowBulkMove] = useState(false);
   const [bulkAssignUserId, setBulkAssignUserId] = useState<string>("");
   const [showBulkAssign, setShowBulkAssign] = useState(false);
-  const editInputRef = useRef<HTMLInputElement>(null);
   const addSectionInputRef = useRef<HTMLInputElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
 
   const sortedSections = [...sections].sort((a, b) => a.position - b.position);
+  // Group columns by task status (To Do / In Progress / Done) rather
+  // than by section, so the column counts reflect the status the user
+  // expects (e.g. "23 To Do" = 23 tasks with status=todo). Sections
+  // still exist as data and are shown on each task card as a label.
+  const STATUS_COLUMNS: { key: "todo" | "in_progress" | "done"; title: string; dot: string }[] = [
+    { key: "todo", title: "To Do", dot: "bg-slate-400" },
+    { key: "in_progress", title: "In Progress", dot: "bg-blue-500" },
+    { key: "done", title: "Done", dot: "bg-green-500" },
+  ];
+  const sectionById = new Map(sections.map((s) => [s.id, s]));
   const hasSelection = selectedTaskIds.size > 0;
-
-  useEffect(() => {
-    if (editingSectionId && editInputRef.current) {
-      editInputRef.current.focus();
-      editInputRef.current.select();
-    }
-  }, [editingSectionId]);
 
   useEffect(() => {
     if (isAddingSection && addSectionInputRef.current) {
@@ -115,10 +95,10 @@ function KanbanBoardInner({
   }, [isAddingSection]);
 
   useEffect(() => {
-    if (quickAddSectionId && quickAddInputRef.current) {
+    if (quickAddStatus && quickAddInputRef.current) {
       quickAddInputRef.current.focus();
     }
-  }, [quickAddSectionId]);
+  }, [quickAddStatus]);
 
   function toggleSelect(taskId: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -130,17 +110,17 @@ function KanbanBoardInner({
     });
   }
 
-  function toggleSelectAll(sectionId: string) {
-    const sectionTaskIds = tasks
-      .filter((t) => t.section_id === sectionId)
+  function toggleSelectAll(status: "todo" | "in_progress" | "done") {
+    const columnTaskIds = tasks
+      .filter((t) => t.status === status)
       .map((t) => t.id);
-    const allSelected = sectionTaskIds.every((id) => selectedTaskIds.has(id));
+    const allSelected = columnTaskIds.every((id) => selectedTaskIds.has(id));
     setSelectedTaskIds((prev) => {
       const next = new Set(prev);
       if (allSelected) {
-        sectionTaskIds.forEach((id) => next.delete(id));
+        columnTaskIds.forEach((id) => next.delete(id));
       } else {
-        sectionTaskIds.forEach((id) => next.add(id));
+        columnTaskIds.forEach((id) => next.add(id));
       }
       return next;
     });
@@ -171,9 +151,11 @@ function KanbanBoardInner({
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
     const taskId = result.draggableId;
-    const newSectionId = result.destination.droppableId;
-    const status = getStatusForSection(newSectionId, sections);
-    onUpdateTask(taskId, { section_id: newSectionId, status });
+    // Columns are now grouped by status, so the destination droppableId
+    // is the new status. Leave the task's section unchanged (sections
+    // remain as labels on the card).
+    const newStatus = result.destination.droppableId as "todo" | "in_progress" | "done";
+    onUpdateTask(taskId, { status: newStatus });
   }
 
   async function handleAddSection() {
@@ -184,26 +166,16 @@ function KanbanBoardInner({
     setIsAddingSection(false);
   }
 
-  async function handleRenameSection() {
-    if (!editingSectionId) return;
-    const name = editSectionName.trim();
-    if (!name) return;
-    await onUpdateSection(editingSectionId, { name });
-    setEditingSectionId(null);
-    setEditSectionName("");
-  }
-
-  async function handleQuickAdd(sectionId: string) {
+  async function handleQuickAdd(status: "todo" | "in_progress" | "done") {
     const title = quickAddTitle.trim();
     if (!title) return;
-    const status = getStatusForSection(sectionId, sections);
-    const tasksInSection = tasks.filter((t) => t.section_id === sectionId);
+    // Columns are now grouped by status, so the quick-add sets the
+    // task's status to the column it was added from. The section is
+    // left unchanged (sections still exist as labels on the card).
     if (onAddTask) {
       await onAddTask({
         title,
         status,
-        section_id: sectionId,
-        position: tasksInSection.length,
         priority: "medium",
       });
     } else {
@@ -212,14 +184,12 @@ function KanbanBoardInner({
         {
           title,
           status,
-          section_id: sectionId,
-          position: tasksInSection.length,
           priority: "medium",
         } as Partial<Task>
       );
     }
     setQuickAddTitle("");
-    setQuickAddSectionId(null);
+    setQuickAddStatus(null);
   }
 
   if (sections.length === 0 && !isAddingSection) {
@@ -335,118 +305,42 @@ function KanbanBoardInner({
       )}
 
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {sortedSections.map((section) => {
-          const columnTasks = tasks.filter((t) => t.section_id === section.id);
-          const isEditing = editingSectionId === section.id;
-          const allInSectionSelected = columnTasks.length > 0 && columnTasks.every((t) => selectedTaskIds.has(t.id));
+        {STATUS_COLUMNS.map((column) => {
+          const columnTasks = tasks.filter((t) => t.status === column.key);
+          const allInColumnSelected = columnTasks.length > 0 && columnTasks.every((t) => selectedTaskIds.has(t.id));
 
           return (
             <div
-              key={section.id}
+              key={column.key}
               className="flex flex-col w-[300px] min-w-[300px]"
             >
               {/* Column Header */}
               <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
-                    onClick={() => toggleSelectAll(section.id)}
+                    onClick={() => toggleSelectAll(column.key)}
                     className={cn(
                       "w-4 h-4 rounded border shrink-0 transition-colors flex items-center justify-center",
-                      allInSectionSelected
+                      allInColumnSelected
                         ? "bg-indigo-600 border-indigo-600 text-white"
                         : "border-slate-300 dark:border-slate-600 hover:border-accent/50"
                     )}
-                    title={allInSectionSelected ? "Deselect all in section" : "Select all in section"}
+                    title={allInColumnSelected ? "Deselect all in column" : "Select all in column"}
                   >
-                    {allInSectionSelected && <Check size={10} />}
+                    {allInColumnSelected && <Check size={10} />}
                   </button>
-                  <div
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: section.color }}
-                  />
-                  {isEditing ? (
-                    <div className="flex items-center gap-1">
-                      <input
-                        ref={editInputRef}
-                        value={editSectionName}
-                        onChange={(e) => setEditSectionName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRenameSection();
-                          if (e.key === "Escape") setEditingSectionId(null);
-                        }}
-                        className="text-sm font-semibold text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent/50 w-32"
-                      />
-                      <button
-                        onClick={handleRenameSection}
-                        className="p-0.5 text-green-600 hover:bg-green-50 rounded"
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        onClick={() => setEditingSectionId(null)}
-                        className="p-0.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">
-                      {section.name}
-                    </h3>
-                  )}
+                  <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", column.dot)} />
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    {column.title}
+                  </h3>
                   <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full shrink-0">
                     {columnTasks.length}
                   </span>
                 </div>
-
-                {/* Section Menu */}
-                <div className="relative shrink-0">
-                  <button
-                    onClick={() =>
-                      setMenuSectionId(
-                        menuSectionId === section.id ? null : section.id
-                      )
-                    }
-                    className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                  >
-                    <MoreHorizontal size={14} />
-                  </button>
-                  {menuSectionId === section.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setMenuSectionId(null)}
-                      />
-                      <div className="absolute right-0 top-8 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[140px]">
-                        <button
-                          onClick={() => {
-                            setEditingSectionId(section.id);
-                            setEditSectionName(section.name);
-                            setMenuSectionId(null);
-                          }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                        >
-                          <Pencil size={12} />
-                          Rename
-                        </button>
-                        <button
-                          onClick={() => {
-                            onDeleteSection(section.id);
-                            setMenuSectionId(null);
-                          }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 size={12} />
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
 
               {/* Droppable Area */}
-              <Droppable droppableId={section.id}>
+              <Droppable droppableId={column.key}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -458,6 +352,7 @@ function KanbanBoardInner({
                   >
                     {columnTasks.map((task, index) => {
                       const isSelected = selectedTaskIds.has(task.id);
+                      const taskSection = task.section_id ? sectionById.get(task.section_id) : null;
                       return (
                         <Draggable
                           key={task.id}
@@ -497,6 +392,11 @@ function KanbanBoardInner({
                                       {task.is_milestone && <span className="ml-1 text-amber-500" title="Milestone">◆</span>}
                                       {task.recurrence && <span title={`Repeats ${task.recurrence}`}>🔁</span>}
                                     </p>
+                                    {taskSection && (
+                                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                                        {taskSection.name}
+                                      </p>
+                                    )}
                                     <div className="flex items-center gap-2 mt-2">
                                       <span
                                         className={cn(
@@ -601,16 +501,16 @@ function KanbanBoardInner({
                     {provided.placeholder}
 
                     {/* Quick Add */}
-                    {quickAddSectionId === section.id ? (
+                    {quickAddStatus === column.key ? (
                       <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-2 shadow-sm">
                         <input
                           ref={quickAddInputRef}
                           value={quickAddTitle}
                           onChange={(e) => setQuickAddTitle(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") handleQuickAdd(section.id);
+                            if (e.key === "Enter") handleQuickAdd(column.key);
                             if (e.key === "Escape") {
-                              setQuickAddSectionId(null);
+                              setQuickAddStatus(null);
                               setQuickAddTitle("");
                             }
                           }}
@@ -619,7 +519,7 @@ function KanbanBoardInner({
                         />
                         <div className="flex items-center gap-1 mt-1">
                           <button
-                            onClick={() => handleQuickAdd(section.id)}
+                            onClick={() => handleQuickAdd(column.key)}
                             disabled={!quickAddTitle.trim()}
                             className="px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
@@ -627,7 +527,7 @@ function KanbanBoardInner({
                           </button>
                           <button
                             onClick={() => {
-                              setQuickAddSectionId(null);
+                              setQuickAddStatus(null);
                               setQuickAddTitle("");
                             }}
                             className="px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
@@ -638,7 +538,7 @@ function KanbanBoardInner({
                       </div>
                     ) : (
                       <button
-                        onClick={() => setQuickAddSectionId(section.id)}
+                        onClick={() => setQuickAddStatus(column.key)}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-colors"
                       >
                         <Plus size={14} />
