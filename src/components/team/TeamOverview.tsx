@@ -104,6 +104,25 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
     void loadData();
   }, [loadData]);
 
+  // Live refresh: subscribe to task changes so the stat counts (and
+  // the projects/members/recent-activity lists) update when tasks are
+  // created, updated, or deleted in any of the team's projects.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`team-overview-tasks-${teamId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks" },
+        () => {
+          void loadData();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [teamId, supabase, loadData]);
+
   async function loadAllActivities() {
     setAllActivitiesLoading(true);
     const { data: projectsData } = await supabase
