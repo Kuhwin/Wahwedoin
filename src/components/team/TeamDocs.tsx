@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Markdown from "react-markdown";
-import { FileText, Plus, Trash2, Clock, Edit3, Eye, ExternalLink, Loader2, MessageSquareText, RefreshCw, FileSpreadsheet, Presentation, FileImage, File } from "lucide-react";
+import { FileText, Plus, Trash2, Clock, Edit3, Eye, ExternalLink, Loader2, MessageSquareText, RefreshCw, FileSpreadsheet, Presentation, FileImage, File, Search, Video } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -31,6 +30,7 @@ const FILE_TYPES = [
   { value: "forms", label: "Forms" },
   { value: "pdfs", label: "PDFs" },
   { value: "images", label: "Images" },
+  { value: "videos", label: "Videos" },
   { value: "other", label: "Other" },
 ] as const;
 
@@ -43,12 +43,14 @@ const FILE_TYPE_CLASSES: Record<FileType, string> = {
   forms: "bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300",
   pdfs: "bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300",
   images: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",
+  videos: "bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300",
   other: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
 };
 
 function getFileType(doc: TeamDocument): FileType {
   const mime = doc.mime_type || "";
   if (mime.startsWith("image/")) return "images";
+  if (mime.startsWith("video/")) return "videos";
   if (mime.includes("pdf")) return "pdfs";
   if (mime.includes("spreadsheet") || mime.includes("sheet")) return "sheets";
   if (mime.includes("presentation")) return "slides";
@@ -87,20 +89,22 @@ const SOURCE_BADGES: Record<TeamDocumentSource, { label: string; className: stri
   drive_picker: { label: "Google Drive", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300" },
 };
 
-function getFileIcon(doc: TeamDocument) {
+function getFileIcon(doc: TeamDocument, size = 18) {
   switch (getFileType(doc)) {
     case "sheets":
-      return <FileSpreadsheet size={18} className="text-green-500" />;
+      return <FileSpreadsheet size={size} className="text-green-500" />;
     case "slides":
-      return <Presentation size={18} className="text-orange-500" />;
+      return <Presentation size={size} className="text-orange-500" />;
     case "pdfs":
-      return <FileText size={18} className="text-red-500" />;
+      return <FileText size={size} className="text-red-500" />;
     case "images":
-      return <FileImage size={18} className="text-cyan-500" />;
+      return <FileImage size={size} className="text-cyan-500" />;
+    case "videos":
+      return <Video size={size} className="text-rose-500" />;
     case "other":
-      return <File size={18} className="text-slate-500" />;
+      return <File size={size} className="text-slate-500" />;
     default:
-      return <FileText size={18} className="text-blue-500" />;
+      return <FileText size={size} className="text-blue-500" />;
   }
 }
 
@@ -114,11 +118,12 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   const [docContent, setDocContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [docTab, setDocTab] = useState<"edit" | "preview">("edit");
   const [showPicker, setShowPicker] = useState(false);
   const [viewDoc, setViewDoc] = useState<TeamDocument | null>(null);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
-  const [viewKind, setViewKind] = useState<"pdf" | "image" | "other" | null>(null);
+  const [viewKind, setViewKind] = useState<"pdf" | "image" | "video" | "other" | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const { addToast } = useToast();
   const supabase = createClient();
@@ -277,7 +282,12 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setViewDoc(doc);
   }
 
-  const filteredDocs = filter === "all" ? docs : docs.filter((d) => getFileType(d) === filter);
+  const filteredDocs = docs.filter((d) => {
+    if (filter !== "all" && getFileType(d) !== filter) return false;
+    const q = search.trim().toLowerCase();
+    if (q && !d.title.toLowerCase().includes(q)) return false;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -289,6 +299,15 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
 
   return (
     <div className="space-y-4">
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search files by title..."
+          className="pl-9"
+        />
+      </div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 overflow-x-auto">
           {FILE_TYPES.map((cat) => (
@@ -325,11 +344,17 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       {filteredDocs.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
           <FileText size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No files here yet</p>
-          <div className="flex items-center justify-center gap-2">
-            <Button onClick={openCreate} size="sm"><Plus size={14} /> New Note</Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowPicker(true)}><Plus size={14} /> Add from Google Drive</Button>
-          </div>
+          {docs.length === 0 ? (
+            <>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No files here yet</p>
+              <div className="flex items-center justify-center gap-2">
+                <Button onClick={openCreate} size="sm"><Plus size={14} /> New Note</Button>
+                <Button variant="secondary" size="sm" onClick={() => setShowPicker(true)}><Plus size={14} /> Add from Google Drive</Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">No files match your search or filter</p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -428,6 +453,10 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
                 {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs can't use next/image */}
                 <img src={viewUrl} alt={viewDoc.title} className="max-w-full max-h-full object-contain" />
               </div>
+            ) : viewUrl && viewKind === "video" ? (
+              <div className="flex items-center justify-center h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <video src={viewUrl} controls className="max-w-full max-h-full" />
+              </div>
             ) : (
               <div className="text-center py-10">
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
@@ -493,11 +522,7 @@ function DocCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           <div className="flex-shrink-0 mt-0.5">
-            {doc.icon_link ? (
-              <Image src={doc.icon_link} alt="" width={18} height={18} className="w-[18px] h-[18px]" unoptimized />
-            ) : (
-              getFileIcon(doc)
-            )}
+            <FileThumb doc={doc} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -550,6 +575,55 @@ function DocCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Cached object URLs for image thumbnails so the list doesn't refetch a file
+// the user has already seen this session.
+const imageThumbCache = new Map<string, string>();
+
+function FileThumb({ doc }: { doc: TeamDocument }) {
+  const type = getFileType(doc);
+  const fileId = doc.drive_file_id;
+  const [url, setUrl] = useState<string | null>(() => (fileId ? imageThumbCache.get(fileId) ?? null : null));
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (type !== "images" || !fileId || failed || url) return;
+    const cached = imageThumbCache.get(fileId);
+    if (cached) {
+      setUrl(cached);
+      return;
+    }
+    let cancelled = false;
+    void fetchDriveFileBlob(fileId, doc.mime_type)
+      .then((result) => {
+        if (cancelled || !result || result.kind !== "image") return;
+        const objectUrl = URL.createObjectURL(result.blob);
+        imageThumbCache.set(fileId, objectUrl);
+        if (!cancelled) setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [type, fileId, failed, url, doc.mime_type]);
+
+  if (type === "images" && url) {
+    return (
+      <div className="w-14 h-14 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-900">
+        {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs can't use next/image */}
+        <img src={url} alt={doc.title} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("w-14 h-14 rounded-lg flex items-center justify-center", FILE_TYPE_CLASSES[type])}>
+      {getFileIcon(doc, 24)}
     </div>
   );
 }

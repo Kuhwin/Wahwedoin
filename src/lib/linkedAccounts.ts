@@ -11,7 +11,7 @@ function isGoogleNativeMime(mimeType: string) {
 
 export interface DriveFileBlob {
   blob: Blob;
-  kind: "pdf" | "image" | "other";
+  kind: "pdf" | "image" | "video" | "other";
 }
 
 /**
@@ -48,7 +48,7 @@ export async function fetchDriveFileBlob(
       if (!res.ok) continue;
       const blob = await res.blob();
       if (!blob || blob.size === 0) continue;
-      const kind = native || mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "other";
+      const kind = native || mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : mime.startsWith("video/") ? "video" : "other";
       return { blob, kind };
     } catch {
       // try the next account
