@@ -3,6 +3,60 @@ import type { LinkedGoogleAccount } from "@/lib/types";
 
 export type { LinkedGoogleAccount };
 
+const GOOGLE_NATIVE_MIME_PREFIX = "application/vnd.google-apps.";
+
+function isGoogleNativeMime(mimeType: string) {
+  return mimeType.startsWith(GOOGLE_NATIVE_MIME_PREFIX);
+}
+
+export interface DriveFileBlob {
+  blob: Blob;
+  kind: "pdf" | "image" | "other";
+}
+
+/**
+ * Fetch a Drive file's content as a Blob using the current user's linked
+ * Google accounts. Google-native files (Docs/Sheets/Slides/Drawings) are
+ * exported to PDF via the Drive export endpoint; everything else is
+ * fetched with alt=media. Each drive-linked account is tried in turn until
+ * one has access, so restricted (not link-shared) files still render
+ * without changing any sharing permissions. Returns null when no account
+ * can fetch the file.
+ */
+export async function fetchDriveFileBlob(
+  fileId: string,
+  mimeType: string | null
+): Promise<DriveFileBlob | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const accounts = (await getLinkedAccounts(user.id)).filter((a) => a.scope.includes("drive"));
+  const native = isGoogleNativeMime(mimeType || "");
+  const mime = mimeType || "";
+
+  for (const account of accounts) {
+    const token = await getValidToken(account);
+    if (!token) continue;
+
+    const url = native
+      ? `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=application/pdf`
+      : `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) continue;
+      const kind = native || mime === "application/pdf" ? "pdf" : mime.startsWith("image/") ? "image" : "other";
+      return { blob, kind };
+    } catch {
+      // try the next account
+    }
+  }
+  return null;
+}
+
 export async function getLinkedAccounts(userId: string): Promise<LinkedGoogleAccount[]> {
   const supabase = createClient();
   const { data } = await supabase

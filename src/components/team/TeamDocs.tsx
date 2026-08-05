@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/Toast";
 import DrivePicker from "@/components/team/DrivePicker";
 import { syncTeamDocuments, upsertTeamDocuments } from "@/lib/teamDocuments";
 import { syncTaskCommentDocs } from "@/lib/taskCommentDocs";
+import { fetchDriveFileBlob } from "@/lib/linkedAccounts";
 import { type TeamDoc, type TeamDocument, type TeamDocumentSource } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -81,10 +82,41 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   const [docTab, setDocTab] = useState<"edit" | "preview">("edit");
   const [showPicker, setShowPicker] = useState(false);
   const [viewDoc, setViewDoc] = useState<TeamDocument | null>(null);
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
+  const [viewKind, setViewKind] = useState<"pdf" | "image" | "other" | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const { addToast } = useToast();
   const supabase = createClient();
 
   const canManage = userRole === "owner" || userRole === "admin";
+
+  // Fetch the Drive file's content (via the user's own OAuth token) when a
+  // doc preview opens, so restricted files render in-app without sharing
+  // changes. Google-native files are exported to PDF.
+  useEffect(() => {
+    if (!viewDoc || !viewDoc.drive_file_id) {
+      setViewUrl(null);
+      setViewKind(null);
+      setViewLoading(false);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setViewLoading(true);
+    setViewUrl(null);
+    setViewKind(null);
+    void fetchDriveFileBlob(viewDoc.drive_file_id, viewDoc.mime_type).then((result) => {
+      if (cancelled || !result) return;
+      objectUrl = URL.createObjectURL(result.blob);
+      setViewUrl(objectUrl);
+      setViewKind(result.kind);
+      setViewLoading(false);
+    });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [viewDoc]);
 
   const loadDocs = useCallback(async () => {
     const { data } = await supabase
@@ -369,7 +401,9 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
         {viewDoc?.drive_file_id ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">Preview via Google Drive</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                {viewLoading ? "Loading preview..." : viewKind ? "Preview" : "Preview unavailable"}
+              </p>
               {viewDoc.web_view_link && (
                 <a
                   href={viewDoc.web_view_link}
@@ -381,12 +415,39 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
                 </a>
               )}
             </div>
-            <iframe
-              src={`https://drive.google.com/file/d/${viewDoc.drive_file_id}/preview`}
-              className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700"
-              title={viewDoc.title}
-              allowFullScreen
-            />
+            {viewLoading ? (
+              <div className="flex items-center justify-center h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <Loader2 size={24} className="animate-spin text-slate-400" />
+              </div>
+            ) : viewUrl && viewKind === "pdf" ? (
+              <iframe
+                src={viewUrl}
+                className="w-full h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700"
+                title={viewDoc.title}
+              />
+            ) : viewUrl && viewKind === "image" ? (
+              <div className="flex items-center justify-center h-[70vh] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-auto">
+                {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs can't use next/image */}
+                <img src={viewUrl} alt={viewDoc.title} className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  This file type can&apos;t be previewed here. Open it in Google Drive instead.
+                </p>
+                {viewDoc.web_view_link && (
+                  <a
+                    href={viewDoc.web_view_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
+                    style={{ backgroundColor: "var(--accent)" }}
+                  >
+                    <ExternalLink size={14} /> Open in Google Drive
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         ) : viewDoc?.web_view_link ? (
           <div className="text-center py-10">
