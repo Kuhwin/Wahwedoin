@@ -23,6 +23,7 @@ import {
 import type { Task, Activity as ActivityType } from "@/lib/types";
 import { PRIORITY_CONFIG } from "@/lib/types";
 import { checkDueDateNotifications } from "@/lib/dueDateChecker";
+import { checkTaskReminders } from "@/lib/taskReminderChecker";
 import { formatRelativeTime } from "@/lib/utils";
 import { useDashboardData } from "@/lib/hooks";
 import CountdownTimer from "@/components/CountdownTimer";
@@ -51,11 +52,11 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const nowMs = useMemo(() => Date.now(), []);
 
-  // Due-date notification check runs once on mount; checkDueDateNotifications
-  // throttles itself to once per 5 minutes so frequent data refreshes can't
-  // trigger a request storm.
+  // Due-date and reminder checks run once on mount; both throttle themselves
+  // so frequent data refreshes can't trigger a request storm.
   useEffect(() => {
     void checkDueDateNotifications();
+    void checkTaskReminders();
   }, []);
 
   function updateActivityParams(next: { open?: boolean; action?: string; project?: string }) {

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CheckSquare, Calendar, Bookmark, BookmarkCheck, X, ChevronDown, ArrowUpDown, Layers } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import { checkTaskReminders } from "@/lib/taskReminderChecker";
 import { PRIORITY_CONFIG, type Task, type SavedView } from "@/lib/types";
 
 type FilterState = {
@@ -64,6 +65,7 @@ export default function MyTasksPage() {
 
   useEffect(() => {
     void loadTasks();
+    void checkTaskReminders();
   }, [loadTasks]);
 
   useEffect(() => {
