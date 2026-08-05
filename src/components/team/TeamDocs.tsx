@@ -140,10 +140,10 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
           <button
             onClick={() => setFilter("all")}
-            className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", filter === "all" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
+            className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", filter === "all" ? "bg-white dark:bg-accent shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")}
           >
             All
           </button>
@@ -151,7 +151,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
             <button
               key={cat.value}
               onClick={() => setFilter(cat.value)}
-              className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", filter === cat.value ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
+              className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", filter === cat.value ? "bg-white dark:bg-accent shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")}
             >
               {cat.label}
             </button>
@@ -164,9 +164,9 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       </div>
 
       {filteredDocs.length === 0 ? (
-        <div className="text-center py-12 bg-white border border-slate-200 rounded-2xl">
-          <FileText size={40} className="text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 mb-3">No docs yet</p>
+        <div className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+          <FileText size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No docs yet</p>
           <Button onClick={openCreate} size="sm"><Plus size={14} /> Create Doc</Button>
         </div>
       ) : (
@@ -249,7 +249,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
 
 function DocCard({ doc, onEdit, onPin, onDelete, canManage }: { doc: TeamDoc; onEdit: (d: TeamDoc) => void; onPin: (d: TeamDoc) => void; onDelete: (id: string) => void; canManage: boolean }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 hover:border-indigo-200 transition-all group">
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onEdit(doc)}>
           <div className="flex items-center gap-2 mb-1">
