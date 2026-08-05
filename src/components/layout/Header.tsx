@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, ArrowRightLeft, Palette, Link2 } from "lucide-react";
+import { Search, Menu, Sun, Moon, Settings, LogOut, ChevronDown, Palette, Link2 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import NotificationsBell from "@/components/NotificationsBell";
 import SearchModal from "@/components/SearchModal";
@@ -25,7 +25,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [linkedGoogle, setLinkedGoogle] = useState<LinkedGoogleAccount[]>([]);
   const { theme, toggleTheme } = useTheme();
   const { accent, setAccent, presets } = useAccentColour();
-  const { activeProfile, activeUserId, authUserId, orgMembers, isImpersonating, switchUser } = useActiveUser();
+  const { activeProfile } = useActiveUser();
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
@@ -178,8 +178,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
   }
   void handleSignOut;
 
-  const otherMembers = orgMembers.filter((m) => m.user_id !== activeUserId);
-
   const routeMap: Record<string, string> = {
     calendar: "Calendar",
     "my-tasks": "My Tasks",
@@ -259,15 +257,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
   return (
     <>
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700">
-        {isImpersonating && (
-          <div className="bg-amber-500 text-white text-xs text-center py-1 px-4 flex items-center justify-center gap-2">
-            <ArrowRightLeft size={12} />
-            Acting as <strong>{activeProfile?.display_name || activeProfile?.user_email || "Unknown"}</strong>
-            <button onClick={() => switchUser(authUserId!)} className="underline hover:no-underline ml-1 font-medium">
-              Switch back
-            </button>
-          </div>
-        )}
         <div className="flex items-center justify-between h-14 px-4 md:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -329,11 +318,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {activeProfile?.user_email || "No email"}
                     </p>
-                    {isImpersonating && (
-                      <span className="inline-block mt-1 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded">
-                        Impersonating
-                      </span>
-                    )}
                   </div>
 
                   <div className="p-1">
@@ -373,32 +357,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
                         ))}
                       </div>
                     </div>
-
-                    {otherMembers.length > 0 && (
-                      <>
-                        <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                        <div className="px-3 py-1.5">
-                          <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                            Switch User
-                          </p>
-                        </div>
-                        {otherMembers.map((member) => (
-                          <button
-                            key={member.user_id}
-                            onClick={() => { switchUser(member.user_id); setDropdownOpen(false); }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                          >
-                            <Avatar
-                              name={member.display_name || undefined}
-                              email={member.user_email}
-                              avatarUrl={member.avatar_url || undefined}
-                              size="xs"
-                            />
-                            <span className="truncate">{member.display_name || member.user_email || "Unknown"}</span>
-                          </button>
-                        ))}
-                      </>
-                    )}
                   </div>
 
                   <div className="p-1 border-t border-slate-100 dark:border-slate-700">

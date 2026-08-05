@@ -22,9 +22,9 @@ test.describe("authenticated pages", () => {
     await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 15000 });
   });
 
-  test("projects page lists the seeded project", async ({ page }) => {
+  test("all-projects page lists the seeded project", async ({ page }) => {
     await login(page);
-    await page.goto("/projects");
+    await page.goto("/all-projects");
     await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("E2E Test Project")).toBeVisible({ timeout: 15000 });
   });

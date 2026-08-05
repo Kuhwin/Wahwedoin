@@ -741,12 +741,15 @@ export default function ProjectPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link
-            href="/all-projects"
-            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          <button
+            type="button"
+            onClick={() => project?.team_id && router.push(`/teams/${project.team_id}`)}
+            disabled={!project?.team_id}
+            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title="Back to team"
           >
             <ArrowLeft size={18} />
-          </Link>
+          </button>
           <div className="flex items-center gap-3">
             <div
               className="h-4 w-4 rounded-full"
