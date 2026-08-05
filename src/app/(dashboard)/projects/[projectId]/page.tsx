@@ -205,19 +205,25 @@ export default function ProjectPage() {
     swrKeys: [projectId ? `project:${projectId}` : null],
   });
 
-  const projectLoaded = useRef(false);
+  // Seed the local state from SWR (project:<id>) and keep it in sync
+  // with every SWR revalidation so that realtime updates (other users
+  // adding/editing tasks, the realtime hook's mutate, and the
+  // optimistic adds in the handlers below) actually appear in the UI.
+  // Previously a projectLoaded ref guarded this to run only on the
+  // first load, which left the local state stale: new tasks added in
+  // this session were appended optimistically and the optimistic
+  // closure was sometimes stale, and any change from another session
+  // (realtime) updated SWR but never reached local state.
   useEffect(() => {
-    if (projectData && !projectLoaded.current) {
-      projectLoaded.current = true;
-      setCurrentUser(projectData.currentUserId);
-      setProject(projectData.project);
-      setTasks(projectData.tasks);
-      setSections(projectData.sections);
-      setMembers(projectData.members);
-      setMemberProfiles(projectData.memberProfiles);
-      setTags(projectData.tags);
-      setLoading(false);
-    }
+    if (!projectData) return;
+    setCurrentUser(projectData.currentUserId);
+    setProject(projectData.project);
+    setTasks(projectData.tasks);
+    setSections(projectData.sections);
+    setMembers(projectData.members);
+    setMemberProfiles(projectData.memberProfiles);
+    setTags(projectData.tags);
+    setLoading(false);
   }, [projectData]);
 
   // Force the browser back button on this page to return to the team's
@@ -390,7 +396,7 @@ export default function ProjectPage() {
       .single();
 
     if (data && !error) {
-      setTasks([...tasks, data]);
+      setTasks((prev) => [...prev, data]);
       setNewTaskTitle("");
       setNewTaskPriority("medium");
       setNewTaskAssignee("");
@@ -499,7 +505,7 @@ export default function ProjectPage() {
       .single();
 
     if (data && !error) {
-      setTasks([...tasks, data]);
+      setTasks((prev) => [...prev, data]);
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
