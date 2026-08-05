@@ -21,6 +21,26 @@ export interface SyncTeamDocumentsResult {
   driveCount: number;
 }
 
+/**
+ * Upsert arbitrary team_documents rows (drive_picker, task_comment, etc.)
+ * via the sync_team_documents RPC. Safe to call with a single row or a
+ * batch; RLS is handled by the SECURITY DEFINER function.
+ */
+export async function upsertTeamDocuments(
+  teamId: string,
+  rows: TeamDocumentRow[]
+): Promise<{ ok: boolean; error?: string | null }> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+  const { error } = await supabase.rpc("sync_team_documents", {
+    p_team_id: teamId,
+    p_rows: rows,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, error: null };
+}
+
 function toDocumentRow(
   source: "drive_folder_team" | "drive_folder_project",
   projectId: string | null,
