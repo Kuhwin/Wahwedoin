@@ -381,6 +381,7 @@ export default function ProjectPage() {
       .insert({
         project_id: projectId,
         title: newTaskTitle.trim(),
+        status: "todo",
         priority: newTaskPriority,
         assignee_id: newTaskAssignee || null,
         due_date: newTaskDueDate || null,
