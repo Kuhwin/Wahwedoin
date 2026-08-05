@@ -220,12 +220,6 @@ export default function ProjectPage() {
     }
   }, [projectData]);
 
-  useEffect(() => {
-    if (projectData === null) {
-      router.push("/projects");
-    }
-  }, [projectData, router]);
-
   // Force the browser back button on this page to return to the team's
   // workspace, no matter how the user reached the project (created it
   // from the team, clicked it in the team overview, clicked it in the
