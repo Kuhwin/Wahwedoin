@@ -226,6 +226,32 @@ export default function ProjectPage() {
     }
   }, [projectData, router]);
 
+  // Force the browser back button on this page to return to the team's
+  // workspace, no matter how the user reached the project (created it
+  // from the team, clicked it in the team overview, clicked it in the
+  // sidebar, or came from the global /projects list). The browser
+  // history cannot be rewritten to insert the team entry before the
+  // project, so we intercept the first popstate: if back lands
+  // somewhere that isn't the team, we restore the project entry and
+  // replace it with the team so the user ends up on the team with a
+  // single back press.
+  const backHandledRef = useRef(false);
+  useEffect(() => {
+    if (!project?.team_id) return;
+    const teamId = project.team_id;
+    function onPopState() {
+      if (backHandledRef.current) return;
+      backHandledRef.current = true;
+      const path = window.location.pathname;
+      if (!path.startsWith(`/teams/${teamId}`)) {
+        window.history.forward();
+        router.replace(`/teams/${teamId}`);
+      }
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [project, router]);
+
   const handleUpdateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
     let taskTitle = "task";
     let savedTask: Task | undefined;
