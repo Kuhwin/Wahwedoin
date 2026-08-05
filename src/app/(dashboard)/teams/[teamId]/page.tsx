@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Users, FileText, Calendar, Link2, LayoutGrid, UserPlus, FolderOpen } from "lucide-react";
+import { ArrowLeft, Users, Files, Calendar, Link2, LayoutGrid, UserPlus, FolderOpen } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
 import DriveLinkPanel from "@/components/DriveLinkPanel";
@@ -16,11 +16,11 @@ import TeamBoard from "@/components/team/TeamBoard";
 import { type Team, type TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "docs" | "meetings" | "links" | "board" | "drive";
+type Tab = "overview" | "files" | "meetings" | "links" | "board" | "drive";
 
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "overview", label: "Overview", icon: Users },
-  { id: "docs", label: "Docs", icon: FileText },
+  { id: "files", label: "Files", icon: Files },
   { id: "meetings", label: "Meetings", icon: Calendar },
   { id: "links", label: "Links", icon: Link2 },
   { id: "drive", label: "Drive", icon: FolderOpen },
@@ -205,7 +205,7 @@ export default function TeamWorkspacePage() {
           onAutoOpenHandled={() => setAutoOpenCreate(false)}
         />
       )}
-      {activeTab === "docs" && (
+      {activeTab === "files" && (
         <TeamDocs teamId={teamId} currentUser={currentUser} userRole={userRole} />
       )}
       {activeTab === "meetings" && (

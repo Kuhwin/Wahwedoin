@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import Markdown from "react-markdown";
-import { FileText, Plus, Trash2, Clock, Edit3, Eye, ExternalLink, Loader2, MessageSquareText, RefreshCw } from "lucide-react";
+import { FileText, Plus, Trash2, Clock, Edit3, Eye, ExternalLink, Loader2, MessageSquareText, RefreshCw, FileSpreadsheet, Presentation, FileImage, File } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -23,27 +23,61 @@ interface TeamDocsProps {
   userRole: string | null;
 }
 
-const FILTERS = [
+const FILE_TYPES = [
   { value: "all", label: "All" },
-  { value: "general", label: "General" },
-  { value: "meeting_notes", label: "Meeting Notes" },
-  { value: "sops", label: "SOPs" },
-  { value: "project_briefs", label: "Project Briefs" },
+  { value: "docs", label: "Docs" },
+  { value: "sheets", label: "Sheets" },
+  { value: "slides", label: "Slides" },
+  { value: "forms", label: "Forms" },
+  { value: "pdfs", label: "PDFs" },
+  { value: "images", label: "Images" },
+  { value: "other", label: "Other" },
 ] as const;
 
-const INTERNAL_CATEGORIES = [
-  { value: "general", label: "General" },
-  { value: "meeting_notes", label: "Meeting Notes" },
-  { value: "sop", label: "SOPs" },
-  { value: "project_brief", label: "Project Briefs" },
-] as const;
+type FileType = Exclude<(typeof FILE_TYPES)[number]["value"], "all">;
 
-const CATEGORY_CLASSES: Record<string, string> = {
-  general: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-  meeting_notes: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300",
-  sops: "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300",
-  project_briefs: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-300",
+const FILE_TYPE_CLASSES: Record<FileType, string> = {
+  docs: "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300",
+  sheets: "bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-300",
+  slides: "bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300",
+  forms: "bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300",
+  pdfs: "bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300",
+  images: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300",
+  other: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
 };
+
+function getFileType(doc: TeamDocument): FileType {
+  const mime = doc.mime_type || "";
+  if (mime.startsWith("image/")) return "images";
+  if (mime.includes("pdf")) return "pdfs";
+  if (mime.includes("spreadsheet") || mime.includes("sheet")) return "sheets";
+  if (mime.includes("presentation")) return "slides";
+  if (mime.includes("form")) return "forms";
+  if (
+    !mime ||
+    mime.startsWith("application/vnd.google-apps.") ||
+    mime.startsWith("text/") ||
+    mime.includes("document") ||
+    mime.includes("msword")
+  ) {
+    return "docs";
+  }
+  return "other";
+}
+
+function friendlyMime(mime: string): string {
+  const m = mime.toLowerCase();
+  if (m.includes("spreadsheet") || m.includes("sheet")) return "Spreadsheet";
+  if (m.includes("presentation")) return "Presentation";
+  if (m.includes("document")) return "Document";
+  if (m.includes("form")) return "Form";
+  if (m.includes("pdf")) return "PDF";
+  if (m.startsWith("image/")) return "Image";
+  if (m.startsWith("video/")) return "Video";
+  if (m.startsWith("audio/")) return "Audio";
+  if (m.startsWith("text/")) return "Text";
+  return mime.replace(/^application\/|^text\//, "");
+}
 
 const SOURCE_BADGES: Record<TeamDocumentSource, { label: string; className: string }> = {
   internal: { label: "Internal", className: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300" },
@@ -54,18 +88,20 @@ const SOURCE_BADGES: Record<TeamDocumentSource, { label: string; className: stri
 };
 
 function getFileIcon(doc: TeamDocument) {
-  const mime = doc.mime_type || "";
-  if (mime.includes("spreadsheet")) return <FileText size={18} className="text-green-500" />;
-  if (mime.includes("presentation")) return <FileText size={18} className="text-orange-500" />;
-  if (mime.includes("pdf")) return <FileText size={18} className="text-red-500" />;
-  if (mime.includes("folder")) return <FileText size={18} className="text-amber-500" />;
-  return <FileText size={18} className="text-blue-500" />;
-}
-
-function toInternalCategory(category: string): TeamDoc["category"] {
-  if (category === "sops") return "sop";
-  if (category === "project_briefs") return "project_brief";
-  return category as TeamDoc["category"];
+  switch (getFileType(doc)) {
+    case "sheets":
+      return <FileSpreadsheet size={18} className="text-green-500" />;
+    case "slides":
+      return <Presentation size={18} className="text-orange-500" />;
+    case "pdfs":
+      return <FileText size={18} className="text-red-500" />;
+    case "images":
+      return <FileImage size={18} className="text-cyan-500" />;
+    case "other":
+      return <File size={18} className="text-slate-500" />;
+    default:
+      return <FileText size={18} className="text-blue-500" />;
+  }
 }
 
 export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProps) {
@@ -76,7 +112,6 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
   const [editingDoc, setEditingDoc] = useState<TeamDoc | null>(null);
   const [docTitle, setDocTitle] = useState("");
   const [docContent, setDocContent] = useState("");
-  const [docCategory, setDocCategory] = useState<TeamDoc["category"]>("general");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const [docTab, setDocTab] = useState<"edit" | "preview">("edit");
@@ -125,10 +160,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       .eq("team_id", teamId)
       .order("created_at", { ascending: false });
     if (data) {
-      setDocs((data as Array<Omit<TeamDocument, "category"> & { category: string }>).map((d) => ({
-        ...d,
-        category: d.category as TeamDocument["category"],
-      })));
+      setDocs((data ?? []) as TeamDocument[]);
     }
     setLoading(false);
   }, [teamId, supabase]);
@@ -176,13 +208,13 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     if (editingDoc) {
       const { error } = await supabase
         .from("team_docs")
-        .update({ title: docTitle.trim(), content: docContent, category: docCategory, updated_at: new Date().toISOString() })
+        .update({ title: docTitle.trim(), content: docContent, updated_at: new Date().toISOString() })
         .eq("id", editingDoc.id);
       if (error) addToast(error.message || "Failed to update doc", "error");
     } else {
       const { data, error } = await supabase
         .from("team_docs")
-        .insert({ team_id: teamId, title: docTitle.trim(), content: docContent, category: docCategory, created_by: currentUser })
+        .insert({ team_id: teamId, title: docTitle.trim(), content: docContent, created_by: currentUser })
         .select()
         .single();
       if (error) addToast(error.message || "Failed to create doc", "error");
@@ -193,7 +225,6 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setEditingDoc(null);
     setDocTitle("");
     setDocContent("");
-    setDocCategory("general");
     setSaving(false);
 
     // Mirror internal docs into team_documents without touching Drive.
@@ -205,7 +236,6 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setEditingDoc(null);
     setDocTitle("");
     setDocContent("");
-    setDocCategory("general");
     setDocTab("edit");
     setShowCreate(true);
   }
@@ -221,7 +251,6 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setEditingDoc(data as TeamDoc);
     setDocTitle(data.title);
     setDocContent(data.content);
-    setDocCategory(data.category);
     setDocTab("edit");
     setShowCreate(true);
   }
@@ -231,35 +260,13 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       addToast("Folder documents are managed by the Drive sync", "info");
       return;
     }
-    if (!window.confirm(`Remove "${doc.title}" from the team docs?`)) return;
+    if (!window.confirm(`Remove "${doc.title}" from the team files?`)) return;
     const { error } = await supabase.from("team_documents").delete().eq("id", doc.id);
     if (error) {
-      addToast(error.message || "Failed to remove doc", "error");
+      addToast(error.message || "Failed to remove file", "error");
       return;
     }
     setDocs(docs.filter((d) => d.id !== doc.id));
-  }
-
-  async function handleCategory(doc: TeamDocument, category: string) {
-    if (doc.source === "internal" && doc.internal_doc_id) {
-      const { error } = await supabase
-        .from("team_docs")
-        .update({ category: toInternalCategory(category) })
-        .eq("id", doc.internal_doc_id);
-      if (error) {
-        addToast(error.message || "Failed to update category", "error");
-        return;
-      }
-      await mirrorInternalDocs();
-      await loadDocs();
-      return;
-    }
-    const { error } = await supabase.from("team_documents").update({ category }).eq("id", doc.id);
-    if (error) {
-      addToast(error.message || "Failed to update category", "error");
-      return;
-    }
-    setDocs(docs.map((d) => (d.id === doc.id ? { ...d, category: category as TeamDocument["category"] } : d)));
   }
 
   function openDoc(doc: TeamDocument) {
@@ -270,7 +277,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     setViewDoc(doc);
   }
 
-  const filteredDocs = filter === "all" ? docs : docs.filter((d) => d.category === filter);
+  const filteredDocs = filter === "all" ? docs : docs.filter((d) => getFileType(d) === filter);
 
   if (loading) {
     return (
@@ -284,7 +291,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 overflow-x-auto">
-          {FILTERS.map((cat) => (
+          {FILE_TYPES.map((cat) => (
             <button
               key={cat.value}
               onClick={() => setFilter(cat.value)}
@@ -310,7 +317,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
           </Button>
           <Button onClick={openCreate} size="sm">
             <Plus size={14} />
-            New Doc
+            New Note
           </Button>
         </div>
       </div>
@@ -318,9 +325,9 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
       {filteredDocs.length === 0 ? (
         <div className="text-center py-12 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
           <FileText size={40} className="text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No docs here yet</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">No files here yet</p>
           <div className="flex items-center justify-center gap-2">
-            <Button onClick={openCreate} size="sm"><Plus size={14} /> Create Doc</Button>
+            <Button onClick={openCreate} size="sm"><Plus size={14} /> New Note</Button>
             <Button variant="secondary" size="sm" onClick={() => setShowPicker(true)}><Plus size={14} /> Add from Google Drive</Button>
           </div>
         </div>
@@ -332,7 +339,6 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
               doc={doc}
               onOpen={openDoc}
               onDelete={handleDelete}
-              onCategory={handleCategory}
               canManage={canManage}
               canManageOwn={!!currentUser && doc.added_by === currentUser}
             />
@@ -340,17 +346,9 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
         </div>
       )}
 
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setEditingDoc(null); }} title={editingDoc ? "Edit Doc" : "New Doc"}>
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); setEditingDoc(null); }} title={editingDoc ? "Edit Note" : "New Note"}>
         <div className="space-y-4">
-          <Input label="Title" placeholder="Document title" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} required />
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
-            <select value={docCategory} onChange={(e) => setDocCategory(e.target.value as TeamDoc["category"])} className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50">
-              {INTERNAL_CATEGORIES.map((cat) => (
-                <option key={cat.value} value={cat.value}>{cat.label}</option>
-              ))}
-            </select>
-          </div>
+          <Input label="Title" placeholder="Note title" value={docTitle} onChange={(e) => setDocTitle(e.target.value)} required />
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Content</label>
@@ -384,7 +382,7 @@ export default function TeamDocs({ teamId, currentUser, userRole }: TeamDocsProp
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => { setShowCreate(false); setEditingDoc(null); }}>Cancel</Button>
             <Button onClick={() => void handleSave()} disabled={saving || !docTitle.trim()}>
-              {saving ? "Saving..." : editingDoc ? "Save Changes" : "Create Doc"}
+              {saving ? "Saving..." : editingDoc ? "Save Changes" : "Create Note"}
             </Button>
           </div>
         </div>
@@ -472,14 +470,12 @@ function DocCard({
   doc,
   onOpen,
   onDelete,
-  onCategory,
   canManage,
   canManageOwn,
 }: {
   doc: TeamDocument;
   onOpen: (doc: TeamDocument) => void;
   onDelete: (doc: TeamDocument) => void;
-  onCategory: (doc: TeamDocument, category: string) => void;
   canManage: boolean;
   canManageOwn: boolean;
 }) {
@@ -487,6 +483,7 @@ function DocCard({
   const canModify = canManage || canManageOwn;
   const badge = SOURCE_BADGES[doc.source];
   const canDelete = !(doc.source === "drive_folder_team" || doc.source === "drive_folder_project");
+  const type = getFileType(doc);
 
   return (
     <div
@@ -509,15 +506,15 @@ function DocCard({
                 {doc.source === "task_comment" ? <MessageSquareText size={9} className="inline mr-1" /> : null}
                 {badge?.label || doc.source}
               </Badge>
-              <Badge className={cn("text-[10px]", CATEGORY_CLASSES[doc.category] || CATEGORY_CLASSES.general)}>
-                {FILTERS.find((c) => c.value === doc.category)?.label || doc.category}
+              <Badge className={cn("text-[10px]", FILE_TYPE_CLASSES[type])}>
+                {FILE_TYPES.find((t) => t.value === type)?.label || type}
               </Badge>
               {doc.project_id && (
                 <span className="text-[10px] text-slate-400 uppercase font-medium">Project doc</span>
               )}
             </div>
             {doc.mime_type && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{doc.mime_type.replace(/^application\/|^text\//, "")}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{friendlyMime(doc.mime_type)}</p>
             )}
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 flex items-center gap-1">
               <Clock size={10} />
@@ -540,22 +537,11 @@ function DocCard({
           )}
           {canModify && (
             <>
-              <select
-                value={doc.category}
-                onChange={(e) => { e.stopPropagation(); onCategory(doc, e.target.value); }}
-                onClick={(e) => e.stopPropagation()}
-                title="Change category"
-                className="text-[10px] rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-1 py-1 outline-none focus:border-accent"
-              >
-                {FILTERS.filter((c) => c.value !== "all").map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
               {canDelete && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(doc); }}
                   className="p-1.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors"
-                  title={doc.source === "internal" ? "Delete" : "Remove from docs"}
+                  title={doc.source === "internal" ? "Delete" : "Remove from files"}
                 >
                   <Trash2 size={14} />
                 </button>
