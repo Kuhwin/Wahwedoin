@@ -828,22 +828,27 @@ export default function ProjectPage() {
                     ? `Due ${project.due_date}`
                     : "Set key dates"}
             </button>
-            {sections.length > 0 && (
-              <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
-                {sections.map((s) => (
-                  <span key={s.id} className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    {sectionCounts[s.id]?.total || 0}
-                  </span>
-                ))}
-                {unsectioned > 0 && (
+            {(() => {
+              const todoCount = tasks.filter((t) => t.status === "todo").length;
+              const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
+              const doneCount = tasks.filter((t) => t.status === "done").length;
+              return (
+                <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                    {unsectioned}
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    {todoCount} To do
                   </span>
-                )}
-              </span>
-            )}
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    {inProgressCount} In progress
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    {doneCount} Done
+                  </span>
+                </span>
+              );
+            })()}
           </div>
         </div>
         <div className="flex items-center gap-2">

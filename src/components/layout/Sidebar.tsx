@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
+import { useAccentColour } from "@/components/AccentColourProvider";
 import {
   Home,
   CheckSquare,
@@ -57,6 +58,7 @@ export default function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const pathname = usePathname();
+  const { accent } = useAccentColour();
   const router = useRouter();
   const supabase = createClient();
 
@@ -493,7 +495,7 @@ export default function Sidebar({
                   ? "text-white"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
               )}
-              style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
+                    style={isActive ? { backgroundColor: accent } : undefined}
             >
               <item.icon
                 size={18}
@@ -538,7 +540,7 @@ export default function Sidebar({
                           ? "text-white"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800"
                       )}
-                      style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
+              style={isActive ? { backgroundColor: accent } : undefined}
                     >
                       <item.icon
                         size={18}
@@ -572,7 +574,7 @@ export default function Sidebar({
                       ? "text-white"
                       : "text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800"
                   )}
-                  style={isActive ? { backgroundColor: "var(--accent)" } : undefined}
+                        style={isActive ? { backgroundColor: accent } : undefined}
                   title={item.label}
                 >
                   <item.icon size={18} />

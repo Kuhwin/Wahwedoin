@@ -77,7 +77,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
         .select("id, user_id, action, detail, created_at")
         .or(`team_id.eq.${teamId},project_id.in.(${projectIdStr})`)
         .order("created_at", { ascending: false })
-        .limit(7),
+        .limit(5),
     ]);
 
     if (tasksRes.data) setTasks(tasksRes.data as Task[]);
