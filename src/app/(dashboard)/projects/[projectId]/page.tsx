@@ -418,6 +418,13 @@ export default function ProjectPage() {
       if (user?.id) {
         logActivity({ project_id: projectId, task_id: data.id, user_id: user.id, action: "created task", detail: data.title });
       }
+    } else {
+      // Surface insert failures so the user knows the task wasn't created
+      // (e.g. RLS policy, schema mismatch, or a transient error).
+      addToast(
+        `Could not create task${error ? `: ${error.message}` : ""}`,
+        "error",
+      );
     }
   }
 

@@ -186,35 +186,35 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <FolderKanban size={16} className="text-indigo-600" />
-            <span className="text-xs font-medium text-slate-500">Projects</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Projects</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{projects.length}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{projects.length}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 size={16} className="text-green-600" />
-            <span className="text-xs font-medium text-slate-500">Done</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Done</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {doneTasks}<span className="text-sm text-slate-400 font-normal">/{totalTasks}</span>
           </p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Clock size={16} className="text-blue-600" />
-            <span className="text-xs font-medium text-slate-500">Active</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Active</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{totalTasks - doneTasks}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalTasks - doneTasks}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle size={16} className="text-red-600" />
-            <span className="text-xs font-medium text-slate-500">Overdue</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{overdueTasks}</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{overdueTasks}</p>
         </div>
       </div>
 
@@ -222,7 +222,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
         {/* Projects */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-700">Projects</h3>
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Projects</h3>
             <button
               type="button"
               onClick={() => { setCreateError(null); setShowCreateProject(true); }}
@@ -233,7 +233,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
             </button>
           </div>
           {projects.length === 0 ? (
-            <div className="text-sm text-slate-500 bg-white border border-slate-200 rounded-xl p-6 text-center">
+            <div className="text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center">
               <p className="mb-3">No projects yet</p>
               <button
                 type="button"
@@ -256,7 +256,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
                   <Link
                     key={project.id}
                     href={`/projects/${project.id}`}
-                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-accent/30 hover:shadow-sm transition-all"
+                    className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/30 hover:shadow-sm transition-all"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -264,8 +264,8 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
                         style={{ backgroundColor: project.color }}
                       />
                       <div>
-                        <p className="font-medium text-slate-900">{project.name}</p>
-                        <p className="text-xs text-slate-500">{completed}/{total} tasks</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{project.name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{completed}/{total} tasks</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -289,8 +289,8 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
         {/* Members & Activity */}
         <div className="space-y-6">
           <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Members ({members.length})</h3>
-            <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Members ({members.length})</h3>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3 p-3">
                   <Avatar
@@ -300,7 +300,7 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
                     size="sm"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 truncate">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                       {memberProfiles[member.user_id] || memberEmails[member.user_id] || "Unknown"}
                     </p>
                   </div>
@@ -313,20 +313,20 @@ export default function TeamOverview({ teamId, members, memberProfiles, memberAv
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Recent Activity</h3>
-            <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Recent Activity</h3>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
               {activities.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">No activity yet</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">No activity yet</p>
               ) : (
                 <>
                   {(showAllActivities ? allActivities : activities).map((act) => (
                     <div key={act.id} className="p-3">
-                      <p className="text-sm text-slate-700">
+                      <p className="text-sm text-slate-700 dark:text-slate-300">
                         <span className="font-medium">{(showAllActivities ? allUserNames : userNames)[act.user_id] || "Someone"}</span>
                         {" "}{act.action}
                         {act.detail && <span className="font-medium"> {act.detail}</span>}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         {new Date(act.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
                     </div>
