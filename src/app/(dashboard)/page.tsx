@@ -432,7 +432,7 @@ export default function DashboardPage() {
                 <TrendingUp size={14} />
                 Project Progress
               </h2>
-              <Link href="/projects" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+              <Link href="/all-projects" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
                 View all
               </Link>
             </div>
@@ -585,7 +585,7 @@ export default function DashboardPage() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link
-          href="/projects"
+          href="/all-projects"
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start justify-between mb-4">

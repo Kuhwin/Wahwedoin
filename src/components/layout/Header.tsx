@@ -188,6 +188,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     inbox: "Inbox",
     teams: "Teams",
     projects: "Projects",
+    "all-projects": "All Projects",
     settings: "Settings",
     portfolios: "Portfolios",
     goals: "Goals",
@@ -227,7 +228,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           href: crumbResolve.teamId ? `/teams/${crumbResolve.teamId}` : null,
         });
       } else {
-        crumbs.push({ label: "Projects", href: "/projects" });
+        crumbs.push({ label: "Projects", href: "/all-projects" });
       }
       crumbs.push({ label: crumbResolve.projectName, href: null });
       return crumbs;
