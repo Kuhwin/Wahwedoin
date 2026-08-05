@@ -145,6 +145,7 @@ export async function syncTaskCommentDocs(teamId: string): Promise<SyncTaskComme
   const { error } = await supabase.rpc("sync_team_documents", {
     p_team_id: teamId,
     p_rows: rows,
+    p_cleanup: false,
   });
 
   if (error) return { ok: false, error: error.message, docCount: rows.length };
