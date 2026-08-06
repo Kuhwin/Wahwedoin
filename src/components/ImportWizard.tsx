@@ -22,8 +22,16 @@ const TASK_FIELDS = [
   { value: "description", label: "Description", required: false },
   { value: "priority", label: "Priority", required: false },
   { value: "due_date", label: "Due Date", required: false },
+  { value: "start_date", label: "Start Date", required: false },
   { value: "status", label: "Status", required: false },
-  { value: "assignee", label: "Assignee (email)", required: false },
+  { value: "assignee", label: "Assignee(s) (emails)", required: false },
+  { value: "followers", label: "Followers (emails)", required: false },
+  { value: "section", label: "Section", required: false },
+  { value: "parent", label: "Parent Task (title)", required: false },
+  { value: "milestone", label: "Milestone", required: false },
+  { value: "reminder", label: "Reminder At (datetime)", required: false },
+  { value: "team", label: "Team (route)", required: false },
+  { value: "project", label: "Project (route)", required: false },
 ] as const;
 
 type TaskField = (typeof TASK_FIELDS)[number]["value"];
@@ -136,10 +144,36 @@ export default function ImportWizard() {
             initialMapping[h] = "status";
           } else if (
             normalised === "assignee" ||
+            normalised === "assignees" ||
             normalised === "email" ||
-            normalised === "assignee email"
+            normalised === "assignee email" ||
+            normalised === "assignee emails"
           ) {
             initialMapping[h] = "assignee";
+          } else if (normalised === "followers" || normalised === "follower emails") {
+            initialMapping[h] = "followers";
+          } else if (normalised === "section" || normalised === "column") {
+            initialMapping[h] = "section";
+          } else if (
+            normalised === "parent" ||
+            normalised === "parent task" ||
+            normalised === "parent task (title)"
+          ) {
+            initialMapping[h] = "parent";
+          } else if (normalised === "milestone" || normalised === "is milestone") {
+            initialMapping[h] = "milestone";
+          } else if (normalised === "reminder" || normalised === "reminder at") {
+            initialMapping[h] = "reminder";
+          } else if (
+            normalised === "start date" ||
+            normalised === "start_date" ||
+            normalised === "start"
+          ) {
+            initialMapping[h] = "start_date";
+          } else if (normalised === "team" || normalised === "team name") {
+            initialMapping[h] = "team";
+          } else if (normalised === "project" || normalised === "project name") {
+            initialMapping[h] = "project";
           } else {
             initialMapping[h] = "";
           }
@@ -205,45 +239,132 @@ export default function ImportWizard() {
     setImportTotal(csvData.length);
     setImportResult(null);
 
-    const { data: targetProject } = await supabase
-      .from("projects")
-      .select("team_id")
-      .eq("id", targetProjectId)
-      .maybeSingle();
-    const projectTeamId = targetProject?.team_id || null;
+    // ---- Build resolution maps once (org hierarchy: org -> team -> project) ----
+    const projectIndex = new Map(projects.map((p) => [p.id, p]));
 
-    // Resolve the org the target project belongs to (org -> team -> project).
-    let orgId: string | null = null;
-    if (projectTeamId) {
-      const { data: team } = await supabase
-        .from("teams")
-        .select("org_id")
-        .eq("id", projectTeamId)
-        .maybeSingle();
-      orgId = team?.org_id || null;
+    const projectsByTeam = new Map<string, Project[]>();
+    const projectsByName = new Map<string, Project[]>();
+    for (const p of projects) {
+      if (p.status !== "active") continue;
+      const byTeam = projectsByTeam.get(p.team_id) ?? [];
+      byTeam.push(p);
+      projectsByTeam.set(p.team_id, byTeam);
+      const key = p.name.toLowerCase().trim();
+      const byName = projectsByName.get(key) ?? [];
+      byName.push(p);
+      projectsByName.set(key, byName);
     }
 
-    // Prefetch org member emails and team member ids once instead of querying
-    // per row. user_profiles has no email column and its reads are RLS-scoped
-    // to shared orgs, so member lookup goes through the SECURITY DEFINER
+    const teamIds = [...new Set(projects.map((p) => p.team_id))];
+    const { data: teamsData } = await supabase
+      .from("teams")
+      .select("id, name, org_id")
+      .in("id", teamIds);
+    const teamsById = new Map<string, { id: string; name: string; org_id: string | null }>();
+    const teamsByName = new Map<string, { id: string; name: string; org_id: string | null }>();
+    for (const t of teamsData ?? []) {
+      teamsById.set(t.id, t);
+      teamsByName.set(String(t.name).toLowerCase().trim(), t);
+    }
+
+    // user_profiles has no email column and its reads are RLS-scoped to shared
+    // orgs, so member lookup goes through the SECURITY DEFINER
     // get_org_member_profiles RPC — the same convention the rest of the app
     // uses (manage, people, team pages).
-    const orgEmails = new Map<string, string>();
-    if (orgId) {
-      const { data: orgProfiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
-      for (const p of orgProfiles ?? []) {
-        if (p.email) orgEmails.set(String(p.email).toLowerCase(), p.user_id);
+    const orgEmailsCache = new Map<string, Map<string, string>>();
+    async function getOrgEmails(orgId: string | null): Promise<Map<string, string>> {
+      if (!orgId) return new Map();
+      let m = orgEmailsCache.get(orgId);
+      if (!m) {
+        m = new Map();
+        const { data: profiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
+        for (const p of profiles ?? []) {
+          if (p.email) m.set(String(p.email).toLowerCase(), p.user_id);
+        }
+        orgEmailsCache.set(orgId, m);
       }
+      return m;
     }
 
-    let teamMemberIds = new Set<string>();
-    if (projectTeamId) {
-      const { data: members } = await supabase
-        .from("team_members")
-        .select("user_id")
-        .eq("team_id", projectTeamId);
-      teamMemberIds = new Set((members ?? []).map((m: { user_id: string }) => m.user_id));
+    const teamMembersCache = new Map<string, Set<string>>();
+    async function getTeamMemberIds(teamId: string): Promise<Set<string>> {
+      let s = teamMembersCache.get(teamId);
+      if (!s) {
+        s = new Set();
+        const { data } = await supabase.from("team_members").select("user_id").eq("team_id", teamId);
+        for (const m of data ?? []) s.add(m.user_id);
+        teamMembersCache.set(teamId, s);
+      }
+      return s;
     }
+
+    const sectionsCache = new Map<string, Map<string, string>>();
+    async function getSections(projectId: string): Promise<Map<string, string>> {
+      let m = sectionsCache.get(projectId);
+      if (!m) {
+        m = new Map();
+        const { data } = await supabase.from("sections").select("id, name").eq("project_id", projectId);
+        for (const s of data ?? []) m.set(s.name.toLowerCase().trim(), s.id);
+        sectionsCache.set(projectId, m);
+      }
+      return m;
+    }
+
+    function parseEmailList(raw: string | null): string[] {
+      if (!raw) return [];
+      return raw
+        .split(/[,;]/)
+        .map((e) => e.trim())
+        .filter(Boolean);
+    }
+
+    // Resolve the target project for a row: explicit Team/Project columns route
+    // the row; otherwise fall back to the project selected in step 1.
+    async function resolveProjectForRow(row: string[]): Promise<{
+      projectId: string;
+      teamId: string | null;
+      error?: string;
+    }> {
+      const teamValue = getMappedValue(row, "team");
+      const projectValue = getMappedValue(row, "project");
+
+      let team: { id: string; name: string; org_id: string | null } | null = null;
+      if (teamValue) {
+        team = teamsByName.get(teamValue.toLowerCase().trim()) ?? null;
+        if (!team) return { projectId: "", teamId: null, error: `Team "${teamValue}" not found in your teams.` };
+      }
+
+      let project: Project | null = null;
+      if (projectValue) {
+        const candidates = (projectsByName.get(projectValue.toLowerCase().trim()) ?? []).filter(
+          (p) => !team || p.team_id === team.id
+        );
+        project = candidates[0] ?? null;
+        if (!project) {
+          return {
+            projectId: "",
+            teamId: null,
+            error: team
+              ? `Project "${projectValue}" not found in team "${team.name}".`
+              : `Project "${projectValue}" not found in your projects.`,
+          };
+        }
+      } else if (team) {
+        const list = (projectsByTeam.get(team.id) ?? []).filter((p) => p.status === "active");
+        if (list.length === 0) {
+          return { projectId: "", teamId: null, error: `No active project found in team "${team.name}".` };
+        }
+        project = list[0];
+      } else {
+        project = projectIndex.get(targetProjectId) ?? null;
+        if (!project) return { projectId: "", teamId: null, error: "No default target project selected." };
+      }
+
+      return { projectId: project.id, teamId: project.team_id };
+    }
+
+    const parentLinks: { rowIdx: number; taskId: string; projectId: string; parentTitle: string | null }[] = [];
+    const insertedByTitle = new Map<string, string>();
 
     let imported = 0;
     let failed = 0;
@@ -260,11 +381,28 @@ export default function ImportWizard() {
         continue;
       }
 
+      const assignment = await resolveProjectForRow(row);
+      if (assignment.error) {
+        failed++;
+        importErrors.push(`Row ${i + 2}: ${assignment.error}`);
+        setImportProgress(i + 1);
+        continue;
+      }
+      const projectId = assignment.projectId;
+      const team = assignment.teamId ? teamsById.get(assignment.teamId) ?? null : null;
+      const orgEmails = await getOrgEmails(team?.org_id ?? null);
+      const memberIds = assignment.teamId ? await getTeamMemberIds(assignment.teamId) : new Set<string>();
+
       const description = getMappedValue(row, "description");
       const priorityRaw = getMappedValue(row, "priority");
       const dueDate = getMappedValue(row, "due_date");
+      const startDateRaw = getMappedValue(row, "start_date");
       const statusRaw = getMappedValue(row, "status");
-      const assigneeEmail = getMappedValue(row, "assignee");
+      const assigneeRaw = getMappedValue(row, "assignee");
+      const sectionRaw = getMappedValue(row, "section");
+      const milestoneRaw = getMappedValue(row, "milestone");
+      const reminderRaw = getMappedValue(row, "reminder");
+      const parentTitle = getMappedValue(row, "parent");
 
       let priority: "low" | "medium" | "high" | "urgent" = "medium";
       if (priorityRaw) {
@@ -292,12 +430,16 @@ export default function ImportWizard() {
         }
       }
 
+      function parseDate(value: string): string | null {
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return null;
+        return parsed.toISOString().split("T")[0];
+      }
+
       let dueDateFormatted: string | null = null;
       if (dueDate) {
-        const parsed = new Date(dueDate);
-        if (!isNaN(parsed.getTime())) {
-          dueDateFormatted = parsed.toISOString().split("T")[0];
-        } else {
+        dueDateFormatted = parseDate(dueDate);
+        if (!dueDateFormatted) {
           failed++;
           importErrors.push(`Row ${i + 2}: Invalid date "${dueDate}".`);
           setImportProgress(i + 1);
@@ -305,39 +447,168 @@ export default function ImportWizard() {
         }
       }
 
-      let assigneeId: string | null = null;
-      if (assigneeEmail) {
-        const matchedUserId = orgEmails.get(assigneeEmail.trim().toLowerCase());
-        if (matchedUserId && teamMemberIds.has(matchedUserId)) {
-          assigneeId = matchedUserId;
-        }
-
-        if (!assigneeId) {
+      let startDateFormatted: string | null = null;
+      if (startDateRaw) {
+        startDateFormatted = parseDate(startDateRaw);
+        if (!startDateFormatted) {
           failed++;
-          importErrors.push(`Row ${i + 2}: Assignee email "${assigneeEmail}" not found in this project's team.`);
+          importErrors.push(`Row ${i + 2}: Invalid start date "${startDateRaw}".`);
           setImportProgress(i + 1);
           continue;
         }
       }
 
-      const { error } = await supabase.from("tasks").insert({
-        project_id: targetProjectId,
-        title: title.trim(),
-        description: description?.trim() || null,
-        priority,
-        status,
-        due_date: dueDateFormatted,
-        assignee_id: assigneeId,
-      });
-
-      if (error) {
-        failed++;
-        importErrors.push(`Row ${i + 2}: ${error.message}`);
-      } else {
-        imported++;
+      let reminderAt: string | null = null;
+      if (reminderRaw) {
+        const parsed = new Date(reminderRaw);
+        if (isNaN(parsed.getTime())) {
+          failed++;
+          importErrors.push(`Row ${i + 2}: Invalid reminder datetime "${reminderRaw}".`);
+          setImportProgress(i + 1);
+          continue;
+        }
+        reminderAt = parsed.toISOString();
       }
 
+      const assigneeEmails = parseEmailList(assigneeRaw);
+      const assigneeIds: string[] = [];
+      for (const email of assigneeEmails) {
+        const uid = orgEmails.get(email.toLowerCase());
+        if (uid && memberIds.has(uid)) assigneeIds.push(uid);
+      }
+      if (assigneeRaw && assigneeEmails.length > 0 && assigneeIds.length !== assigneeEmails.length) {
+        failed++;
+        importErrors.push(`Row ${i + 2}: One or more assignee emails not found in this project's team.`);
+        setImportProgress(i + 1);
+        continue;
+      }
+
+      let sectionId: string | null = null;
+      if (sectionRaw) {
+        const sections = await getSections(projectId);
+        const key = sectionRaw.toLowerCase().trim();
+        if (sections.has(key)) {
+          sectionId = sections.get(key)!;
+        } else {
+          const { data: created, error: secErr } = await supabase
+            .from("sections")
+            .insert({ project_id: projectId, name: sectionRaw.trim() })
+            .select("id")
+            .single();
+          if (secErr || !created) {
+            failed++;
+            importErrors.push(`Row ${i + 2}: Could not create section "${sectionRaw}".`);
+            setImportProgress(i + 1);
+            continue;
+          }
+          sections.set(key, created.id);
+          sectionId = created.id;
+        }
+      }
+
+      const isMilestone = milestoneRaw
+        ? ["true", "yes", "1", "milestone", "y", "x", "check"].includes(milestoneRaw.toLowerCase().trim())
+        : false;
+
+      const { data: inserted, error } = await supabase
+        .from("tasks")
+        .insert({
+          project_id: projectId,
+          title: title.trim(),
+          description: description?.trim() || null,
+          priority,
+          status,
+          due_date: dueDateFormatted,
+          start_date: startDateFormatted,
+          section_id: sectionId,
+          is_milestone: isMilestone,
+          assignee_id: assigneeIds[0] ?? null,
+          reminder_at: reminderAt,
+        })
+        .select("id")
+        .single();
+
+      if (error || !inserted) {
+        failed++;
+        importErrors.push(`Row ${i + 2}: ${error?.message ?? "Failed to create task."}`);
+        setImportProgress(i + 1);
+        continue;
+      }
+
+      insertedByTitle.set(`${projectId}::${title.trim().toLowerCase()}`, inserted.id);
+      parentLinks.push({ rowIdx: i, taskId: inserted.id, projectId, parentTitle });
+
+      if (assigneeIds.length > 0) {
+        const { error: asgErr } = await supabase
+          .from("task_assignees")
+          .insert(assigneeIds.map((uid) => ({ task_id: inserted.id, user_id: uid })));
+        if (asgErr) {
+          failed++;
+          importErrors.push(`Row ${i + 2}: Could not set assignees (${asgErr.message}).`);
+          setImportProgress(i + 1);
+          continue;
+        }
+      }
+
+      const followerEmails = parseEmailList(getMappedValue(row, "followers"));
+      const followerIds: string[] = [];
+      for (const email of followerEmails) {
+        const uid = orgEmails.get(email.toLowerCase());
+        if (uid && memberIds.has(uid)) followerIds.push(uid);
+      }
+      if (followerEmails.length > 0 && followerIds.length !== followerEmails.length) {
+        failed++;
+        importErrors.push(`Row ${i + 2}: One or more follower emails not found in this project's team.`);
+        setImportProgress(i + 1);
+        continue;
+      }
+      if (followerIds.length > 0) {
+        const { error: folErr } = await supabase
+          .from("task_followers")
+          .insert(followerIds.map((uid) => ({ task_id: inserted.id, user_id: uid })));
+        if (folErr) {
+          failed++;
+          importErrors.push(`Row ${i + 2}: Could not add followers (${folErr.message}).`);
+          setImportProgress(i + 1);
+          continue;
+        }
+      }
+
+      imported++;
       setImportProgress(i + 1);
+    }
+
+    // Second pass: link subtasks to their parents (by title, within the same
+    // project). Already-imported rows win; otherwise fall back to existing
+    // tasks with the same title in that project.
+    for (const link of parentLinks) {
+      if (!link.parentTitle) continue;
+      const key = `${link.projectId}::${link.parentTitle.toLowerCase().trim()}`;
+      if (insertedByTitle.get(key) === link.taskId) {
+        failed++;
+        importErrors.push(`Row ${link.rowIdx + 2}: Parent task cannot reference itself.`);
+        continue;
+      }
+      let parentId = insertedByTitle.get(key) ?? null;
+      if (!parentId) {
+        const { data: existing } = await supabase
+          .from("tasks")
+          .select("id")
+          .eq("project_id", link.projectId)
+          .eq("title", link.parentTitle)
+          .maybeSingle();
+        parentId = existing?.id ?? null;
+      }
+      if (!parentId) {
+        failed++;
+        importErrors.push(`Row ${link.rowIdx + 2}: Parent task "${link.parentTitle}" not found in project.`);
+        continue;
+      }
+      const { error } = await supabase.from("tasks").update({ parent_id: parentId }).eq("id", link.taskId);
+      if (error) {
+        failed++;
+        importErrors.push(`Row ${link.rowIdx + 2}: Could not link parent task (${error.message}).`);
+      }
     }
 
     setImportResult({ imported, failed, errors: importErrors });
@@ -416,8 +687,12 @@ export default function ImportWizard() {
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-4">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Select Target Project
+              Select Default Project
             </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Tasks without a Team or Project column are imported here. If you map Team or
+              Project columns in step 2, each row is routed into the matching project instead.
+            </p>
             {loadingProjects ? (
               <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                 <div className="w-4 h-4 border-2 border-slate-200 dark:border-slate-700 border-t-indigo-600 rounded-full animate-spin" />
@@ -522,7 +797,8 @@ export default function ImportWizard() {
               Map CSV Columns to Task Fields
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Match each CSV header to the corresponding task field
+              Match each CSV header to the corresponding task field. Map the Team or Project
+              columns to route each row into the matching project.
             </p>
           </div>
 
@@ -748,6 +1024,19 @@ export default function ImportWizard() {
                           {assignee || "\u2014"}
                         </td>
                       )}
+                      {TASK_FIELDS.filter(
+                        (f) =>
+                          !["title", "description", "priority", "due_date", "status", "assignee"].includes(
+                            f.value
+                          ) && Object.values(columnMapping).includes(f.value)
+                      ).map((f) => (
+                        <td
+                          key={f.value}
+                          className="py-3 px-4 text-slate-600 dark:text-slate-400 text-xs"
+                        >
+                          {getMappedValue(row, f.value as TaskField) || "\u2014"}
+                        </td>
+                      ))}
                     </tr>
                   );
                 })}
@@ -769,6 +1058,9 @@ export default function ImportWizard() {
               <span className="font-medium text-slate-700 dark:text-slate-300">
                 {projects.find((p) => p.id === targetProjectId)?.name ?? "selected project"}
               </span>
+              {Object.values(columnMapping).some((v) => v === "project" || v === "team")
+                ? " or the project named in each row"
+                : ""}
             </p>
           </div>
 

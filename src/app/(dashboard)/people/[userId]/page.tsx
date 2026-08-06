@@ -515,11 +515,13 @@ export default function MemberDetailPage() {
               <div className="space-y-2">
                 {upcomingEvents.map((e, index) => {
                   const start = new Date(e.start_date);
+                  const endMs = e.end_date ? new Date(e.end_date).getTime() : null;
                   const dayLabel = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
                   const timeLabel = e.all_day
                     ? "All day"
                     : start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-                  const showCountdown = index === 0 && !e.all_day && start.getTime() > nowMs && start.getTime() - nowMs <= 7 * 86400000;
+                  const isInProgress = endMs !== null && start.getTime() <= nowMs && nowMs < endMs;
+                  const showCountdown = index === 0 && !e.all_day && (isInProgress || (start.getTime() > nowMs && start.getTime() - nowMs <= 7 * 86400000));
                   return (
                     <button
                       key={e.id}
@@ -548,7 +550,7 @@ export default function MemberDetailPage() {
                           {e.team_name && ` · ${e.team_name}`}
                         </p>
                         {showCountdown && (
-                          <CountdownTimer target={start.getTime()} className="text-[11px] font-semibold text-accent mt-0.5" />
+                          <CountdownTimer target={start.getTime()} end={e.end_date} className="text-[11px] font-semibold text-accent mt-0.5" />
                         )}
                       </div>
                       {e.meet_link && (

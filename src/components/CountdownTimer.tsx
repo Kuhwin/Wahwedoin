@@ -22,29 +22,34 @@ export function formatCountdown(targetMs: number, nowMs: number): string {
 
 export default function CountdownTimer({
   target,
+  end,
   className,
   onComplete,
 }: {
   target: string | number;
+  end?: string | number | null;
   className?: string;
   onComplete?: () => void;
 }) {
   const targetMs = new Date(target).getTime();
+  const endMs = end ? new Date(end).getTime() : null;
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const interval = setInterval(() => {
       const next = Date.now();
       setNow(next);
-      if (next >= targetMs) {
+      if (endMs ? next >= endMs : next >= targetMs) {
         clearInterval(interval);
         onComplete?.();
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [targetMs, onComplete]);
+  }, [targetMs, endMs, onComplete]);
 
-  if (now >= targetMs) return null;
-
-  return <span className={className}>{formatCountdown(targetMs, now)}</span>;
+  if (now < targetMs) {
+    return <span className={className}>{formatCountdown(targetMs, now)}</span>;
+  }
+  if (endMs && now < endMs) return <span className={className}>Now</span>;
+  return null;
 }

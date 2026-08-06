@@ -284,7 +284,9 @@ export default function DashboardPage() {
               const isHoliday = String(evt.id).startsWith("holiday-");
               const isExternal = String(evt.id).startsWith("external-");
               const dateLabel = isToday ? "Today" : isTomorrow ? "Tomorrow" : evtDate.toLocaleDateString("en-GB", { weekday: "short", month: "short", day: "numeric" });
-              const showCountdown = index === 0 && !evt.all_day && evtDate.getTime() > nowMs && evtDate.getTime() - nowMs <= 7 * 86400000;
+              const evtEndMs = evt.end_date ? new Date(evt.end_date).getTime() : null;
+              const isInProgress = evtEndMs !== null && evtDate.getTime() <= nowMs && nowMs < evtEndMs;
+              const showCountdown = index === 0 && !evt.all_day && (isInProgress || (evtDate.getTime() > nowMs && evtDate.getTime() - nowMs <= 7 * 86400000));
 
               return (
                 <button
@@ -320,7 +322,7 @@ export default function DashboardPage() {
                       </div>
                       {showCountdown && (
                         <div className="mt-1.5">
-                          <CountdownTimer target={evtDate.getTime()} className="text-xs font-semibold text-accent" />
+                          <CountdownTimer target={evtDate.getTime()} end={evt.end_date} className="text-xs font-semibold text-accent" />
                         </div>
                       )}
                     </div>
