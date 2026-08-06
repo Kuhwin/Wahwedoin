@@ -13,7 +13,7 @@ import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
 import CountdownTimer from "@/components/CountdownTimer";
 import EventDetailModal, { type EventDetailData } from "@/components/EventDetailModal";
-import { cn } from "@/lib/utils";
+import { addDaysToDate, cn, dateInTimezone, DEFAULT_TIMEZONE } from "@/lib/utils";
 
 interface MemberProfile {
   user_id: string;
@@ -91,9 +91,11 @@ export default function MemberDetailPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
 
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
-  // eslint-disable-next-line react-hooks/purity
-  const weekFromNow = useMemo(() => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], []);
+  // "Today" is the person's local calendar day (their saved timezone), so
+  // overdue / due-this-week counts match what they see in their own list.
+  const tz = member?.timezone || DEFAULT_TIMEZONE;
+  const today = useMemo(() => dateInTimezone(tz), [tz]);
+  const weekFromNow = useMemo(() => addDaysToDate(today, 7), [today]);
   // eslint-disable-next-line react-hooks/purity
   const nowMs = useMemo(() => Date.now(), []);
 

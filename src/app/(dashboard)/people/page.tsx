@@ -223,6 +223,19 @@ export default function PeoplePage() {
     );
   }, [members, search]);
 
+  // Workload rows sorted by burden so overloaded members surface first.
+  const workloadRows = useMemo(() => {
+    return filteredMembers
+      .map((m) => ({ member: m, w: workload[m.user_id] }))
+      .filter((r): r is { member: OrgMember; w: WorkloadStats } => Boolean(r.w))
+      .sort((a, b) => b.w.overdue - a.w.overdue || b.w.open - a.w.open);
+  }, [filteredMembers, workload]);
+
+  const maxOpen = useMemo(
+    () => Math.max(1, ...Object.values(workload).map((x) => x.open)),
+    [workload]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -321,50 +334,45 @@ export default function PeoplePage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredMembers.map((member) => {
-                  const w = workload[member.user_id];
-                  if (!w) return null;
-                  const maxOpen = Math.max(1, ...Object.values(workload).map((x) => x.open));
-                  return (
-                    <tr key={member.user_id} className="border-b border-slate-50 dark:border-slate-800/60 last:border-0">
-                      <td className="px-5 py-2.5 text-slate-900 dark:text-slate-100 font-medium whitespace-nowrap">
-                        {member.display_name || member.email || "Unknown"}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-900 dark:text-slate-100">{w.open}</td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                          w.in_progress > 0
-                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                            : "text-slate-400"
-                        )}>
-                          {w.in_progress}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn(
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                          w.overdue > 0
-                            ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
-                            : "text-slate-400"
-                        )}>
-                          {w.overdue}
-                        </span>
-                      </td>
-                      <td className="px-5 py-2.5">
-                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full",
-                              w.overdue > 0 ? "bg-red-500" : "bg-indigo-500"
-                            )}
-                            style={{ width: `${Math.round((w.open / maxOpen) * 100)}%` }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {workloadRows.map(({ member, w }) => (
+                  <tr key={member.user_id} className="border-b border-slate-50 dark:border-slate-800/60 last:border-0">
+                    <td className="px-5 py-2.5 text-slate-900 dark:text-slate-100 font-medium whitespace-nowrap">
+                      {member.display_name || member.email || "Unknown"}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-900 dark:text-slate-100">{w.open}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={cn(
+                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                        w.in_progress > 0
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                          : "text-slate-400"
+                      )}>
+                        {w.in_progress}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={cn(
+                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                        w.overdue > 0
+                          ? "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
+                          : "text-slate-400"
+                      )}>
+                        {w.overdue}
+                      </span>
+                    </td>
+                    <td className="px-5 py-2.5">
+                      <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            w.overdue > 0 ? "bg-red-500" : "bg-indigo-500"
+                          )}
+                          style={{ width: `${Math.round((w.open / maxOpen) * 100)}%` }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -387,6 +395,11 @@ export default function PeoplePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredMembers.map((member) => {
             const s = stats[member.user_id];
+            const w = workload[member.user_id];
+            // Prefer the timezone-aware workload API; fall back to the
+            // client-side estimate if the API call failed.
+            const active = w?.open ?? s?.activeTasks ?? 0;
+            const overdue = w?.overdue ?? s?.overdueTasks ?? 0;
             const lastActive = s?.lastActivity ? new Date(s.lastActivity) : null;
             const lastActiveStr = lastActive
               ? lastActive.toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -422,22 +435,22 @@ export default function PeoplePage() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 py-2">
-                    <p className="text-base font-bold text-slate-900 dark:text-slate-100">{s?.activeTasks ?? 0}</p>
+                    <p className="text-base font-bold text-slate-900 dark:text-slate-100">{active}</p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">Active</p>
                   </div>
                   <div className={cn(
                     "rounded-lg py-2",
-                    (s?.overdueTasks ?? 0) > 0
+                    overdue > 0
                       ? "bg-red-50 dark:bg-red-900/20"
                       : "bg-slate-50 dark:bg-slate-800/50"
                   )}>
                     <p className={cn(
                       "text-base font-bold",
-                      (s?.overdueTasks ?? 0) > 0
+                      overdue > 0
                         ? "text-red-600 dark:text-red-400"
                         : "text-slate-900 dark:text-slate-100"
                     )}>
-                      {s?.overdueTasks ?? 0}
+                      {overdue}
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">Overdue</p>
                   </div>
