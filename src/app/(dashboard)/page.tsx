@@ -347,7 +347,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
-                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         title="Mark as done"
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />
@@ -381,7 +381,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
-                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         title="Mark as done"
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />
@@ -409,7 +409,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
-                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                        className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         title="Mark as done"
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />

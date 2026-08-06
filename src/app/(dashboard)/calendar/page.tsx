@@ -813,7 +813,7 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Calendar</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -825,7 +825,7 @@ export default function CalendarPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => void refreshExternal(calLinks)} disabled={loadingCal} title="Re-sync Google Calendar and linked calendars">
             <RefreshCw size={14} />
             Sync
@@ -931,7 +931,7 @@ export default function CalendarPage() {
             return (
               <div
                 key={idx}
-                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1.5 last:border-r-0 transition-colors ${
+                className={`min-h-[80px] md:min-h-[100px] border-b border-r border-slate-100 dark:border-slate-700/50 p-1 md:p-1.5 last:border-r-0 transition-colors ${
                   day ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50" : ""
                 } ${dragOverDay === day && draggedEvent ? "bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-inset ring-indigo-300 dark:ring-indigo-600" : ""}`}
                 onClick={() => day && handleDayClick(day)}

@@ -454,7 +454,7 @@ export default function PortfoliosPage() {
                   </div>
                   <button
                     onClick={() => setConfirmRemoveProject(entry)}
-                    className="p-2 rounded-lg text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-2 rounded-lg text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                     title="Remove from portfolio"
                   >
                     <Trash2 size={16} />
@@ -630,7 +630,7 @@ export default function PortfoliosPage() {
                 )}
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirmDelete(portfolio); }}
-                  className="absolute top-3 right-12 p-1.5 rounded-lg text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100 transition-all"
+                  className="absolute top-3 right-12 p-1.5 rounded-lg text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/20 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                   title="Delete portfolio"
                 >
                   <Trash2 size={14} />

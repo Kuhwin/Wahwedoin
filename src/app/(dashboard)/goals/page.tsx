@@ -385,7 +385,7 @@ export default function GoalsPage() {
               >
                 <div className="flex items-start justify-between mb-2">
                   <Badge variant={status.variant}>{status.label}</Badge>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); openEdit(g); }}
                       className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"

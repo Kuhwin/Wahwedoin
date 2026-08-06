@@ -262,7 +262,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 overflow-x-auto">
         <button
           onClick={() => setTab("profile")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${

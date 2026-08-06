@@ -356,14 +356,14 @@ export default function ProjectEvents({
                 )}
                 <span
                   onClick={(e) => { e.stopPropagation(); handleEdit(evt); }}
-                  className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   title="Edit event"
                 >
                   <Pencil size={14} />
                 </span>
                 <span
                   onClick={(e) => { e.stopPropagation(); void handleDelete(evt); }}
-                  className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1.5 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                   title="Delete event"
                 >
                   <Trash2 size={14} />

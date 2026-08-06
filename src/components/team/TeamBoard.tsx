@@ -111,7 +111,7 @@ export default function TeamBoard({ teamId, members, memberProfiles }: TeamBoard
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Filter size={14} className="text-slate-400" />
           <select

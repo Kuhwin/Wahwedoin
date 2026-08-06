@@ -196,7 +196,7 @@ export default function TeamLinks({ teamId, currentUser, userRole }: TeamLinksPr
                     {(userRole === "owner" || userRole === "admin") && (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleDelete(link.id); }}
-                        className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                         title="Delete"
                       >
                         <Trash2 size={12} />

@@ -154,11 +154,11 @@ function ListViewInner({
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
       {/* Bulk Action Bar */}
       {hasSelection && (
-        <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-200 dark:border-indigo-800 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-200 dark:border-indigo-800 px-4 py-2.5">
           <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
             {selectedIds.size} task{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
             {showBulkStatus ? (
               <div className="flex items-center gap-2">
                 {(["todo", "in_progress", "done"] as const).map((s) => (
@@ -220,8 +220,10 @@ function ListViewInner({
         </div>
       )}
 
-      {/* Header */}
-      <div className={cn("grid items-center border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800", GRID)}>
+      {/* Table scroll on small screens */}
+      <div className="overflow-x-auto">
+        {/* Header */}
+        <div className={cn("grid items-center min-w-[720px] border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800", GRID)}>
         <div className="flex items-center justify-center px-2 py-3">
           <button
             onClick={toggleSelectAll}
@@ -339,7 +341,7 @@ function ListViewInner({
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                           className={cn(
-                            "grid items-center border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-grab active:cursor-grabbing",
+                            "grid items-center min-w-[720px] border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-grab active:cursor-grabbing",
                             snapshot.isDragging && "bg-indigo-50 dark:bg-indigo-900/20 shadow-lg ring-1 ring-indigo-200 dark:ring-indigo-800",
                             isSelected && "bg-indigo-50 dark:bg-indigo-900/20"
                           )}
@@ -472,6 +474,7 @@ function ListViewInner({
           )}
         </Droppable>
       </DragDropContext>
+      </div>
     </div>
   );
 }

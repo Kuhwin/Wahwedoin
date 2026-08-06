@@ -219,11 +219,11 @@ function KanbanBoardInner({
     <DragDropContext onDragEnd={handleDragEnd}>
       {/* Bulk Action Bar */}
       {hasSelection && (
-        <div className="mb-4 flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl px-4 py-2.5 animate-in fade-in slide-in-from-top-2">
           <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400">
             {selectedTaskIds.size} task{selectedTaskIds.size !== 1 ? "s" : ""} selected
           </span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
             {showBulkMove ? (
               <div className="flex items-center gap-2">
                 <select
@@ -467,7 +467,7 @@ function KanbanBoardInner({
                                         menuTaskId === task.id ? null : task.id
                                       );
                                     }}
-                                    className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="p-1 rounded text-slate-300 dark:text-slate-600 hover:text-slate-500 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                   >
                                     <MoreHorizontal size={14} />
                                   </button>

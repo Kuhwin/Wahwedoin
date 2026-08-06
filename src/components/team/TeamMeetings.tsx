@@ -212,7 +212,7 @@ export default function TeamMeetings({ teamId, currentUser, userRole }: TeamMeet
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     {meeting.meet_url && (
                       <a
                         href={meeting.meet_url}

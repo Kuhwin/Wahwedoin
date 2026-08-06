@@ -122,7 +122,7 @@ export default function GanttView({ tasks, onTaskClick, projectStart, projectDue
         <div className="relative min-w-full" style={{ minWidth: 320 + totalWidth }}>
           {/* Header row */}
           <div className="flex border-b border-slate-200 dark:border-slate-700">
-            <div className="w-72 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <div className="w-72 flex-shrink-0 sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
               Task
             </div>
             <div className="relative flex-1" style={{ width: totalWidth }}>
@@ -141,7 +141,7 @@ export default function GanttView({ tasks, onTaskClick, projectStart, projectDue
           {/* Project key dates bar */}
           {(projectStartIdx !== null || projectDueIdx !== null) && (
             <div className="flex border-b border-slate-200 dark:border-slate-700">
-              <div className="w-72 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+              <div className="w-72 flex-shrink-0 sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-300">
                 Project
               </div>
               <div className="relative flex-1" style={{ width: totalWidth, height: 28 }}>
@@ -177,7 +177,7 @@ export default function GanttView({ tasks, onTaskClick, projectStart, projectDue
                 onClick={() => onTaskClick(task)}
                 className="flex w-full text-left border-b border-slate-100 dark:border-slate-700/50 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group"
               >
-                <div className="w-72 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 px-3 py-1.5 flex items-center gap-2 min-w-0">
+                <div className="w-72 flex-shrink-0 sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 px-3 py-1.5 flex items-center gap-2 min-w-0">
                   {task.is_milestone && <span className="text-amber-500 text-[10px] flex-shrink-0">◆</span>}
                   <span className={cn("truncate text-xs", isSubtask ? "pl-4 text-slate-400 dark:text-slate-500" : "font-medium text-slate-700 dark:text-slate-300 group-hover:text-accent")}>
                     {task.title}

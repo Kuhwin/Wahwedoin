@@ -221,7 +221,7 @@ export default function ProjectsPage() {
               <div className="absolute top-3 right-3" ref={(el) => { if (menuOpen === project.id && menuRef.current) menuRef.current = el; }}>
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen(menuOpen === project.id ? null : project.id); }}
-                  className="p-1 rounded-md text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                  className="p-1 rounded-md text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                 >
                   <MoreVertical size={16} />
                 </button>

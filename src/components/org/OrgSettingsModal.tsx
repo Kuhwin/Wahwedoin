@@ -40,6 +40,7 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
   const [, setAdding] = useState(false);
   const [searchResults, setSearchResults] = useState<{ user_id: string; display_name: string; email: string }[]>([]);
   const [, setSearching] = useState(false);
+  const [roleMenuOpenId, setRoleMenuOpenId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -264,36 +265,48 @@ export default function OrgSettingsModal({ open, onClose, orgId, orgName, onOrgU
                         <Badge>Member</Badge>
                       )}
                       {canManage && member.role !== "owner" && (
-                        <div className="relative group">
-                          <button className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500">
+                        <div className="relative">
+                          <button
+                            onClick={() => setRoleMenuOpenId(roleMenuOpenId === member.id ? null : member.id)}
+                            className="p-1 rounded text-slate-400 hover:text-slate-600 transition-colors dark:text-slate-500"
+                            title="Manage role"
+                          >
                             <UserCog size={14} />
                           </button>
-                          <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[130px] hidden group-hover:block">
-                            {member.role === "admin" ? (
-                              <button
-                                onClick={() => void handleChangeRole(member, "member")}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                              >
-                                <Shield size={12} />
-                                Demote to Member
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => void handleChangeRole(member, "admin")}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                              >
-                                <ShieldAlert size={12} />
-                                Promote to Admin
-                              </button>
-                            )}
-                            <button
-                              onClick={() => void handleRemoveMember(member.id, member.user_id)}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                            >
-                              <UserMinus size={12} />
-                              {member.user_id === currentUserId ? "Leave" : "Remove"}
-                            </button>
-                          </div>
+                          {roleMenuOpenId === member.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setRoleMenuOpenId(null)}
+                              />
+                              <div className="absolute right-0 top-7 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-20 min-w-[130px]">
+                                {member.role === "admin" ? (
+                                  <button
+                                    onClick={() => { setRoleMenuOpenId(null); void handleChangeRole(member, "member"); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                  >
+                                    <Shield size={12} />
+                                    Demote to Member
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => { setRoleMenuOpenId(null); void handleChangeRole(member, "admin"); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                  >
+                                    <ShieldAlert size={12} />
+                                    Promote to Admin
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => { setRoleMenuOpenId(null); void handleRemoveMember(member.id, member.user_id); }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                >
+                                  <UserMinus size={12} />
+                                  {member.user_id === currentUserId ? "Leave" : "Remove"}
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                       {canManage && member.user_id === currentUserId && member.role !== "owner" && (

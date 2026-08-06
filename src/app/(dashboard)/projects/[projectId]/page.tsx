@@ -792,7 +792,7 @@ export default function ProjectPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -851,7 +851,7 @@ export default function ProjectPage() {
             })()}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Member Avatars */}
           <div className="hidden sm:flex items-center -space-x-2 mr-2">
             {members.slice(0, 5).map((member) => (
