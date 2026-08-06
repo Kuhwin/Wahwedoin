@@ -14,6 +14,7 @@ const COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#eab308"
 
 const RECURRENCE_OPTIONS = [
   { value: "", label: "Does not repeat" },
+  { value: "daily", label: "Every day" },
   { value: "weekly", label: "Every week" },
   { value: "biweekly", label: "Every 2 weeks" },
   { value: "monthly", label: "Every month" },

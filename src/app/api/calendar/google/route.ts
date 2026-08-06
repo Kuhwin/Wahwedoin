@@ -60,6 +60,7 @@ export async function GET(request: Request) {
           accountColor: a.color || "#4285F4",
           events: (data.items || []).map((e) => ({
             id: `${a.google_user_id}:${e.id}`,
+            googleEventId: e.id,
             title: e.summary || "(No title)",
             start: e.start?.dateTime || e.start?.date || "",
             end: e.end?.dateTime || e.end?.date || "",

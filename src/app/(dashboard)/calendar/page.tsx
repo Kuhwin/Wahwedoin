@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check, X, Edit3, Repeat, Video, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Link2, Trash2, Loader2, Check, X, Edit3, Repeat, Video, Users, RefreshCw } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -24,6 +24,7 @@ interface ExternalEvent {
   source?: string;
   meetLink?: string | null;
   attendees?: { email: string; name?: string; status?: string }[];
+  googleEventId?: string | null;
 }
 
 interface CalendarEvent {
@@ -48,6 +49,7 @@ const CALENDAR_COLORS = [
 
 const RECURRENCE_OPTIONS = [
   { value: "", label: "Does not repeat" },
+  { value: "daily", label: "Every day" },
   { value: "weekly", label: "Every week" },
   { value: "biweekly", label: "Every 2 weeks" },
   { value: "monthly", label: "Every month" },
@@ -213,6 +215,8 @@ export default function CalendarPage() {
   const [editEndTime, setEditEndTime] = useState("10:00");
   const [editAllDay, setEditAllDay] = useState(true);
   const [editMeetLink, setEditMeetLink] = useState("");
+  const [editRecurrence, setEditRecurrence] = useState("");
+  const [editRecurrenceEnd, setEditRecurrenceEnd] = useState("");
   const [saving, setSaving] = useState(false);
   const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
@@ -329,6 +333,83 @@ export default function CalendarPage() {
   );
 
   const calLoaded = useRef(false);
+
+  const refreshExternal = useCallback(async (links: CalendarLink[]) => {
+    setLoadingCal(true);
+    const allExternal: ExternalEvent[] = [];
+
+    const now = new Date();
+    const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
+    for (const year of holidayYears) {
+      for (const h of getHolidaysForYear(year)) {
+        const nextDay = new Date(year, h.month, h.day + 1);
+        const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
+        allExternal.push({
+          id: `holiday-${h.dateStr}-${h.name}`,
+          title: h.name,
+          start: h.dateStr,
+          end: nextDayStr,
+          description: "Barbados public holiday",
+          allDay: true,
+          color: "#16a34a",
+          source: "Barbados Holidays",
+        });
+      }
+    }
+
+    await Promise.all(
+      links.map(async (link) => {
+        try {
+          const res = await fetch("/api/calendar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: link.ical_url, color: link.color }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.events) {
+              allExternal.push(...data.events.map((e: ExternalEvent) => ({ ...e, color: link.color })));
+            }
+          }
+        } catch { /* skip */ }
+      })
+    );
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) {
+      try {
+        const res = await fetch(`/api/calendar/google?days=90`, { cache: "no-store" });
+        if (res.ok) {
+          const googleData = await res.json();
+          for (const result of googleData.events || []) {
+            for (const event of result.events) {
+              allExternal.push({
+                id: event.id,
+                title: event.title,
+                start: event.start,
+                end: event.end,
+                description: event.description,
+                allDay: event.allDay,
+                color: result.accountColor || "#4285F4",
+                source: result.accountEmail,
+                meetLink: event.meetLink || null,
+                attendees: event.attendees || [],
+                googleEventId: event.googleEventId || null,
+              });
+            }
+          }
+        } else {
+          console.warn("[calendar] Google events fetch failed", res.status);
+        }
+      } catch (e) {
+        console.warn("[calendar] Google events fetch error", e);
+      }
+    }
+
+    setExternalEvents(allExternal);
+    setLoadingCal(false);
+  }, [supabase]);
+
   useEffect(() => {
     if (calData && !calLoaded.current) {
       calLoaded.current = true;
@@ -345,107 +426,9 @@ export default function CalendarPage() {
         setFilterTeamIds((prev) => prev.length > 0 ? prev : calData.teamList.map((t) => t.id));
       }
 
-      const fetchExternal = async () => {
-        const allExternal: ExternalEvent[] = [];
-        const now = new Date();
-        const holidayYears = [now.getFullYear(), now.getFullYear() + 1];
-        for (const year of holidayYears) {
-          for (const h of getHolidaysForYear(year)) {
-            const nextDay = new Date(year, h.month, h.day + 1);
-            const nextDayStr = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
-            allExternal.push({
-              id: `holiday-${h.dateStr}-${h.name}`,
-              title: h.name,
-              start: h.dateStr,
-              end: nextDayStr,
-              description: "Barbados public holiday",
-              allDay: true,
-              color: "#16a34a",
-              source: "Barbados Holidays",
-            });
-          }
-        }
-
-        await Promise.all(
-          calData.calLinksData.map(async (link) => {
-            try {
-              const res = await fetch("/api/calendar", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ url: link.ical_url, color: link.color }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.events) {
-                  allExternal.push(...data.events.map((e: ExternalEvent) => ({ ...e, color: link.color })));
-                }
-              }
-            } catch { /* skip */ }
-          })
-        );
-
-        if (calData.user?.id) {
-          try {
-            const res = await fetch(`/api/calendar/google?days=90`, { cache: "no-store" });
-            if (res.ok) {
-              const googleData = await res.json();
-              for (const result of googleData.events || []) {
-                for (const event of result.events) {
-                  allExternal.push({
-                    id: event.id,
-                    title: event.title,
-                    start: event.start,
-                    end: event.end,
-                    description: event.description,
-                    allDay: event.allDay,
-                    color: result.accountColor || "#4285F4",
-                    source: result.accountEmail,
-                    meetLink: event.meetLink || null,
-                    attendees: event.attendees || [],
-                  });
-                }
-              }
-            } else {
-              console.warn("[calendar] Google events fetch failed", res.status);
-            }
-          } catch (e) {
-            console.warn("[calendar] Google events fetch error", e);
-          }
-        }
-
-        setExternalEvents(allExternal);
-      };
-      void fetchExternal();
+      void refreshExternal(calData.calLinksData);
     }
-  }, [calData]);
-
-  async function fetchAllExternalEvents(links: CalendarLink[]) {
-    setLoadingCal(true);
-    const allEvents: ExternalEvent[] = [];
-    await Promise.all(
-      links.map(async (link) => {
-        try {
-          const res = await fetch("/api/calendar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: link.ical_url, color: link.color }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.events) {
-              allEvents.push(...data.events.map((e: ExternalEvent) => ({ ...e, color: link.color })));
-            }
-          }
-        } catch { /* skip */ }
-      })
-    );
-    setExternalEvents((prev) => {
-      const holidays = prev.filter((e) => e.source === "Barbados Holidays");
-      const google = prev.filter((e) => e.source !== "Barbados Holidays");
-      return [...holidays, ...google, ...allEvents];
-    });
-    setLoadingCal(false);
-  }
+  }, [calData, refreshExternal]);
 
   async function handleLinkCalendar(e: React.FormEvent) {
     e.preventDefault();
@@ -463,7 +446,7 @@ export default function CalendarPage() {
     } catch { setLinkError("Could not reach this calendar URL."); setLinking(false); return; }
     const { data: link, error } = await supabase.from("calendar_links").insert({ user_id: user.id, team_id: teamId, label: linkLabel.trim() || "My Calendar", ical_url: linkUrl.trim(), color: linkColor }).select().single();
     if (error) { setLinkError(error.message || "Failed to save."); }
-    else if (link) { setCalLinks([...calLinks, link]); setLinkUrl(""); setLinkLabel(""); setShowLinkCal(false); setLinkError(""); fetchAllExternalEvents([...calLinks, link]); }
+    else if (link) { setCalLinks([...calLinks, link]); setLinkUrl(""); setLinkLabel(""); setShowLinkCal(false); setLinkError(""); void refreshExternal([...calLinks, link]); }
     setLinking(false);
   }
 
@@ -472,7 +455,7 @@ export default function CalendarPage() {
     await supabase.from("calendar_links").delete().eq("id", linkId);
     const remaining = calLinks.filter((l) => l.id !== linkId);
     setCalLinks(remaining);
-    fetchAllExternalEvents(remaining);
+    void refreshExternal(remaining);
   }
 
   const year = currentDate.getFullYear();
@@ -491,6 +474,13 @@ export default function CalendarPage() {
     const rangeEnd = new Date(year, month + 1, 0);
     return expandRecurringEvents(events, rangeStart, rangeEnd, timezone);
   }, [events, year, month, timezone]);
+
+  // Google-synced events are stored locally AND come back through the Google
+  // feed; skip the feed copy so each event renders once.
+  const syncedGoogleEventIds = useMemo(
+    () => new Set(events.map((ev) => ev.google_event_id).filter((v): v is string => Boolean(v))),
+    [events]
+  );
 
   function getEventsForDay(day: number) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -527,6 +517,7 @@ export default function CalendarPage() {
     }));
 
     const external = externalEvents.filter((event) => {
+      if (event.googleEventId && syncedGoogleEventIds.has(event.googleEventId)) return false;
       const isAllDay = event.allDay || (!event.start.includes("T") && !event.end.includes("T"));
       if (isAllDay) {
         const start = event.start.split("T")[0];
@@ -596,6 +587,8 @@ export default function CalendarPage() {
       setEditAllDay(true);
     }
     setEditMeetLink(event.meetLink || event.originalEvent?.meet_link || "");
+    setEditRecurrence(event.originalEvent?.recurrence || "");
+    setEditRecurrenceEnd(event.originalEvent?.recurrence_end || "");
     setSelectedEvent(null);
   }
 
@@ -621,6 +614,8 @@ export default function CalendarPage() {
         all_day: editAllDay,
         color: editColor,
         meet_link: editMeetLink.trim() || null,
+        recurrence: editRecurrence || null,
+        recurrence_end: editRecurrenceEnd || null,
       }).eq("id", ev.id);
 
       if (ev.google_account_id) {
@@ -831,6 +826,10 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => void refreshExternal(calLinks)} disabled={loadingCal} title="Re-sync Google Calendar and linked calendars">
+            <RefreshCw size={14} />
+            Sync
+          </Button>
           <Button variant="secondary" onClick={() => setShowLinkCal(true)}>
             <Link2 size={14} />
             Link Calendar
@@ -1164,6 +1163,18 @@ export default function CalendarPage() {
                     className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                 </div>
               </div>
+            )}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Repeat</label>
+              <select value={editRecurrence} onChange={(e) => setEditRecurrence(e.target.value)}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                {RECURRENCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {editRecurrence && (
+              <Input label="Repeat until (optional)" type="date" value={editRecurrenceEnd} onChange={(e) => setEditRecurrenceEnd(e.target.value)} />
             )}
             <Input label="Google Meet Link (optional)" placeholder="https://meet.google.com/..." value={editMeetLink} onChange={(e) => setEditMeetLink(e.target.value)} />
             {editingEvent?.originalEvent?.google_account_id && (() => {
