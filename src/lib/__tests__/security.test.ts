@@ -35,6 +35,20 @@ describe("isSafeUrl", () => {
     expect(isSafeUrl("https://[fc00::1]/")).toBe(false);
   });
 
+  it("rejects integer and hex IPv4 encodings of private addresses", () => {
+    expect(isSafeUrl("https://2130706433/")).toBe(false); // 127.0.0.1
+    expect(isSafeUrl("https://0x7f000001/")).toBe(false); // 127.0.0.1
+    expect(isSafeUrl("https://0x7f.0.0.1/")).toBe(false);
+    expect(isSafeUrl("https://0177.0.0.1/")).toBe(false); // octal 127.0.0.1
+    expect(isSafeUrl("https://3232235777/")).toBe(false); // 192.168.1.1
+    expect(isSafeUrl("https://2852039166/")).toBe(false); // 169.254.169.254
+  });
+
+  it("rejects raw public IP hostnames", () => {
+    expect(isSafeUrl("https://93.184.216.34/")).toBe(false);
+    expect(isSafeUrl("https://1.1.1.1/")).toBe(false);
+  });
+
   it("rejects malformed URLs", () => {
     expect(isSafeUrl("not a url")).toBe(false);
     expect(isSafeUrl("")).toBe(false);

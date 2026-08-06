@@ -54,6 +54,13 @@ export function isSafeUrl(urlString: string): boolean {
   if (isPrivateIP(parsed.hostname)) return false;
   if (/\.internal$/i.test(parsed.hostname)) return false;
 
+  // Reject raw IP hosts and integer/hex/octal IPv4 encodings. A hostname
+  // like "2130706433" or "0x7f000001" normalizes to 127.0.0.1 on many
+  // resolvers and would otherwise bypass the private-range checks above.
+  const labels = parsed.hostname.split(".");
+  if (labels.every((l) => /^[0-9]+$/.test(l))) return false;
+  if (labels.some((l) => /^0x[0-9a-f]+$/i.test(l))) return false;
+
   return true;
 }
 

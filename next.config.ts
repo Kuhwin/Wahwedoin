@@ -7,6 +7,10 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  // Private work app — keep every page out of search indexes.
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
 ];
 
 const csp = [
@@ -16,10 +20,13 @@ const csp = [
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://www.google.com",
   "frame-src blob:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://oauth2.googleapis.com https://www.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "upgrade-insecure-requests",
 ].join("; ");
 
 const nextConfig: NextConfig = {
@@ -58,16 +65,9 @@ const nextConfig: NextConfig = {
       {
         source: "/api/(.*)",
         headers: [
-          { key: "Access-Control-Allow-Origin", value: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(".supabase.co", ".vercel.app") || "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
-          { key: "Access-Control-Allow-Credentials", value: "true" },
+          // All API routes are same-origin (browser) or server-to-server
+          // (OAuth redirects, Vercel cron), so no CORS allow-list is needed.
           { key: "X-Content-Type-Options", value: "nosniff" },
-        ],
-      },
-      {
-        source: "/api/auth/(.*)",
-        headers: [
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
           { key: "Pragma", value: "no-cache" },
         ],
