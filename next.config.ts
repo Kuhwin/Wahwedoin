@@ -30,6 +30,9 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Standalone output lets the same build run on the fallback VPS (see
+  // support/fallback.md) with `node server.js`. Harmless on Vercel.
+  output: "standalone",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },

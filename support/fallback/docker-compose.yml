@@ -1,0 +1,26 @@
+services:
+  app:
+    # Lowercase GHCR path for this repo. CI pushes to
+    # ghcr.io/<owner>/<repo> (lowercased) — adjust if the repo is renamed.
+    image: ghcr.io/kuhwin/wahwedoin:latest
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

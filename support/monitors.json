@@ -1,0 +1,37 @@
+{
+  "provider": "BetterStack",
+  "notes": "See monitoring.md. Replace placeholder URLs. Only two monitors are needed; the in-app /status page covers Google and Resend on demand.",
+  "statusPage": {
+    "name": "Wah We Doin",
+    "visibility": "public",
+    "autoReportIncidents": true,
+    "url": "https://your-status-page.example",
+    "envVar": "NEXT_PUBLIC_STATUS_URL"
+  },
+  "alertContacts": {
+    "email": ["oncall@your-team.example"],
+    "slack": "#incidents"
+  },
+  "monitors": [
+    {
+      "name": "Wahwedoin Production (Vercel)",
+      "type": "URL",
+      "url": "https://wahwedoin-rb8m.vercel.app/api/health",
+      "expectedStatusCode": 200,
+      "intervalMinutes": 1,
+      "monitorSSL": true,
+      "alerts": ["oncall-email", "#incidents"],
+      "notes": "End-to-end app + database. Non-2xx = degraded, no response = down."
+    },
+    {
+      "name": "Wahwedoin Fallback (VPS)",
+      "type": "URL",
+      "url": "https://fallback.your-domain.example/api/health",
+      "expectedStatusCode": 200,
+      "intervalMinutes": 5,
+      "monitorSSL": true,
+      "alerts": ["oncall-email", "#incidents"],
+      "notes": "Add after fallback.md deployment. Green while primary is red = database is fine, cut over."
+    }
+  ]
+}

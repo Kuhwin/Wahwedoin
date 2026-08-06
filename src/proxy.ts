@@ -34,12 +34,15 @@ export async function proxy(request: NextRequest) {
   }
 
   const isApiRoute = pathname.startsWith("/api");
+  // Public liveness endpoint for the external uptime monitor and the Docker
+  // HEALTHCHECK. Everything else under /api stays session-protected.
+  const isHealthRoute = pathname === "/api/health";
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (isApiRoute && !user) {
+  if (isApiRoute && !user && !isHealthRoute) {
     const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     res.headers.set("X-Content-Type-Options", "nosniff");
     return res;

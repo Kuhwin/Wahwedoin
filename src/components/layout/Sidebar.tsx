@@ -29,6 +29,7 @@ import {
   Building2,
   Users,
   Target,
+  Activity,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -367,6 +368,7 @@ export default function Sidebar({
     { href: "/people", icon: Users, label: "People" },
     { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
     { href: "/goals", icon: Target, label: "Goals" },
+    { href: "/status", icon: Activity, label: "System Status" },
   ];
 
   const isMoreActive = moreNavItems.some(

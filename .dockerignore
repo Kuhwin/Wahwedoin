@@ -1,0 +1,19 @@
+# Dependencies / build artifacts
+# NOTE: .next must stay in the context — the Dockerfile copies the standalone
+# output from it (the image is assembled from a pre-built `next build`).
+node_modules
+
+# Keep secrets out of the build context entirely
+.env
+.env.local
+.env.*.local
+
+# Git / editor / OS noise
+.git
+.gitignore
+.vscode
+.idea
+*.log
+
+# Vercel/CI caches
+.vercel

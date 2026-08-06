@@ -1,0 +1,7 @@
+# Reverse proxy with automatic TLS. Replace the domain once you own it.
+# Without a domain, remove the site block and Caddy serves plain HTTP on the
+# public IP (fine for a temporary standby).
+fallback.your-domain.com {
+	reverse_proxy app:3000
+	encode zstd gzip
+}
