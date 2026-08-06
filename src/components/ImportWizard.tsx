@@ -212,6 +212,39 @@ export default function ImportWizard() {
       .maybeSingle();
     const projectTeamId = targetProject?.team_id || null;
 
+    // Resolve the org the target project belongs to (org -> team -> project).
+    let orgId: string | null = null;
+    if (projectTeamId) {
+      const { data: team } = await supabase
+        .from("teams")
+        .select("org_id")
+        .eq("id", projectTeamId)
+        .maybeSingle();
+      orgId = team?.org_id || null;
+    }
+
+    // Prefetch org member emails and team member ids once instead of querying
+    // per row. user_profiles has no email column and its reads are RLS-scoped
+    // to shared orgs, so member lookup goes through the SECURITY DEFINER
+    // get_org_member_profiles RPC — the same convention the rest of the app
+    // uses (manage, people, team pages).
+    const orgEmails = new Map<string, string>();
+    if (orgId) {
+      const { data: orgProfiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
+      for (const p of orgProfiles ?? []) {
+        if (p.email) orgEmails.set(String(p.email).toLowerCase(), p.user_id);
+      }
+    }
+
+    let teamMemberIds = new Set<string>();
+    if (projectTeamId) {
+      const { data: members } = await supabase
+        .from("team_members")
+        .select("user_id")
+        .eq("team_id", projectTeamId);
+      teamMemberIds = new Set((members ?? []).map((m: { user_id: string }) => m.user_id));
+    }
+
     let imported = 0;
     let failed = 0;
     const importErrors: string[] = [];
@@ -274,25 +307,9 @@ export default function ImportWizard() {
 
       let assigneeId: string | null = null;
       if (assigneeEmail) {
-        const { data: member } = await supabase
-          .from("user_profiles")
-          .select("user_id")
-          .ilike("user_email", assigneeEmail.trim())
-          .limit(1)
-          .maybeSingle();
-
-        if (member && projectTeamId) {
-          const { data: membership } = await supabase
-            .from("team_members")
-            .select("id")
-            .eq("team_id", projectTeamId)
-            .eq("user_id", member.user_id)
-            .maybeSingle();
-          if (membership) {
-            assigneeId = member.user_id;
-          }
-        } else if (member) {
-          assigneeId = member.user_id;
+        const matchedUserId = orgEmails.get(assigneeEmail.trim().toLowerCase());
+        if (matchedUserId && teamMemberIds.has(matchedUserId)) {
+          assigneeId = matchedUserId;
         }
 
         if (!assigneeId) {
