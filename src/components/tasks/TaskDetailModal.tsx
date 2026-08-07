@@ -15,7 +15,6 @@ import {
   User,
   Calendar,
   Clock,
-  Columns3,
   Paperclip,
   Upload,
   File,
@@ -33,7 +32,6 @@ import {
   type TaskComment,
   type Tag as TagType,
   type Activity,
-  type Section,
   type TeamMember,
   type TaskAttachment,
 } from "@/lib/types";
@@ -58,7 +56,6 @@ interface TaskDetailModalProps {
   onDelete: (taskId: string) => Promise<void>;
   availableTags?: TagType[];
   teamMembers?: TeamMember[];
-  sections?: Section[];
 }
 
 interface MemberProfile {
@@ -75,7 +72,6 @@ export default function TaskDetailModal({
   onDelete,
   availableTags = [],
   teamMembers = [],
-  sections = [],
 }: TaskDetailModalProps) {
   const supabase = createClient();
 
@@ -625,22 +621,6 @@ export default function TaskDetailModal({
     return userId.slice(0, 8);
   }
 
-  async function handleSectionChange(sectionId: string | null) {
-    const status = sectionId
-      ? getSectionStatus(sectionId)
-      : task!.status;
-    await onUpdate(task!.id, { section_id: sectionId, status });
-  }
-
-  function getSectionStatus(sectionId: string): Task["status"] {
-    const sorted = [...sections].sort((a, b) => a.position - b.position);
-    const idx = sorted.findIndex((s) => s.id === sectionId);
-    if (sorted.length <= 1) return "todo";
-    if (idx === 0) return "todo";
-    if (idx >= sorted.length - 1) return "done";
-    return "in_progress";
-  }
-
   const completedSubtasks = subtasks.filter((s) => s.status === "done").length;
   const totalSubtasks = subtasks.length;
 
@@ -860,31 +840,6 @@ export default function TaskDetailModal({
               <span className="text-[10px] text-slate-400 dark:text-slate-500">— mark as key deliverable</span>
             </label>
           </div>
-
-          {/* Section */}
-          {sections.length > 0 && (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <Columns3 size={12} /> Section
-              </label>
-              <select
-                value={task.section_id || ""}
-                onChange={(e) =>
-                  handleSectionChange(e.target.value || null)
-                }
-                className="block w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/50"
-              >
-                <option value="">No section</option>
-                {[...sections]
-                  .sort((a, b) => a.position - b.position)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
 
           {/* Assignees */}
           <div className="space-y-1">

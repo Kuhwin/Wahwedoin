@@ -1238,7 +1238,6 @@ export default function ProjectPage() {
         onDelete={handleDeleteTask}
         availableTags={tags}
         teamMembers={members}
-        sections={sections}
       />
 
       {/* Key Dates Modal */}
