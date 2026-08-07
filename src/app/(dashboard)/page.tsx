@@ -182,6 +182,15 @@ export default function DashboardPage() {
     return true;
   });
 
+  // Per-panel "Show more" state for the Overdue / Due Today / Due Soon lists.
+  const [showAllOverdue, setShowAllOverdue] = useState(false);
+  const [showAllDueToday, setShowAllDueToday] = useState(false);
+  const [showAllDueSoon, setShowAllDueSoon] = useState(false);
+
+  const activeProjectCount = projects.filter((p) => p.status === "active").length;
+  const activeTaskCount = swrTasks.filter((t) => t.status !== "done").length;
+  const upcomingEventCount = events.length;
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto">
@@ -349,7 +358,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
               <div className="space-y-1.5">
-                {taskStats.overdue.slice(0, 6).map((task) => (
+                {taskStats.overdue.slice(0, showAllOverdue ? taskStats.overdue.length : 3).map((task) => (
                   <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
@@ -367,10 +376,13 @@ export default function DashboardPage() {
                     <span className="text-xs font-medium text-red-500 dark:text-red-400 shrink-0">{task.due_date}</span>
                   </div>
                 ))}
-                {taskStats.overdue.length > 6 && (
-                  <Link href="/my-tasks?due_before=overdue" className="block text-center text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1">
-                    +{taskStats.overdue.length - 6} more
-                  </Link>
+                {taskStats.overdue.length > 3 && (
+                  <button
+                    onClick={() => setShowAllOverdue((v) => !v)}
+                    className="w-full text-center text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1 font-medium"
+                  >
+                    {showAllOverdue ? "Show less" : `Show ${taskStats.overdue.length - 3} more`}
+                  </button>
                 )}
               </div>
             </div>
@@ -388,7 +400,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
               <div className="space-y-1.5">
-                {taskStats.dueToday.slice(0, 6).map((task) => (
+                {taskStats.dueToday.slice(0, showAllDueToday ? taskStats.dueToday.length : 3).map((task) => (
                   <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
@@ -406,10 +418,13 @@ export default function DashboardPage() {
                     <span className="text-xs font-medium text-amber-600 dark:text-amber-400 shrink-0">Today</span>
                   </div>
                 ))}
-                {taskStats.dueToday.length > 6 && (
-                  <Link href="/my-tasks?due_before=today" className="block text-center text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 pt-1">
-                    +{taskStats.dueToday.length - 6} more
-                  </Link>
+                {taskStats.dueToday.length > 3 && (
+                  <button
+                    onClick={() => setShowAllDueToday((v) => !v)}
+                    className="w-full text-center text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 pt-1 font-medium"
+                  >
+                    {showAllDueToday ? "Show less" : `Show ${taskStats.dueToday.length - 3} more`}
+                  </button>
                 )}
               </div>
             </div>
@@ -427,7 +442,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
               <div className="space-y-1.5">
-                {taskStats.dueSoon.slice(0, 6).map((task) => (
+                {taskStats.dueSoon.slice(0, showAllDueSoon ? taskStats.dueSoon.length : 3).map((task) => (
                   <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
@@ -445,10 +460,13 @@ export default function DashboardPage() {
                     <span className="text-xs font-medium text-blue-500 dark:text-blue-400 shrink-0">{task.due_date}</span>
                   </div>
                 ))}
-                {taskStats.dueSoon.length > 6 && (
-                  <Link href="/my-tasks?due_before=week" className="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 pt-1">
-                    +{taskStats.dueSoon.length - 6} more
-                  </Link>
+                {taskStats.dueSoon.length > 3 && (
+                  <button
+                    onClick={() => setShowAllDueSoon((v) => !v)}
+                    className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 pt-1 font-medium"
+                  >
+                    {showAllDueSoon ? "Show less" : `Show ${taskStats.dueSoon.length - 3} more`}
+                  </button>
                 )}
               </div>
             </div>
@@ -537,6 +555,49 @@ export default function DashboardPage() {
               </>
             )}
           </div>
+
+          {/* Shortcuts */}
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 mt-6 flex items-center gap-2">
+            <ArrowRight size={14} />
+            Shortcuts
+          </h2>
+          <div className="space-y-2">
+            <Link
+              href="/all-projects"
+              className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all group"
+            >
+              <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                <FolderKanban size={16} className="text-accent" />
+              </div>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">Projects</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">{activeProjectCount} active</span>
+              <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-accent transition-colors shrink-0" />
+            </Link>
+
+            <Link
+              href="/my-tasks"
+              className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all group"
+            >
+              <div className="h-8 w-8 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center shrink-0">
+                <CheckSquare size={16} className="text-green-600 dark:text-green-400" />
+              </div>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">My Tasks</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">{activeTaskCount} active</span>
+              <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-accent transition-colors shrink-0" />
+            </Link>
+
+            <Link
+              href="/calendar"
+              className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all group"
+            >
+              <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center shrink-0">
+                <Calendar size={16} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">Calendar</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">{upcomingEventCount} upcoming</span>
+              <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-accent transition-colors shrink-0" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -610,51 +671,6 @@ export default function DashboardPage() {
           )}
         </div>
       </Modal>
-
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link
-          href="/all-projects"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center group-hover:bg-accent/15 dark:group-hover:bg-indigo-900/30 transition-colors">
-              <FolderKanban size={20} className="text-accent" />
-            </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
-          </div>
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Projects</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{projects.length} projects</p>
-        </Link>
-
-        <Link
-          href="/my-tasks"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="h-10 w-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
-              <CheckSquare size={20} className="text-green-600 dark:text-green-400" />
-            </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
-          </div>
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">My Tasks</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{taskStats.inProgress + taskStats.todo} active tasks</p>
-        </Link>
-
-        <Link
-          href="/calendar"
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:border-accent/50 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center group-hover:bg-amber-100 dark:group-hover:bg-amber-900/30 transition-colors">
-              <Calendar size={20} className="text-amber-600 dark:text-amber-400" />
-            </div>
-            <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 dark:group-hover:text-accent group-hover:translate-x-1 transition-all" />
-          </div>
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-1">Calendar</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">View all events</p>
-        </Link>
-      </div>
 
       <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
