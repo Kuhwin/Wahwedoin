@@ -335,16 +335,11 @@ export default function TaskDetailModal({
     setMentionOpen(false);
     setReplyTo(null);
 
-    const { data, error } = await supabase
-      .from("task_comments")
-      .insert({
-        task_id: task!.id,
-        user_id: user.id,
-        body,
-        parent_id: parentId,
-      })
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc("add_task_comment", {
+      p_task_id: task!.id,
+      p_body: body,
+      p_parent_id: parentId,
+    });
 
     if (error || !data) {
       setComments(previousComments);

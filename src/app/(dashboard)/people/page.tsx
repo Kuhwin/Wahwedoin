@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Users, Search, Building2, Mail, ShieldCheck, ShieldAlert, BarChart3,
+  Users, Search, Mail, ShieldCheck, ShieldAlert, BarChart3,
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -332,26 +332,24 @@ export default function PeoplePage() {
         </div>
       </div>
 
-       {/* Organization and team scopes */}
+       {/* Organization and team filter */}
        {scopes.length > 1 && (
-         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
-           {scopes.map((scope) => (
-             <button
-               key={scope.key}
-               onClick={() => setSelectedScopeKey(scope.key)}
-               className={cn(
-                 "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                 selectedScopeKey === scope.key
-                   ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
-                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-               )}
-             >
-               {scope.type === "org" ? <Building2 size={12} className="inline mr-1" /> : <Users size={12} className="inline mr-1" />}
-               {scope.type === "org" ? `${scope.label} (Org)` : `${scope.label} (Team)`}
-             </button>
-           ))}
-        </div>
-      )}
+         <div className="mb-6 flex items-center gap-2">
+           <label htmlFor="people-scope" className="text-xs font-medium text-slate-500 dark:text-slate-400">View scope</label>
+           <select
+             id="people-scope"
+             value={selectedScopeKey || ""}
+             onChange={(e) => setSelectedScopeKey(e.target.value)}
+             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+           >
+             {scopes.map((scope) => (
+               <option key={scope.key} value={scope.key}>
+                 {scope.type === "org" ? `${scope.label} (all teams)` : scope.label}
+               </option>
+             ))}
+           </select>
+         </div>
+       )}
 
       {/* Workload summary */}
       {!orgLoading && Object.keys(workload).length > 0 && (
@@ -507,9 +505,16 @@ export default function PeoplePage() {
                   Last activity {lastActiveStr}
                 </p>
                 {member.teams && member.teams.length > 0 && (
-                  <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 truncate">
-                    Teams: {member.teams.join(", ")}
-                  </p>
+                  <div className="mt-3">
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Teams</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {member.teams.map((teamName) => (
+                        <span key={teamName} className="max-w-full rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                          <span className="block max-w-[13rem] truncate">{teamName}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </Link>
             );
