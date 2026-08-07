@@ -72,6 +72,8 @@ export default function ManagePage() {
   const [newTeamDesc, setNewTeamDesc] = useState("");
   const [creatingTeam, setCreatingTeam] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<(Team & { role?: string }) | null>(null);
+  const [teamNameInput, setTeamNameInput] = useState("");
+  const [savingTeamName, setSavingTeamName] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamInvites, setTeamInvites] = useState<{ id: string; email: string; role: string }[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -169,6 +171,10 @@ export default function ManagePage() {
         .order("name");
       setTeams(teamList || []);
 
+      const teamParam = searchParams.get("team");
+      const deepLinkedTeam = (teamList || []).find((t: Team) => t.id === teamParam);
+      if (deepLinkedTeam) void loadTeamMembers(deepLinkedTeam);
+
       // Load the caller's role on each team in this org so the team-modal
       // and member-detail popup can gate add/remove on the actual team role
       // (RLS on team_members / team_invites requires team owner or admin).
@@ -192,7 +198,14 @@ export default function ManagePage() {
       setLoading(false);
     }
     void loadOrgData();
-  }, [selectedOrgId, supabase]);
+    // loadTeamMembers is intentionally kept as a local action function; the
+    // query parameters and selected organization are the revalidation inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrgId, searchParams, supabase]);
+
+  useEffect(() => {
+    setTeamNameInput(selectedTeam?.name || "");
+  }, [selectedTeam]);
 
   // Close the team-add autocomplete dropdown on outside click.
   useEffect(() => {
@@ -555,6 +568,43 @@ export default function ManagePage() {
     setSelectedTeam(updated as Team);
     setTeams(teams.map((t) => t.id === updated.id ? { ...t, cover_photo_url: savedUrl } : t));
     setMessage({ type: "success", text: newUrl ? "Cover photo updated" : "Cover photo removed" });
+  }
+
+  async function handleSaveTeamName() {
+    if (!selectedTeam || !teamNameInput.trim() || teamNameInput.trim() === selectedTeam.name) return;
+    setSavingTeamName(true);
+    setMessage(null);
+    const { error } = await supabase
+      .from("teams")
+      .update({ name: teamNameInput.trim() })
+      .eq("id", selectedTeam.id);
+    if (error) {
+      setMessage({ type: "error", text: "Failed to update team name: " + error.message });
+    } else {
+      const updated = { ...selectedTeam, name: teamNameInput.trim() };
+      setSelectedTeam(updated);
+      setTeams(teams.map((t) => t.id === updated.id ? { ...t, name: updated.name } : t));
+      setMessage({ type: "success", text: "Team name updated" });
+    }
+    setSavingTeamName(false);
+  }
+
+  async function handleChangeTeamMemberRole(member: TeamMember, newRole: TeamMember["role"]) {
+    if (!selectedTeam || selectedTeam.role !== "owner" || member.role === newRole) return;
+    if (member.role === "owner" && teamMembers.filter((m) => m.role === "owner").length <= 1) {
+      setMessage({ type: "error", text: "Promote another owner before changing the last owner." });
+      return;
+    }
+    const { error } = await supabase
+      .from("team_members")
+      .update({ role: newRole })
+      .eq("id", member.id);
+    if (error) {
+      setMessage({ type: "error", text: "Failed to update role: " + error.message });
+    } else {
+      setTeamMembers(teamMembers.map((m) => m.id === member.id ? { ...m, role: newRole } : m));
+      setMessage({ type: "success", text: "Member role updated" });
+    }
   }
 
   if (loading && orgs.length === 0) {
@@ -945,6 +995,24 @@ export default function ManagePage() {
                 canEdit={selectedTeam.role === "owner" || selectedTeam.role === "admin"}
                 onChange={(url) => handleTeamCoverChange(url)}
               />
+              {selectedTeamCanEdit && (
+                <div className="mt-4 flex items-end gap-2">
+                  <Input
+                    label="Team Name"
+                    value={teamNameInput}
+                    onChange={(e) => setTeamNameInput(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => void handleSaveTeamName()}
+                    disabled={savingTeamName || !teamNameInput.trim() || teamNameInput.trim() === selectedTeam.name}
+                  >
+                    <Save size={13} />
+                    {savingTeamName ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           <div>
@@ -965,9 +1033,30 @@ export default function ManagePage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={m.role === "owner" ? "info" : "default"}>{m.role}</Badge>
+                        {selectedTeam?.role === "owner" ? (
+                          <select
+                            value={m.role}
+                            onChange={(e) => void handleChangeTeamMemberRole(m, e.target.value as TeamMember["role"])}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                            aria-label={`Role for ${profile?.display_name || profile?.email || m.user_id}`}
+                          >
+                            <option value="owner">Owner</option>
+                            <option value="admin">Admin</option>
+                            <option value="member">Member</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                        ) : (
+                          <Badge variant={m.role === "owner" ? "info" : "default"}>{m.role}</Badge>
+                        )}
                         {m.role !== "owner" && selectedTeamCanEdit && (
-                          <button onClick={() => supabase.from("team_members").delete().eq("id", m.id).then(() => setTeamMembers(teamMembers.filter((tm) => tm.id !== m.id)))}
+                          <button onClick={() => supabase.from("team_members").delete().eq("id", m.id).then((result: { error: { message: string } | null }) => {
+                            const { error } = result;
+                            if (error) setMessage({ type: "error", text: "Failed to remove member: " + error.message });
+                            else {
+                              setTeamMembers(teamMembers.filter((tm) => tm.id !== m.id));
+                              setMessage({ type: "success", text: "Member removed" });
+                            }
+                          })}
                             className="p-1 rounded text-slate-300 hover:text-red-500 transition-colors" title="Remove">
                             <Trash2 size={12} />
                           </button>

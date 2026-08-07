@@ -127,21 +127,24 @@ export default function TeamWorkspacePage() {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/teams"
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{team.name}</h1>
-            {team.description && (
-              <p className="text-sm text-slate-500">{team.description}</p>
-            )}
-          </div>
+      <div
+        className="relative h-40 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-800 bg-cover bg-center"
+        style={team.cover_photo_url ? { backgroundImage: `url(${team.cover_photo_url})` } : undefined}
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10" />
+        <Link
+          href="/teams"
+          className="absolute left-4 top-4 z-10 rounded-lg p-2 text-white/80 hover:bg-black/30 hover:text-white"
+          title="Back to teams"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div className="absolute bottom-4 left-5 right-5 z-10">
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">{team.name}</h1>
+          {team.description && <p className="mt-1 text-sm text-white/80">{team.description}</p>}
         </div>
+      </div>
+      <div className="flex items-center justify-end gap-3 py-4">
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center -space-x-2">
             {members.slice(0, 5).map((member) => (
@@ -161,7 +164,7 @@ export default function TeamWorkspacePage() {
             )}
           </div>
           {(userRole === "owner" || userRole === "admin") && (
-            <Link href="/teams">
+            <Link href={`/manage?org=${team.org_id || ""}&team=${team.id}`}>
               <Button variant="ghost" size="sm">
                 <UserPlus size={14} />
                 Manage
