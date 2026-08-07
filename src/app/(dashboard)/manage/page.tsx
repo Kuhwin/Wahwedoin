@@ -603,15 +603,11 @@ export default function ManagePage() {
   }
 
   async function handleChangeTeamMemberRole(member: TeamMember, newRole: TeamMember["role"]) {
-    if (!selectedTeam || selectedTeam.role !== "owner" || member.role === newRole) return;
-    if (member.role === "owner" && teamMembers.filter((m) => m.role === "owner").length <= 1) {
-      setMessage({ type: "error", text: "Promote another owner before changing the last owner." });
-      return;
-    }
-    const { error } = await supabase
-      .from("team_members")
-      .update({ role: newRole })
-      .eq("id", member.id);
+    if (!selectedTeam || !selectedTeamCanEdit || member.role === newRole) return;
+    const { error } = await supabase.rpc("update_team_member_role", {
+      p_member_id: member.id,
+      p_new_role: newRole,
+    });
     if (error) {
       setMessage({ type: "error", text: "Failed to update role: " + error.message });
     } else {
@@ -1056,14 +1052,14 @@ export default function ManagePage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {selectedTeam?.role === "owner" ? (
+                        {selectedTeamCanEdit && (selectedTeam?.role === "owner" || m.role !== "owner") ? (
                           <select
                             value={m.role}
                             onChange={(e) => void handleChangeTeamMemberRole(m, e.target.value as TeamMember["role"])}
                             className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
                             aria-label={`Role for ${profile?.display_name || profile?.email || m.user_id}`}
                           >
-                            <option value="owner">Owner</option>
+                            {selectedTeam?.role === "owner" && <option value="owner">Owner</option>}
                             <option value="admin">Admin</option>
                             <option value="member">Member</option>
                             <option value="viewer">Viewer</option>
