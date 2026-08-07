@@ -33,50 +33,41 @@ export default function MyTasksPage() {
   const supabase = createClient();
 
   const loadTasks = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const [{ data: directTasks }, { data: linkedTasks }] = await Promise.all([
-      supabase.from("tasks").select("id").eq("assignee_id", user.id),
-      supabase.from("task_assignees").select("task_id").eq("user_id", user.id),
-    ]);
-    const taskIds = [...new Set([
-      ...(directTasks || []).map((task: { id: string }) => task.id),
-      ...(linkedTasks || []).map((task: { task_id: string }) => task.task_id),
-    ])];
-
-    if (taskIds.length === 0) {
+    const response = await fetch("/api/tasks/mine", { cache: "no-store" });
+    const payload = (await response.json()) as { tasks?: Task[]; error?: string };
+    if (!response.ok) {
       setTasks([]);
       setLoading(false);
       return;
     }
 
-    let query = supabase
-      .from("tasks")
-      .select("*, projects!inner(id, name)")
-      .in("id", taskIds);
-
-    if (filters.status !== "all") query = query.eq("status", filters.status);
-    if (filters.priority !== "all") query = query.eq("priority", filters.priority);
-    if (filters.project_id !== "all") query = query.eq("project_id", filters.project_id);
+    let nextTasks = payload.tasks || [];
+    if (filters.status !== "all") nextTasks = nextTasks.filter((task) => task.status === filters.status);
+    if (filters.priority !== "all") nextTasks = nextTasks.filter((task) => task.priority === filters.priority);
+    if (filters.project_id !== "all") nextTasks = nextTasks.filter((task) => task.project_id === filters.project_id);
     if (filters.due_before === "today") {
       const today = new Date().toISOString().split("T")[0];
-      query = query.lte("due_date", today).eq("status", "todo");
+      nextTasks = nextTasks.filter((task) => task.due_date && task.due_date <= today && task.status === "todo");
     } else if (filters.due_before === "week") {
       const week = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
-      query = query.lte("due_date", week);
+      nextTasks = nextTasks.filter((task) => task.due_date && task.due_date <= week);
     } else if (filters.due_before === "overdue") {
       const today = new Date().toISOString().split("T")[0];
-      query = query.lt("due_date", today).neq("status", "done");
+      nextTasks = nextTasks.filter((task) => task.due_date && task.due_date < today && task.status !== "done");
     }
 
-    const ascending = sortBy === "due_date" ? sortOrder === "asc" : sortOrder === "asc";
-    query = query.order(sortBy, { ascending, nullsFirst: sortBy === "due_date" });
-
-    const { data } = await query;
-    if (data) setTasks(data);
+    const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+    nextTasks = [...nextTasks].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === "title") comparison = a.title.localeCompare(b.title);
+      else if (sortBy === "priority") comparison = priorityOrder[a.priority] - priorityOrder[b.priority];
+      else if (sortBy === "created_at") comparison = a.created_at.localeCompare(b.created_at);
+      else if (sortBy === "due_date") comparison = (a.due_date || "9999-12-31").localeCompare(b.due_date || "9999-12-31");
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+    setTasks(nextTasks);
     setLoading(false);
-  }, [supabase, filters, sortBy, sortOrder]);
+  }, [filters, sortBy, sortOrder]);
 
   useEffect(() => {
     void loadTasks();
@@ -85,27 +76,18 @@ export default function MyTasksPage() {
 
   useEffect(() => {
     async function loadMeta() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+       const { data: { user } } = await supabase.auth.getUser();
+       if (!user) return;
 
-       const [viewsRes, directProjectsRes, linkedProjectsRes] = await Promise.all([
+       const [viewsRes, taskResponse] = await Promise.all([
          supabase.from("saved_views").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-         supabase.from("tasks").select("id, project_id").eq("assignee_id", user.id),
-         supabase.from("task_assignees").select("task_id").eq("user_id", user.id),
+         fetch("/api/tasks/mine", { cache: "no-store" }),
        ]);
 
       if (viewsRes.data) setSavedViews(viewsRes.data);
 
-       const linkedTaskIds = (linkedProjectsRes.data || []).map((t: { task_id: string }) => t.task_id);
-       let linkedProjectIds: string[] = [];
-       if (linkedTaskIds.length > 0) {
-         const { data: linkedTasks } = await supabase.from("tasks").select("project_id").in("id", linkedTaskIds);
-         linkedProjectIds = (linkedTasks || []).map((t: { project_id: string }) => t.project_id);
-       }
-       const uniqueIds = [...new Set([
-         ...(directProjectsRes.data || []).map((t: { project_id: string }) => t.project_id),
-         ...linkedProjectIds,
-       ].filter(Boolean))];
+       const taskPayload = taskResponse.ok ? (await taskResponse.json() as { tasks?: Task[] }) : { tasks: [] };
+       const uniqueIds = [...new Set((taskPayload.tasks || []).map((task) => task.project_id).filter(Boolean))];
       if (uniqueIds.length > 0) {
         const { data: projData } = await supabase.from("projects").select("id, name").in("id", uniqueIds);
         if (projData) setProjects(projData);
