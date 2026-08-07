@@ -334,19 +334,24 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
         {/* Overdue / Due Soon Alerts */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="xl:col-span-2 space-y-4">
           {taskStats.overdue.length > 0 && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 mb-3 flex items-center gap-2">
-                <AlertCircle size={14} />
-                Overdue Tasks ({taskStats.overdue.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle size={14} />
+                  Overdue Tasks ({taskStats.overdue.length})
+                </h3>
+                <Link href="/my-tasks?due_before=overdue" className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium">
+                  View all
+                </Link>
+              </div>
               <div className="space-y-1.5">
-                {taskStats.overdue.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
-                    <div className="flex items-center gap-2 min-w-0">
+                {taskStats.overdue.slice(0, 6).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
                         className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
@@ -354,17 +359,17 @@ export default function DashboardPage() {
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />
                       </button>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
                       <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{task.title}</span>
                     </div>
-                    <span className="text-xs text-red-500 dark:text-red-400 shrink-0 ml-2">{task.due_date}</span>
+                    <span className="text-xs font-medium text-red-500 dark:text-red-400 shrink-0">{task.due_date}</span>
                   </div>
                 ))}
-                {taskStats.overdue.length > 5 && (
-                  <Link href="/my-tasks" className="block text-center text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1">
-                    +{taskStats.overdue.length - 5} more
+                {taskStats.overdue.length > 6 && (
+                  <Link href="/my-tasks?due_before=overdue" className="block text-center text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 pt-1">
+                    +{taskStats.overdue.length - 6} more
                   </Link>
                 )}
               </div>
@@ -373,14 +378,19 @@ export default function DashboardPage() {
 
           {taskStats.dueToday.length > 0 && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-400 mb-3 flex items-center gap-2">
-                <Clock size={14} />
-                Due Today ({taskStats.dueToday.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <Clock size={14} />
+                  Due Today ({taskStats.dueToday.length})
+                </h3>
+                <Link href="/my-tasks?due_before=today" className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium">
+                  View all
+                </Link>
+              </div>
               <div className="space-y-1.5">
-                {taskStats.dueToday.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
-                    <div className="flex items-center gap-2 min-w-0">
+                {taskStats.dueToday.slice(0, 6).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
                         className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
@@ -388,27 +398,38 @@ export default function DashboardPage() {
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />
                       </button>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
                       <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{task.title}</span>
                     </div>
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 shrink-0">Today</span>
                   </div>
                 ))}
+                {taskStats.dueToday.length > 6 && (
+                  <Link href="/my-tasks?due_before=today" className="block text-center text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 pt-1">
+                    +{taskStats.dueToday.length - 6} more
+                  </Link>
+                )}
               </div>
             </div>
           )}
 
-          {taskStats.dueSoon.length > 0 && taskStats.overdue.length === 0 && taskStats.dueToday.length === 0 && (
+          {taskStats.dueSoon.length > 0 && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-5">
-              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
-                <Clock size={14} />
-                Due Soon ({taskStats.dueSoon.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                  <Clock size={14} />
+                  Due Soon ({taskStats.dueSoon.length})
+                </h3>
+                <Link href="/my-tasks?due_before=week" className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+                  View all
+                </Link>
+              </div>
               <div className="space-y-1.5">
-                {taskStats.dueSoon.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-800 rounded-lg group">
-                    <div className="flex items-center gap-2 min-w-0">
+                {taskStats.dueSoon.slice(0, 6).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-slate-800 rounded-lg group">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <button
                         onClick={() => void handleQuickComplete(task.id)}
                         className="h-4 w-4 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-green-400 flex items-center justify-center shrink-0 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
@@ -416,14 +437,19 @@ export default function DashboardPage() {
                       >
                         <Check size={10} className="text-transparent group-hover:text-green-400" />
                       </button>
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${PRIORITY_CONFIG[task.priority].color}`}>
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 ${PRIORITY_CONFIG[task.priority].color}`}>
                         {task.priority}
                       </span>
                       <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{task.title}</span>
                     </div>
-                    <span className="text-xs text-blue-500 dark:text-blue-400 shrink-0 ml-2">{task.due_date}</span>
+                    <span className="text-xs font-medium text-blue-500 dark:text-blue-400 shrink-0">{task.due_date}</span>
                   </div>
                 ))}
+                {taskStats.dueSoon.length > 6 && (
+                  <Link href="/my-tasks?due_before=week" className="block text-center text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 pt-1">
+                    +{taskStats.dueSoon.length - 6} more
+                  </Link>
+                )}
               </div>
             </div>
           )}

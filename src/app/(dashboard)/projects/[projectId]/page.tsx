@@ -276,9 +276,22 @@ export default function ProjectPage() {
 
     const finalUpdates: Partial<Task> = { ...updates };
     if ("status" in updates && updates.status && sections.length > 0 && !("section_id" in updates)) {
-      const sorted = [...sections].sort((a, b) => a.position - b.position);
-      const idx = updates.status === "done" ? sorted.length - 1 : updates.status === "todo" ? 0 : Math.min(1, sorted.length - 1);
-      finalUpdates.section_id = sorted[idx]?.id || null;
+      // Prefer matching the section by name so a custom board (e.g. only
+      // "To Do" and "Done") doesn't route "in_progress" tasks to the
+      // wrong column. Fall back to position only if no name matches.
+      const normalised = (n: string) => n.toLowerCase().replace(/[_-\s]+/g, " ").trim();
+      const byName = (name: string) => sections.find((s) => normalised(s.name) === name);
+      const nameTarget =
+        updates.status === "done" ? byName("done") :
+        updates.status === "in_progress" ? byName("in progress") || byName("doing") || byName("working") :
+        byName("to do") || byName("todo") || byName("backlog");
+      if (nameTarget) {
+        finalUpdates.section_id = nameTarget.id;
+      } else {
+        const sorted = [...sections].sort((a, b) => a.position - b.position);
+        const idx = updates.status === "done" ? sorted.length - 1 : updates.status === "todo" ? 0 : Math.min(1, sorted.length - 1);
+        finalUpdates.section_id = sorted[idx]?.id || null;
+      }
     }
 
     setTasks((prev) => {
