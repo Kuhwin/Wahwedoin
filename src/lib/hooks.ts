@@ -103,8 +103,9 @@ export function useDashboardData() {
             for (const g of result.events) {
               if (!g.start) continue;
               const startMs = new Date(g.start).getTime();
-              if (Number.isNaN(startMs)) continue;
-              if (startMs < now.getTime()) continue;
+              const endMs = g.end ? new Date(g.end).getTime() : startMs;
+              if (Number.isNaN(startMs) || Number.isNaN(endMs)) continue;
+              if (endMs < now.getTime()) continue;
               if (startMs > sevenDaysFromNow.getTime()) continue;
               upcoming.push({
                 id: `external-gcal:${g.id}`,
