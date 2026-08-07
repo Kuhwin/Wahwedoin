@@ -40,6 +40,7 @@ type Tab = "overview" | "members" | "teams";
 export default function ManagePage() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [orgs, setOrgs] = useState<OrgInfo[]>([]);
+  const [authorized, setAuthorized] = useState(false);
   const [orgMemberships, setOrgMemberships] = useState<Record<string, OrgMember>>({});
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -112,6 +113,18 @@ export default function ManagePage() {
         .from("org_members")
         .select("*, organizations(name, slug, cover_photo_url)")
         .eq("user_id", authUser.id);
+
+      const { data: adminTeams } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("user_id", authUser.id)
+        .in("role", ["owner", "admin"]);
+      const hasAdminOrg = (orgMembers || []).some((m: { role: string }) => m.role === "owner" || m.role === "admin");
+      if (!hasAdminOrg && (!adminTeams || adminTeams.length === 0)) {
+        setLoading(false);
+        return;
+      }
+      setAuthorized(true);
 
       if (orgMembers) {
         const orgList: OrgInfo[] = [];
@@ -611,6 +624,16 @@ export default function ManagePage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-16">
+        <Shield size={48} className="text-slate-300 mx-auto mb-4" />
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Admin access required</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Manage is available to organization and team owners or admins.</p>
       </div>
     );
   }

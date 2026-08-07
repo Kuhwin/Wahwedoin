@@ -26,6 +26,15 @@ interface OrgMember {
   display_name: string | null;
   avatar_url: string | null;
   email: string | null;
+  teams?: string[];
+}
+
+interface PeopleScope {
+  key: string;
+  type: "org" | "team";
+  id: string;
+  label: string;
+  orgId?: string | null;
 }
 
 interface MemberStats {
@@ -47,8 +56,8 @@ export default function PeoplePage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
-  const [orgs, setOrgs] = useState<OrgInfo[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [scopes, setScopes] = useState<PeopleScope[]>([]);
+  const [selectedScopeKey, setSelectedScopeKey] = useState<string | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [stats, setStats] = useState<Record<string, MemberStats>>({});
   const [workload, setWorkload] = useState<Record<string, WorkloadStats>>({});
@@ -65,12 +74,7 @@ export default function PeoplePage() {
       .select("org_id, role, organizations(id, name, slug, cover_photo_url)")
       .eq("user_id", user.id);
 
-    if (!memberships || memberships.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const adminOrgs = (memberships as Array<{ org_id: string; role: string; organizations: OrgInfo | null }>)
+    const adminOrgs = ((memberships || []) as Array<{ org_id: string; role: string; organizations: OrgInfo | null }>)
       .filter((m) => (m.role === "owner" || m.role === "admin") && m.organizations)
       .map((m) => ({
         id: m.organizations!.id,
@@ -79,14 +83,31 @@ export default function PeoplePage() {
         cover_photo_url: m.organizations!.cover_photo_url,
       }));
 
-    if (adminOrgs.length === 0) {
+    const { data: teamMemberships } = await supabase
+      .from("team_members")
+      .select("team_id, role, teams(id, name, org_id)")
+      .eq("user_id", user.id)
+      .in("role", ["owner", "admin"]);
+    const adminTeams = (teamMemberships || []) as Array<{ team_id: string; role: string; teams: { id: string; name: string; org_id: string | null } | null }>;
+
+    if (adminOrgs.length === 0 && adminTeams.length === 0) {
       setLoading(false);
       return;
     }
 
     setAuthorized(true);
-    setOrgs(adminOrgs);
-    setSelectedOrgId(adminOrgs[0].id);
+    const nextScopes: PeopleScope[] = [
+      ...adminOrgs.map((org) => ({ key: `org:${org.id}`, type: "org" as const, id: org.id, label: org.name })),
+      ...adminTeams.filter((m) => m.teams).map((m) => ({
+        key: `team:${m.team_id}`,
+        type: "team" as const,
+        id: m.team_id,
+        label: m.teams!.name,
+        orgId: m.teams!.org_id,
+      })),
+    ];
+    setScopes(nextScopes);
+    setSelectedScopeKey(nextScopes[0]?.key || null);
     setLoading(false);
   }, [supabase]);
 
@@ -94,13 +115,16 @@ export default function PeoplePage() {
     void load();
   }, [load]);
 
-  const loadOrgMembers = useCallback(async (orgId: string) => {
+  const loadScopeMembers = useCallback(async (scopeKey: string) => {
     setOrgLoading(true);
     try {
+      const [scopeType, scopeId] = scopeKey.split(":");
+      const scope = scopes.find((item) => item.key === scopeKey);
+      const orgId = scopeType === "org" ? scopeId : scope?.orgId;
       const { data: orgMembers } = await supabase
-        .from("org_members")
+        .from(scopeType === "org" ? "org_members" : "team_members")
         .select("*")
-        .eq("org_id", orgId)
+        .eq(scopeType === "org" ? "org_id" : "team_id", scopeId)
         .order("joined_at", { ascending: true });
 
       if (!orgMembers) {
@@ -111,22 +135,41 @@ export default function PeoplePage() {
         return;
       }
 
-      const { data: profiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: orgId });
+      const { data: profiles } = orgId
+        ? await supabase.rpc("get_org_member_profiles", { p_org_id: orgId })
+        : await supabase.from("user_profiles").select("user_id, display_name, avatar_url").in("user_id", (orgMembers || []).map((m: { user_id: string }) => m.user_id));
 
       const profileMap = new Map<string, { display_name: string; avatar_url: string | null; email: string }>();
       (profiles as { user_id: string; display_name: string; avatar_url: string | null; email: string }[] | null)?.forEach((p) => {
         profileMap.set(p.user_id, p);
       });
 
-      const enriched: OrgMember[] = orgMembers.map((m: OrgMember) => {
+      const enriched: OrgMember[] = orgMembers.map((m: OrgMember & { team_id?: string }) => {
         const p = profileMap.get(m.user_id);
         return {
           ...m,
+          org_id: m.org_id || orgId || "",
           display_name: p?.display_name || null,
           avatar_url: p?.avatar_url || null,
           email: p?.email || null,
+          teams: [],
         };
       });
+
+      const memberIds = enriched.map((m) => m.user_id);
+      const { data: scopeTeams } = orgId
+        ? await supabase.from("teams").select("id").eq("org_id", orgId)
+        : { data: [{ id: scopeId }] };
+      const scopeTeamIds = (scopeTeams || []).map((team: { id: string }) => team.id);
+      const { data: teamRows } = memberIds.length > 0 && scopeTeamIds.length > 0
+        ? await supabase.from("team_members").select("user_id, team_id, teams(name)").in("user_id", memberIds).in("team_id", scopeTeamIds)
+        : { data: [] };
+      const teamNames = new Map<string, string[]>();
+      (teamRows || []).forEach((row: { user_id: string; teams: { name: string } | null }) => {
+        if (!row.teams) return;
+        teamNames.set(row.user_id, [...(teamNames.get(row.user_id) || []), row.teams.name]);
+      });
+      enriched.forEach((member) => { member.teams = teamNames.get(member.user_id) || []; });
 
       setMembers(enriched);
 
@@ -151,8 +194,8 @@ export default function PeoplePage() {
           .in("user_id", userIds)
           .order("created_at", { ascending: false })
           .limit(200),
-        fetch(`/api/people/meetings?org_id=${orgId}`),
-        fetch(`/api/people/workload?org_id=${orgId}`),
+        fetch(scopeType === "org" ? `/api/people/meetings?org_id=${scopeId}` : `/api/people/meetings?team_id=${scopeId}`),
+        fetch(scopeType === "org" ? `/api/people/workload?org_id=${scopeId}` : `/api/people/workload?team_id=${scopeId}`),
       ]);
 
       const taskStats: Record<string, { active: number; overdue: number }> = {};
@@ -208,11 +251,11 @@ export default function PeoplePage() {
     } finally {
       setOrgLoading(false);
     }
-  }, [supabase]);
+  }, [scopes, supabase]);
 
   useEffect(() => {
-    if (selectedOrgId) void loadOrgMembers(selectedOrgId);
-  }, [selectedOrgId, loadOrgMembers]);
+    if (selectedScopeKey) void loadScopeMembers(selectedScopeKey);
+  }, [selectedScopeKey, loadScopeMembers]);
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -289,24 +332,24 @@ export default function PeoplePage() {
         </div>
       </div>
 
-      {/* Org tabs */}
-      {orgs.length > 1 && (
-        <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
-          {orgs.map((org) => (
-            <button
-              key={org.id}
-              onClick={() => setSelectedOrgId(org.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                selectedOrgId === org.id
-                  ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
-                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              )}
-            >
-              <Building2 size={12} className="inline mr-1" />
-              {org.name}
-            </button>
-          ))}
+       {/* Organization and team scopes */}
+       {scopes.length > 1 && (
+         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 mb-6 w-fit">
+           {scopes.map((scope) => (
+             <button
+               key={scope.key}
+               onClick={() => setSelectedScopeKey(scope.key)}
+               className={cn(
+                 "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                 selectedScopeKey === scope.key
+                   ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
+                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+               )}
+             >
+               {scope.type === "org" ? <Building2 size={12} className="inline mr-1" /> : <Users size={12} className="inline mr-1" />}
+               {scope.type === "org" ? `${scope.label} (Org)` : `${scope.label} (Team)`}
+             </button>
+           ))}
         </div>
       )}
 
@@ -407,7 +450,7 @@ export default function PeoplePage() {
             return (
               <Link
                 key={member.id}
-                href={`/people/${member.user_id}?org=${selectedOrgId}`}
+                href={`/people/${member.user_id}${member.org_id ? `?org=${member.org_id}` : ""}`}
                 className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 hover:border-accent/50 hover:shadow-md transition-all"
               >
                 <div className="flex items-start gap-3 mb-3">
@@ -463,6 +506,11 @@ export default function PeoplePage() {
                   <Mail size={10} />
                   Last activity {lastActiveStr}
                 </p>
+                {member.teams && member.teams.length > 0 && (
+                  <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                    Teams: {member.teams.join(", ")}
+                  </p>
+                )}
               </Link>
             );
           })}

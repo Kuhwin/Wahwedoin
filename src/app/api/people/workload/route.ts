@@ -10,7 +10,8 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const orgId = searchParams.get("org_id");
-  if (!orgId) return NextResponse.json({ error: "Missing org_id" }, { status: 400 });
+  const teamId = searchParams.get("team_id");
+  if (!orgId && !teamId) return NextResponse.json({ error: "Missing org_id or team_id" }, { status: 400 });
 
   if (!(await rateLimit(`people-workload:${auth.user.id}`, 30, 60_000))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
@@ -18,22 +19,32 @@ export async function GET(request: Request) {
 
   const supabase = getServiceClient();
 
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("role")
-    .eq("user_id", auth.user.id)
-    .eq("org_id", orgId)
-    .maybeSingle();
-
-  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  let userIds: string[] = [];
+  if (orgId) {
+    const { data: membership } = await supabase
+      .from("org_members")
+      .select("role")
+      .eq("user_id", auth.user.id)
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (!membership || !["owner", "admin"].includes(membership.role)) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+    const { data: orgMembers } = await supabase.from("org_members").select("user_id").eq("org_id", orgId);
+    userIds = (orgMembers || []).map((m: { user_id: string }) => m.user_id);
+  } else if (teamId) {
+    const { data: membership } = await supabase
+      .from("team_members")
+      .select("role")
+      .eq("user_id", auth.user.id)
+      .eq("team_id", teamId)
+      .maybeSingle();
+    if (!membership || !["owner", "admin"].includes(membership.role)) {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+    const { data: teamMembers } = await supabase.from("team_members").select("user_id").eq("team_id", teamId);
+    userIds = (teamMembers || []).map((m: { user_id: string }) => m.user_id);
   }
-
-  const { data: orgMembers } = await supabase
-    .from("org_members")
-    .select("user_id")
-    .eq("org_id", orgId);
-  const userIds = (orgMembers || []).map((m: { user_id: string }) => m.user_id);
 
   if (userIds.length === 0) return NextResponse.json({ members: [] });
 

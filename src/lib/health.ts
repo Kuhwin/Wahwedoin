@@ -58,7 +58,7 @@ export async function checkGoogle(): Promise<HealthCheck> {
   }
   try {
     const res = await withTimeout(
-      fetch("https://oauth2.googleapis.com/.well-known/openid-configuration", { method: "GET", cache: "no-store" }),
+      fetch("https://accounts.google.com/.well-known/openid-configuration", { method: "GET", cache: "no-store" }),
       3000
     );
     if (res.ok) {

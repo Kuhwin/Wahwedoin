@@ -26,11 +26,8 @@ import {
   FolderOpen,
   Mail,
   Inbox,
-  Briefcase,
   Building2,
   Users,
-  Target,
-  Activity,
 } from "lucide-react";
 import { cn, generateSlug } from "@/lib/utils";
 import { logActivity } from "@/lib/activities";
@@ -50,6 +47,7 @@ interface SidebarProps {
 
 interface TeamWithProjects extends Team {
   projects: Project[];
+  role?: "owner" | "admin" | "member" | "viewer";
 }
 
 export default function Sidebar({
@@ -84,6 +82,7 @@ export default function Sidebar({
   const [teamMenuOpen, setTeamMenuOpen] = useState<string | null>(null);
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState<TeamWithProjects | null>(null);
   const [orgSettings, setOrgSettings] = useState<{ orgId: string; orgName: string } | null>(null);
+  const [hasManagementAccess, setHasManagementAccess] = useState(false);
 
   const sidebarFetcher = useCallback(async () => {
     const { data: memberships, error } = await supabase
@@ -91,18 +90,20 @@ export default function Sidebar({
       .select("team_id, teams(id, name, description, created_at, org_id, cover_photo_url)")
       .eq("user_id", user.id);
 
-    if (error || !memberships) return { teamsWithProjects: [] as TeamWithProjects[], orgMap: {} as Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }>, allOrgIds: [] as string[] };
+    if (error || !memberships) return { teamsWithProjects: [] as TeamWithProjects[], orgMap: {} as Record<string, { id: string; name: string; slug: string; cover_photo_url: string | null }>, allOrgIds: [] as string[], hasManagementAccess: false };
 
-    const teamList = (memberships as { teams: Team }[])
-      .map((m) => m.teams)
+    const teamList = (memberships as { role: TeamWithProjects["role"]; teams: Team }[])
+      .map((m) => ({ ...m.teams, role: m.role }))
       .filter(Boolean);
 
     const { data: orgMembers } = await supabase
       .from("org_members")
-      .select("org_id")
+      .select("org_id, role")
       .eq("user_id", user.id);
 
     const memberOrgIds = (orgMembers || []).map((m: { org_id: string }) => m.org_id);
+    const hasAdminOrg = (orgMembers || []).some((m: { role: string }) => m.role === "owner" || m.role === "admin");
+    const hasAdminTeam = teamList.some((t) => t.role === "owner" || t.role === "admin");
 
     const allOrgIds = [
       ...new Set([
@@ -144,7 +145,7 @@ export default function Sidebar({
       projects: projectsByTeam.get(team.id) || [],
     }));
 
-    return { teamsWithProjects, orgMap, allOrgIds };
+    return { teamsWithProjects, orgMap, allOrgIds, hasManagementAccess: hasAdminOrg || hasAdminTeam };
   }, [supabase, user.id]);
 
   const { data: sidebarData, mutate } = useSWR(
@@ -163,6 +164,7 @@ export default function Sidebar({
     if (!sidebarData) return;
     setTeams(sidebarData.teamsWithProjects);
     setOrgsById(sidebarData.orgMap);
+    setHasManagementAccess(sidebarData.hasManagementAccess);
     if (!hasSeededExpansion.current) {
       setExpandedOrgs(new Set(sidebarData.allOrgIds));
       hasSeededExpansion.current = true;
@@ -370,11 +372,10 @@ export default function Sidebar({
   const moreNavItems = [
     { href: "/drive", icon: FolderOpen, label: "Drive" },
     { href: "/gmail", icon: Mail, label: "Gmail" },
-    { href: "/manage", icon: Building2, label: "Manage" },
-    { href: "/people", icon: Users, label: "People" },
-    { href: "/portfolios", icon: Briefcase, label: "Portfolios" },
-    { href: "/goals", icon: Target, label: "Goals" },
-    { href: "/status", icon: Activity, label: "System Status" },
+    ...(hasManagementAccess ? [
+      { href: "/manage", icon: Building2, label: "Manage" },
+      { href: "/people", icon: Users, label: "People" },
+    ] : []),
   ];
 
   const isMoreActive = moreNavItems.some(
