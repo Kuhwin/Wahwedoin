@@ -34,7 +34,7 @@ import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 
 export default function DashboardPage() {
   const { projects, tasks: swrTasks, activities: swrActivities, events, userNames: swrUserNames, loading, refresh } = useDashboardData();
-  useRealtimeRefresh({ tables: ["tasks", "events", "activities"], swrKeys: ["dashboard"] });
+  useRealtimeRefresh({ tables: ["projects", "tasks", "events", "activities"], swrKeys: ["dashboard"] });
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showAllActivities, setShowAllActivities] = useState(false);
@@ -48,15 +48,26 @@ export default function DashboardPage() {
   const supabase = createClient();
   const ACTIVITIES_PER_PAGE = 20;
   const [selectedEvent, setSelectedEvent] = useState<EventDetailData | null>(null);
-  const displayEvents = events.slice(0, 6);
-  // eslint-disable-next-line react-hooks/purity
-  const nowMs = useMemo(() => Date.now(), []);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const displayEvents = events
+    .filter((e) => {
+      const endMs = e.end_date ? new Date(e.end_date).getTime() : null;
+      return endMs === null || endMs > nowMs;
+    })
+    .slice(0, 6);
 
   // Due-date and reminder checks run once on mount; both throttle themselves
   // so frequent data refreshes can't trigger a request storm.
   useEffect(() => {
     void checkDueDateNotifications();
     void checkTaskReminders();
+  }, []);
+
+  // Tick the clock so ended events drop out of "Upcoming" and countdowns
+  // refresh without requiring a manual page reload.
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 15000);
+    return () => clearInterval(id);
   }, []);
 
   function updateActivityParams(next: { open?: boolean; action?: string; project?: string }) {
@@ -344,8 +355,58 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-        {/* Overdue / Due Soon Alerts */}
+        {/* Project Progress */}
         <div className="xl:col-span-2 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <TrendingUp size={14} />
+                Project Progress
+              </h2>
+              <Link href="/all-projects" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
+                View all
+              </Link>
+            </div>
+            {projects.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center">
+                No projects yet
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {projects.slice(0, 6).map((project) => {
+                  const counts = projectTaskCounts.get(project.id) || { total: 0, done: 0 };
+                  const total = counts.total;
+                  const completed = counts.done;
+                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="flex items-center gap-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all"
+                    >
+                      <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{project.name}</p>
+                          <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0 ml-2">{completed}/{total}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, backgroundColor: project.color }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-400 dark:text-slate-500 w-8 text-right shrink-0">{pct}%</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Overdue / Due Soon Alerts */}
           {taskStats.overdue.length > 0 && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
@@ -472,55 +533,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Project Progress */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <TrendingUp size={14} />
-                Project Progress
-              </h2>
-              <Link href="/all-projects" className="text-xs text-accent hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
-                View all
-              </Link>
-            </div>
-            {projects.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center">
-                No projects yet
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {projects.slice(0, 6).map((project) => {
-                  const counts = projectTaskCounts.get(project.id) || { total: 0, done: 0 };
-                  const total = counts.total;
-                  const completed = counts.done;
-                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-                  return (
-                    <Link
-                      key={project.id}
-                      href={`/projects/${project.id}`}
-                      className="flex items-center gap-4 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-accent/50 hover:shadow-sm transition-all"
-                    >
-                      <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: project.color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{project.name}</p>
-                          <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0 ml-2">{completed}/{total}</span>
-                        </div>
-                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, backgroundColor: project.color }}
-                          />
-                        </div>
-                      </div>
-                      <span className="text-xs text-slate-400 dark:text-slate-500 w-8 text-right shrink-0">{pct}%</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Activity Feed */}

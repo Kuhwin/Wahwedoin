@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { createClient } from "@/lib/supabase/client";
+import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { useAccentColour } from "@/components/AccentColourProvider";
 import {
   Home,
@@ -151,6 +152,11 @@ export default function Sidebar({
     sidebarFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false, revalidateOnReconnect: false }
   );
+
+  useRealtimeRefresh({
+    tables: ["projects", "teams", "team_members"],
+    swrKeys: [user.id ? `sidebar:${user.id}` : null],
+  });
 
   const hasSeededExpansion = useRef(false);
   useEffect(() => {
