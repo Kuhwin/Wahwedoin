@@ -7,10 +7,11 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Avatar from "@/components/ui/Avatar";
-import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload, Globe } from "lucide-react";
+import { User, Shield, Camera, Users, ArrowRight, Link2, Unlink, Mail, Calendar, FileText, RefreshCw, Bell, Palette, Upload, Globe, Trash2 } from "lucide-react";
 import type { LinkedGoogleAccount } from "@/lib/types";
 import ImportWizard from "@/components/ImportWizard";
 import ImageCropper from "@/components/ImageCropper";
+import Modal from "@/components/ui/Modal";
 import { useTheme } from "@/components/ui/ThemeProvider";
 import { useAccentColour } from "@/components/AccentColourProvider";
 import { useTimezone } from "@/lib/useTimezone";
@@ -38,6 +39,9 @@ export default function SettingsPage() {
     email_digest: "off" as "off" | "daily" | "weekly",
   });
   const [savingNotifs, setSavingNotifs] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteText, setConfirmDeleteText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -213,6 +217,26 @@ export default function SettingsPage() {
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/auth/login");
+  }
+
+  async function handleDeleteAccount() {
+    if (confirmDeleteText !== "DELETE" || deletingAccount) return;
+    setDeletingAccount(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setMessage(data.error || "Failed to delete account.");
+        setDeletingAccount(false);
+        return;
+      }
+      await supabase.auth.signOut();
+      router.push("/auth/login");
+    } catch {
+      setMessage("Failed to delete account.");
+      setDeletingAccount(false);
+    }
   }
 
   async function handleSwitchUser(targetEmail: string) {
@@ -513,6 +537,19 @@ export default function SettingsPage() {
             <Button variant="danger" size="sm" onClick={() => void handleSignOut()}>
               Sign Out
             </Button>
+
+            <div className="mt-6 pt-6 border-t border-red-100 dark:border-red-900">
+              <div className="flex items-center gap-2 mb-2">
+                <Trash2 size={16} className="text-red-600 dark:text-red-400" />
+                <h3 className="text-sm font-semibold text-red-700 dark:text-red-400">Delete Account</h3>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Permanently delete your account and all associated data. This cannot be undone.
+              </p>
+              <Button variant="danger" size="sm" onClick={() => setConfirmDeleteOpen(true)} disabled={deletingAccount}>
+                Delete Account
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -584,6 +621,34 @@ export default function SettingsPage() {
           <ImportWizard />
         </div>
       )}
+
+      <Modal open={confirmDeleteOpen} onClose={() => { if (!deletingAccount) setConfirmDeleteOpen(false); }} title="Delete your account?">
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+          This permanently deletes your account, profile, linked Google accounts, memberships, and personal data. Shared team content you created stays with your team with your name removed. This action cannot be undone.
+        </p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+          Type <span className="font-semibold text-slate-900 dark:text-slate-100">DELETE</span> to confirm.
+        </p>
+        <Input
+          value={confirmDeleteText}
+          onChange={(e) => setConfirmDeleteText(e.target.value)}
+          placeholder="DELETE"
+          className="mb-4"
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteOpen(false)} disabled={deletingAccount}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => void handleDeleteAccount()}
+            disabled={deletingAccount || confirmDeleteText !== "DELETE"}
+          >
+            {deletingAccount ? "Deleting..." : "Delete my account"}
+          </Button>
+        </div>
+      </Modal>
 
       {avatarCropSrc && (
         <ImageCropper
