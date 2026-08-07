@@ -36,10 +36,25 @@ export default function MyTasksPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const [{ data: directTasks }, { data: linkedTasks }] = await Promise.all([
+      supabase.from("tasks").select("id").eq("assignee_id", user.id),
+      supabase.from("task_assignees").select("task_id").eq("user_id", user.id),
+    ]);
+    const taskIds = [...new Set([
+      ...(directTasks || []).map((task: { id: string }) => task.id),
+      ...(linkedTasks || []).map((task: { task_id: string }) => task.task_id),
+    ])];
+
+    if (taskIds.length === 0) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
     let query = supabase
       .from("tasks")
       .select("*, projects!inner(id, name)")
-      .eq("assignee_id", user.id);
+      .in("id", taskIds);
 
     if (filters.status !== "all") query = query.eq("status", filters.status);
     if (filters.priority !== "all") query = query.eq("priority", filters.priority);
@@ -73,14 +88,24 @@ export default function MyTasksPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [viewsRes, projectsRes] = await Promise.all([
-        supabase.from("saved_views").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("tasks").select("project_id").eq("assignee_id", user.id),
-      ]);
+       const [viewsRes, directProjectsRes, linkedProjectsRes] = await Promise.all([
+         supabase.from("saved_views").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+         supabase.from("tasks").select("id, project_id").eq("assignee_id", user.id),
+         supabase.from("task_assignees").select("task_id").eq("user_id", user.id),
+       ]);
 
       if (viewsRes.data) setSavedViews(viewsRes.data);
 
-      const uniqueIds = [...new Set(projectsRes.data?.map((t: { project_id: string }) => t.project_id).filter(Boolean) || [])];
+       const linkedTaskIds = (linkedProjectsRes.data || []).map((t: { task_id: string }) => t.task_id);
+       let linkedProjectIds: string[] = [];
+       if (linkedTaskIds.length > 0) {
+         const { data: linkedTasks } = await supabase.from("tasks").select("project_id").in("id", linkedTaskIds);
+         linkedProjectIds = (linkedTasks || []).map((t: { project_id: string }) => t.project_id);
+       }
+       const uniqueIds = [...new Set([
+         ...(directProjectsRes.data || []).map((t: { project_id: string }) => t.project_id),
+         ...linkedProjectIds,
+       ].filter(Boolean))];
       if (uniqueIds.length > 0) {
         const { data: projData } = await supabase.from("projects").select("id, name").in("id", uniqueIds);
         if (projData) setProjects(projData);
