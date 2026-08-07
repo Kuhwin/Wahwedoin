@@ -47,13 +47,14 @@ export default function ProjectPage() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<Task["priority"]>("medium");
-  const [newTaskAssignee, setNewTaskAssignee] = useState("");
+  const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskStartDate, setNewTaskStartDate] = useState("");
   const [newTaskSection, setNewTaskSection] = useState("");
   const [newTaskRecurrence, setNewTaskRecurrence] = useState("");
   const [newTaskRecurrenceEnd, setNewTaskRecurrenceEnd] = useState("");
   const [newTaskMilestone, setNewTaskMilestone] = useState(false);
+  const [newTaskLinks, setNewTaskLinks] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showKeyDates, setShowKeyDates] = useState(false);
   const [keyStart, setKeyStart] = useState("");
@@ -405,6 +406,17 @@ export default function ProjectPage() {
       resolvedSectionId = todoSection ? todoSection.id : null;
     }
 
+    const links = [...new Set(newTaskLinks.split(/[\n,]+/).map((value) => value.trim()).filter(Boolean))];
+    for (const link of links) {
+      try {
+        const parsed = new URL(link);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+      } catch {
+        addToast(`Invalid task link: ${link}`, "error");
+        return;
+      }
+    }
+
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -412,7 +424,7 @@ export default function ProjectPage() {
         title: newTaskTitle.trim(),
         status: "todo",
         priority: newTaskPriority,
-        assignee_id: newTaskAssignee || null,
+        assignee_id: newTaskAssignees[0] || null,
         due_date: newTaskDueDate || null,
         start_date: newTaskStartDate || null,
         section_id: resolvedSectionId,
@@ -421,11 +433,20 @@ export default function ProjectPage() {
         recurrence: newTaskRecurrence || null,
         recurrence_end: newTaskRecurrenceEnd || null,
         is_milestone: newTaskMilestone,
+        links,
       })
       .select()
       .single();
 
     if (data && !error) {
+      if (newTaskAssignees.length > 0) {
+        await supabase
+          .from("task_assignees")
+          .upsert(
+            newTaskAssignees.map((userId) => ({ task_id: data.id, user_id: userId })),
+            { onConflict: "task_id,user_id" },
+          );
+      }
       setTasks((prev) => [...prev, data]);
       // Force an SWR revalidation so the new task is read back from
       // the server and any other client state (sections, members,
@@ -435,13 +456,14 @@ export default function ProjectPage() {
       void projectMutate();
       setNewTaskTitle("");
       setNewTaskPriority("medium");
-      setNewTaskAssignee("");
+      setNewTaskAssignees([]);
       setNewTaskDueDate("");
       setNewTaskStartDate("");
       setNewTaskSection("");
       setNewTaskRecurrence("");
       setNewTaskRecurrenceEnd("");
       setNewTaskMilestone(false);
+      setNewTaskLinks("");
       setShowAddTask(false);
       addToast(`Created "${data.title}"`, "success");
       if (user?.id) {
@@ -1142,19 +1164,26 @@ export default function ProjectPage() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assignee</label>
-            <select
-              value={newTaskAssignee}
-              onChange={(e) => setNewTaskAssignee(e.target.value)}
-              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
-            >
-              <option value="">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.user_id} value={member.user_id}>
-                  {memberProfiles[member.user_id] || member.user_email || member.user_id}
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assignees</label>
+            <div className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 space-y-1 max-h-36 overflow-y-auto">
+              {members.length === 0 ? (
+                <p className="px-1 text-xs text-slate-400">No team members</p>
+              ) : members.map((member) => {
+                const selected = newTaskAssignees.includes(member.user_id);
+                return (
+                  <label key={member.user_id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => setNewTaskAssignees((prev) => selected ? prev.filter((id) => id !== member.user_id) : [...prev, member.user_id])}
+                      className="rounded border-slate-300"
+                    />
+                    <span className="truncate">{memberProfiles[member.user_id] || member.user_email || member.user_id}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-400">Select one or more people.</p>
           </div>
           {sections.length > 0 && (
             <div className="space-y-1">
@@ -1181,6 +1210,16 @@ export default function ProjectPage() {
             value={newTaskDueDate}
             onChange={(e) => setNewTaskDueDate(e.target.value)}
           />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Website Links</label>
+            <textarea
+              value={newTaskLinks}
+              onChange={(e) => setNewTaskLinks(e.target.value)}
+              placeholder="https://example.com (one per line)"
+              rows={2}
+              className="block w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none"
+            />
+          </div>
           <Input
             label="Start Date (for timeline)"
             type="date"

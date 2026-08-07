@@ -23,6 +23,8 @@ import {
   Reply,
   Video,
   Users,
+  Pencil,
+  ExternalLink,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Avatar from "@/components/ui/Avatar";
@@ -81,6 +83,7 @@ export default function TaskDetailModal({
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editLinks, setEditLinks] = useState("");
   const [descPreview, setDescPreview] = useState(false);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
@@ -110,12 +113,16 @@ export default function TaskDetailModal({
   const [parentTask, setParentTask] = useState<Task | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!task) return;
     setEditTitle(task.title);
     setEditDesc(task.description || "");
+    setEditLinks((task.links || []).join("\n"));
+    setEditError(null);
     setNewSubtask("");
     setCreatingTag(false);
     setNewTagName("");
@@ -215,22 +222,31 @@ export default function TaskDetailModal({
     if (teamMembers.length === 0) return;
     async function loadProfiles() {
       const userIds = teamMembers.map((m) => m.user_id);
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("user_id, display_name")
-        .in("user_id", userIds);
-      if (data) {
-        const profiles = userIds.map((uid) => {
-          const profile = data.find((p: { user_id: string; display_name: string }) => p.user_id === uid);
-          const member = teamMembers.find((m) => m.user_id === uid);
-          return {
-            user_id: uid,
-            display_name: profile?.display_name || "",
-            user_email: member?.user_email,
-          };
-        });
-        setMemberProfiles(profiles);
+      const teamId = teamMembers[0]?.team_id;
+      let profileRows: { user_id: string; display_name: string | null; email?: string | null }[] = [];
+      if (teamId) {
+        const { data: team } = await supabase.from("teams").select("org_id").eq("id", teamId).single();
+        if (team?.org_id) {
+          const { data: orgProfiles } = await supabase.rpc("get_org_member_profiles", { p_org_id: team.org_id });
+          profileRows = (orgProfiles || []) as { user_id: string; display_name: string | null; email?: string | null }[];
+        }
       }
+      if (profileRows.length === 0) {
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("user_id, display_name")
+          .in("user_id", userIds);
+        profileRows = (data || []) as { user_id: string; display_name: string | null; email?: string | null }[];
+      }
+      setMemberProfiles(userIds.map((uid) => {
+        const profile = profileRows.find((p) => p.user_id === uid);
+        const member = teamMembers.find((m) => m.user_id === uid);
+        return {
+          user_id: uid,
+          display_name: profile?.display_name || "",
+          user_email: profile?.email || member?.user_email,
+        };
+      }));
     }
     void loadProfiles();
   }, [teamMembers, supabase]);
@@ -293,6 +309,7 @@ export default function TaskDetailModal({
   async function handleAddComment(e: React.FormEvent) {
     e.preventDefault();
     if (!newComment.trim()) return;
+    setCommentError(null);
 
     const {
       data: { user },
@@ -331,6 +348,7 @@ export default function TaskDetailModal({
 
     if (error || !data) {
       setComments(previousComments);
+      setCommentError(error?.message || "Comment could not be saved.");
       return;
     }
 
@@ -343,13 +361,12 @@ export default function TaskDetailModal({
 
     // Notify @mentioned users (deduped by id)
     const mentionedUserIds = new Set<string>();
-    const mentionRegex = /@(\S+)/g;
-    let match;
-    while ((match = mentionRegex.exec(body)) !== null) {
-      const mentionedName = match[1].toLowerCase();
-      const mentioned = memberProfiles.find(
-        (mp) => (mp.display_name || "").toLowerCase().includes(mentionedName) || (mp.user_email || "").toLowerCase().startsWith(mentionedName)
-      );
+    for (const mentioned of memberProfiles.filter((mp) => {
+      const names = [mp.display_name, mp.user_email]
+        .filter(Boolean)
+        .map((value) => `@${value}`.toLowerCase());
+      return names.some((name) => body.toLowerCase().includes(name));
+    })) {
       if (mentioned && mentioned.user_id !== user.id && !mentionedUserIds.has(mentioned.user_id)) {
         mentionedUserIds.add(mentioned.user_id);
         const title = `You were mentioned in a comment on "${task!.title}"`;
@@ -448,9 +465,21 @@ export default function TaskDetailModal({
   }
 
   async function handleSaveEdit() {
+    setEditError(null);
+    const links = [...new Set(editLinks.split(/[\n,]+/).map((value) => value.trim()).filter(Boolean))];
+    for (const link of links) {
+      try {
+        const parsed = new URL(link);
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+      } catch {
+        setEditError(`Invalid task link: ${link}`);
+        return;
+      }
+    }
     await onUpdate(task!.id, {
       title: editTitle,
       description: editDesc || null,
+      links,
     });
     setEditing(false);
   }
@@ -663,6 +692,14 @@ export default function TaskDetailModal({
                   rows={3}
                 />
               )}
+              <textarea
+                value={editLinks}
+                onChange={(e) => setEditLinks(e.target.value)}
+                placeholder="Website links (one per line, https://...)"
+                className="w-full text-sm text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent/50"
+                rows={2}
+              />
+              {editError && <p className="text-xs text-red-600 dark:text-red-400">{editError}</p>}
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSaveEdit}>
@@ -681,27 +718,33 @@ export default function TaskDetailModal({
                 <span>/</span>
               </div>
             )}
-            <h2
-              className="text-lg font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:text-accent transition-colors"
-              onClick={() => setEditing(true)}
-            >
-              {task.title}
-            </h2>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{task.title}</h2>
+              <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil size={13} /> Edit
+              </Button>
+            </div>
             {task.description ? (
-              <div
-                className="text-sm text-slate-600 dark:text-slate-400 mt-2 cursor-pointer hover:text-slate-800 transition-colors prose prose-sm max-w-none"
-                onClick={() => setEditing(true)}
-              >
+              <div className="text-sm text-slate-600 dark:text-slate-400 mt-2 prose prose-sm max-w-none">
                 <ReactMarkdown>{task.description}</ReactMarkdown>
               </div>
             ) : (
-              <p
-                className="text-sm text-slate-400 dark:text-slate-500 italic mt-2 cursor-pointer hover:text-slate-600 transition-colors"
-                onClick={() => setEditing(true)}
-              >
-                Click to add a description...
-              </p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 italic mt-2">No description</p>
             )}
+          </div>
+        )}
+
+        {task.links && task.links.length > 0 && (
+          <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-900/10 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 mb-2">Web Links</h3>
+            <div className="space-y-1">
+              {task.links.map((link) => (
+                <a key={link} href={link} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-accent hover:underline truncate">
+                  <ExternalLink size={13} className="shrink-0" />
+                  <span className="truncate">{link}</span>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
@@ -717,6 +760,7 @@ export default function TaskDetailModal({
               <Check size={12} /> Status
             </label>
             <select
+              disabled={!editing}
               value={task.status}
               onChange={(e) =>
                 onUpdate(task.id, { status: e.target.value as Task["status"] })
@@ -733,6 +777,7 @@ export default function TaskDetailModal({
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Priority</label>
             <select
+              disabled={!editing}
               value={task.priority}
               onChange={(e) =>
                 onUpdate(task.id, { priority: e.target.value as Task["priority"] })
@@ -752,6 +797,7 @@ export default function TaskDetailModal({
               <Calendar size={12} /> Due Date
             </label>
             <input
+              disabled={!editing}
               type="date"
               value={task.due_date || ""}
               onChange={(e) =>
@@ -767,6 +813,7 @@ export default function TaskDetailModal({
               <Calendar size={12} /> Start Date
             </label>
             <input
+              disabled={!editing}
               type="date"
               value={task.start_date || ""}
               onChange={(e) =>
@@ -782,6 +829,7 @@ export default function TaskDetailModal({
               <Clock size={12} /> Reminder
             </label>
             <input
+              disabled={!editing}
               type="datetime-local"
               value={toLocalDateTimeInput(task.reminder_at)}
               onChange={(e) =>
@@ -797,6 +845,7 @@ export default function TaskDetailModal({
               <Repeat size={12} /> Repeat
             </label>
             <select
+              disabled={!editing}
               value={task.recurrence || ""}
               onChange={(e) =>
                 onUpdate(task.id, { recurrence: e.target.value || null } as Partial<Task>)
@@ -815,6 +864,7 @@ export default function TaskDetailModal({
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Repeat Until</label>
               <input
+                disabled={!editing}
                 type="date"
                 value={task.recurrence_end || ""}
                 onChange={(e) =>
@@ -829,6 +879,7 @@ export default function TaskDetailModal({
           <div className="col-span-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
+                disabled={!editing}
                 type="checkbox"
                 checked={task.is_milestone || false}
                 onChange={(e) =>
@@ -848,6 +899,7 @@ export default function TaskDetailModal({
             </label>
             <div className="relative" ref={assigneeDropdownRef}>
               <button
+                disabled={!editing}
                 onClick={() => setShowAssigneeDropdown(!showAssigneeDropdown)}
                 className="w-full flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-1 focus:ring-accent/50"
               >
@@ -929,6 +981,7 @@ export default function TaskDetailModal({
               )}
               {currentUserId && (
                 <button
+                  disabled={!editing}
                   onClick={() => (taskFollowers.includes(currentUserId) ? void handleFollowerToggle(currentUserId) : void handleFollowMyself())}
                   className={cn(
                     "text-xs font-medium rounded-full border px-2.5 py-1 transition-colors",
@@ -941,6 +994,7 @@ export default function TaskDetailModal({
                 </button>
               )}
               <button
+                disabled={!editing}
                 onClick={() => setShowFollowerDropdown(!showFollowerDropdown)}
                 className="text-xs font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-full px-2.5 py-1 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
               >
@@ -1326,6 +1380,11 @@ export default function TaskDetailModal({
               Comments ({comments.length})
             </h3>
           </div>
+          {commentError && (
+            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+              {commentError}
+            </p>
+          )}
 
           {comments.length > 0 && (() => {
             const topLevel = comments.filter((c) => !c.parent_id);

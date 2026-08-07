@@ -91,6 +91,7 @@ export interface Task {
   follower_ids?: string[];
   start_date?: string | null;
   reminder_at?: string | null;
+  links?: string[];
   projects?: ProjectSummary[];
   task_projects?: { project_id: string }[];
 }
