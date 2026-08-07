@@ -20,6 +20,7 @@ const EMPTY_FILTERS: FilterState = { status: "all", priority: "all", project_id:
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [sortBy, setSortBy] = useState("due_date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -37,9 +38,11 @@ export default function MyTasksPage() {
     const payload = (await response.json()) as { tasks?: Task[]; error?: string };
     if (!response.ok) {
       setTasks([]);
+      setLoadError(payload.error || "Could not load your assigned tasks.");
       setLoading(false);
       return;
     }
+    setLoadError(null);
 
     let nextTasks = payload.tasks || [];
     if (filters.status !== "all") nextTasks = nextTasks.filter((task) => task.status === filters.status);
@@ -162,6 +165,12 @@ export default function MyTasksPage() {
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">My Tasks</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Tasks assigned to you across all projects</p>
       </div>
+
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          {loadError}
+        </div>
+      )}
 
       {/* Saved Views */}
       {savedViews.length > 0 && (

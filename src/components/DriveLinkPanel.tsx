@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { getLinkedAccounts, fetchDriveFolder, type LinkedGoogleAccount } from "@/lib/linkedAccounts";
-import { FileText, FolderOpen, ExternalLink, ChevronRight, Link2, Unlink, Loader2, Search, X, Check } from "lucide-react";
+import { FileText, FolderOpen, ExternalLink, ChevronRight, Link2, Unlink, Loader2, Search, Check } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
@@ -196,6 +196,7 @@ export default function DriveLinkPanel({ tableName, recordId, accountId, folderI
   const displayFiles = search
     ? (files || []).filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
     : files || [];
+  const folderOptions = displayFiles.filter((file) => file.mimeType.includes("folder"));
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
@@ -333,7 +334,7 @@ export default function DriveLinkPanel({ tableName, recordId, accountId, folderI
                     <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Search files and folders..."
+                       placeholder="Search Drive folders..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/50"
@@ -345,13 +346,14 @@ export default function DriveLinkPanel({ tableName, recordId, accountId, folderI
                       <div className="flex items-center justify-center py-10">
                         <Loader2 size={20} className="animate-spin text-slate-300 dark:text-slate-600" />
                       </div>
-                    ) : displayFiles.length === 0 ? (
+                    ) : folderOptions.length === 0 ? (
                       <div className="py-10 text-center">
-                        <p className="text-sm text-slate-400 dark:text-slate-500">No files found</p>
+                        <FolderOpen size={24} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                        <p className="text-sm text-slate-400 dark:text-slate-500">No Drive folders found</p>
                       </div>
                     ) : (
-                      displayFiles.map((file) => {
-                        const isFolder = file.mimeType.includes("folder");
+                      folderOptions.map((file) => {
+                        const isFolder = true;
                         return (
                           <div
                             key={file.id}

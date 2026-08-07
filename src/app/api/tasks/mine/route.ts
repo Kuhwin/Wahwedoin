@@ -25,9 +25,20 @@ export async function GET() {
 
   const { data: tasks, error } = await supabase
     .from("tasks")
-    .select("*, projects!inner(id, name)")
+    .select("*")
     .in("id", taskIds);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ tasks: tasks || [] });
+  const projectIds = [...new Set((tasks || []).map((task: { project_id: string }) => task.project_id).filter(Boolean))];
+  const { data: projects, error: projectsError } = projectIds.length > 0
+    ? await supabase.from("projects").select("id, name").in("id", projectIds)
+    : { data: [], error: null };
+  if (projectsError) return NextResponse.json({ error: projectsError.message }, { status: 500 });
+  const projectMap = new Map((projects || []).map((project: { id: string; name: string }) => [project.id, project]));
+  const enrichedTasks = (tasks || []).map((task: { project_id: string }) => ({
+    ...task,
+    projects: projectMap.get(task.project_id) || null,
+  }));
+
+  return NextResponse.json({ tasks: enrichedTasks });
 }
